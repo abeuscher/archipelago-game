@@ -1,0 +1,4 @@
+# Sounds and other media the game needs but does not generate.
+# One asset per line: <path under res://> | <what it is> | <spec section>
+# The game plays a sound only if its file exists.
+assets/audio/repair_work_crew.ogg | Work-crew sound on a hex under repair | 9

@@ -1,0 +1,84 @@
+{
+  "map": {
+    "width": 15,
+    "height": 15,
+    "land_fraction": 0.70,
+    "growth_center_bias": 1.5,
+    "growth_noise_min": 0.3,
+    "levels": 3,
+    "hill_center_jitter": 1,
+    "hill_level_fractions_from_top": [0.12, 0.30],
+    "hill_noise": 1.5
+  },
+
+  "economy": {
+    "start_money": 160,
+    "start_fuel": 3,
+    "income_from_round": 2,
+    "baseline_money": 20,
+    "baseline_fuel": 3,
+    "baseline_research": 0
+  },
+
+  "bases": {
+    "per_side": 3,
+    "no_adjacent_bases_or_decoys": true
+  },
+
+  "buildings": {
+    "base":               { "role": "base",     "cost": 0,  "hits_to_destroy": 3, "buildable": false, "repairable": false },
+    "decoy":              { "role": "decoy",    "cost": 20, "hits_to_destroy": 4, "reveals_as_decoy_at_hits": 3, "repairable": false },
+    "bank":               { "role": "economy",  "cost": 50, "hp": 40, "produces": { "money": 15 } },
+    "refinery":           { "role": "economy",  "cost": 50, "hp": 40, "produces": { "fuel": 3 } },
+    "lab":                { "role": "lab",      "cost": 60, "hp": 40, "produces": { "research": 2 } },
+    "basic_launcher":     { "role": "launcher", "cost": 60, "hp": 50, "weapon": true, "missiles": ["basic", "scouting"] },
+    "anti_air":           { "role": "anti_air", "cost": 40, "hp": 50, "weapon": true },
+    "radar":              { "role": "radar",    "cost": 50, "hp": 30, "requires": "radar" },
+    "ballistic_launcher": { "role": "launcher", "cost": 90, "hp": 50, "weapon": true, "missiles": ["ballistic"], "requires": "ballistic_launcher" }
+  },
+
+  "missiles": {
+    "basic":     { "fuel": 3, "damage_min": 30, "damage_max": 50, "blast_radius": 0, "view_radius": 1, "base_hits": 1.0, "seeks_with": "motion_sensor" },
+    "scouting":  { "fuel": 1, "damage_min": 0,  "damage_max": 0,  "blast_radius": -1, "view_radius": 2, "base_hits": 0.0, "requires": "scouting_missile" },
+    "ballistic": { "fuel": 5, "damage_min": 15, "damage_max": 25, "blast_radius": 1, "view_radius": 1, "base_hits": 0.5 }
+  },
+
+  "research": {
+    "radar":              { "cost": 30, "points": 6 },
+    "scouting_missile":   { "cost": 20, "points": 4 },
+    "anti_air_capacity":  { "cost": 20, "points": 4 },
+    "motion_sensor":      { "cost": 50, "points": 12 },
+    "ballistic_launcher": { "cost": 60, "points": 14 }
+  },
+
+  "anti_air": {
+    "radius": 3,
+    "engagements": 2,
+    "engagements_upgraded": 3,
+    "capacity_research": "anti_air_capacity",
+    "accuracy": 0.45,
+    "accuracy_with_radar": 0.90
+  },
+
+  "radar": {
+    "range_by_level": [2, 3, 4]
+  },
+
+  "motion_sensor": {
+    "seek_range": 3
+  },
+
+  "elevation": {
+    "impact_reveals_uphill": false,
+    "blast_crosses_height_step": false,
+    "seek_can_change_level": false,
+    "ocean_level": 0
+  },
+
+  "damage": {
+    "half_strength_when_damaged": true,
+    "half_strength_income_rounding": "up",
+    "radar_half_range_min": 1,
+    "repair_cost_fraction": 0.30
+  }
+}
