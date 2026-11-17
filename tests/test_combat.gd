@@ -299,6 +299,7 @@ func test_tie_goes_to_money_then_coin() -> void:
 	var k1 = put(m2, 1, "basic_launcher", 0, 0)
 	play_round(m2, [_shot(k0, c1.hex)], [_shot(k1, c0.hex)])
 	eq(m2.phase, MatchState.Phase.COIN_FLIP, "equal money needs a coin flip")
+	check(m2.coin["call"] in ["heads", "tails"], "enemy has called before the flip")
 	var ev: Array = m2.resolve_coin_flip()
 	check(m2.is_over(), "flip ends it")
 	var flip: Dictionary = ev[0]

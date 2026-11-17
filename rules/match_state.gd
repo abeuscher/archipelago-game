@@ -19,6 +19,7 @@ const PLAYER := 0
 const ENEMY := 1
 ## The enemy's strikes land on the player first, then the player's land.
 const LAUNCH_ORDER := [ENEMY, PLAYER]
+const COIN_FACES := ["heads", "tails"]
 
 var data
 var settings: Dictionary
@@ -159,20 +160,20 @@ func _check_outcome() -> Array:
 			_finish(PLAYER if sides[0].money > sides[1].money else ENEMY, "money")
 		else:
 			phase = Phase.COIN_FLIP
-			return [{"type": "coin_flip_needed"}]
+			coin = {"call": dice.pick(COIN_FACES), "flip": ""}
+			return [{"type": "coin_flip_needed", "call": coin["call"]}]
 	else:
 		_finish(PLAYER if alive[0] > 0 else ENEMY, "bases")
 	return [{"type": "game_over", "winner": winner, "reason": end_reason}]
 
 
-## The enemy calls, the player flips. The click only triggers this call; the
-## result comes from the seeded dice.
+## The enemy called when the tie happened (coin["call"]); the player's click
+## triggers this flip. Both come from the seeded dice.
 func resolve_coin_flip() -> Array:
 	assert(phase == Phase.COIN_FLIP)
-	var faces := ["heads", "tails"]
-	var call: String = dice.pick(faces)
-	var flip: String = dice.pick(faces)
-	coin = {"call": call, "flip": flip}
+	var call: String = coin["call"]
+	var flip: String = dice.pick(COIN_FACES)
+	coin["flip"] = flip
 	_finish(ENEMY if call == flip else PLAYER, "coin")
 	var events := [
 		{"type": "coin_flip", "call": call, "flip": flip},

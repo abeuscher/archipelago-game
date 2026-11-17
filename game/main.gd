@@ -1,0 +1,785 @@
+## The playable loop: setup, then rounds of build/repair, targeting and
+## playout against the AI. Drives MatchState only through its public calls.
+extends Node2D
+
+const GameData = preload("res://rules/game_data.gd")
+const MatchState = preload("res://rules/match_state.gd")
+const SimpleAI = preload("res://ai/simple_ai.gd")
+const BoardView = preload("res://game/board_view.gd")
+const Effects = preload("res://game/effects.gd")
+const Minimap = preload("res://game/minimap.gd")
+const Pieces = preload("res://game/pieces.gd")
+const Audio = preload("res://game/audio.gd")
+const Hud = preload("res://game/hud.gd")
+
+const REPAIR_SOUND := "assets/audio/repair_work_crew.ogg"
+const BOARD_GAP := 320.0
+const ZOOM_MIN := 0.3
+const ZOOM_MAX := 3.0
+const PAN_SPEED := 700.0
+
+enum Ui { SETUP, BUILD, TARGETING, PLAYOUT, COIN, OVER }
+
+var data
+var m
+var enemy_ai
+var seed_value: int
+var own_board
+var enemy_board
+var effects
+var camera: Camera2D
+var audio
+var hud
+
+var ui: int = Ui.SETUP
+var viewing: int = 0
+var rot: int = 0
+var clock_left: float = 0.0
+var clock_running: bool = false
+var tool: String = ""
+var setup_mode: String = "base"
+var setup_trial                     ## SideState copy used to preview setup
+var orders: Array = []
+var active_launcher: int = -1
+var missile_choice: Dictionary = {} ## launcher hex -> missile type
+var selected: Vector2i = Vector2i(-1, -1)   ## (side, hex)
+var hovered: Vector2i = Vector2i(-1, -1)
+var _drag_from: Vector2
+var _dragging: bool = false
+var _drag_moved: float = 0.0
+
+
+func _ready() -> void:
+	data = GameData.load_default()
+	seed_value = _seed_from_args()
+	m = MatchState.create(data, seed_value)
+	enemy_ai = SimpleAI.new(MatchState.ENEMY, data, seed_value)
+
+	own_board = BoardView.new()
+	own_board.setup(m.sides[0].island.grid)
+	add_child(own_board)
+	enemy_board = BoardView.new()
+	enemy_board.setup(m.sides[1].island.grid)
+	enemy_board.show_hits = true
+	add_child(enemy_board)
+	_layout_boards()
+	effects = Effects.new()
+	effects.z_index = 10
+	add_child(effects)
+	camera = Camera2D.new()
+	add_child(camera)
+	audio = Audio.new()
+	add_child(audio)
+
+	hud = Hud.new()
+	add_child(hud)
+	hud.minimap.view_requested.connect(_on_minimap)
+	hud.rotate_requested.connect(_rotate)
+
+	var es: Dictionary = enemy_ai.choose_setup(m.view_for(MatchState.ENEMY))
+	var e: String = m.setup_side(MatchState.ENEMY, es["bases"], es["decoys"])
+	assert(e == "", "Enemy setup failed: " + e)
+	hud.add_log("New game. Seed %d." % seed_value)
+	_enter_setup()
+
+
+func _seed_from_args() -> int:
+	if has_meta("seed_override"):
+		return int(get_meta("seed_override"))
+	var args := OS.get_cmdline_user_args()
+	var i := args.find("--seed")
+	if i >= 0 and i + 1 < args.size():
+		return int(args[i + 1])
+	return int(Time.get_unix_time_from_system() * 1000.0) & 0x7FFFFFFF
+
+
+func _layout_boards() -> void:
+	# Spacing uses the bounding circle so rotation never makes boards overlap.
+	var r: Rect2 = own_board.iso.bounds()
+	var span := r.size.length()
+	own_board.position = Vector2.ZERO
+	enemy_board.position = Vector2(span + BOARD_GAP, 0)
+
+
+# --- Phases ----------------------------------------------------------------
+
+func _enter_setup() -> void:
+	ui = Ui.SETUP
+	setup_trial = m.sides[0].duplicate_state()
+	setup_mode = "base"
+	_focus(0)
+	hud.set_phase("Setup", 0)
+	_set_clock(0)
+	hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
+	_refresh()
+
+
+func _start_setup_game() -> void:
+	var bases: Array = []
+	var decoys: Array = []
+	for b in setup_trial.buildings_sorted():
+		if b.type == "base":
+			bases.append(b.hex)
+		elif b.type == "decoy":
+			decoys.append(b.hex)
+	var e: String = m.setup_side(MatchState.PLAYER, bases, decoys)
+	if e != "":
+		hud.add_log("[color=salmon]%s[/color]" % e)
+		return
+	setup_trial = null
+	_start_round()
+
+
+func _start_round() -> void:
+	var events: Array = m.begin_round()
+	for ev in events:
+		_log_event(ev)
+	# The enemy commits its build for the round from its own view.
+	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
+		m.build_action(MatchState.ENEMY, a)
+	ui = Ui.BUILD
+	tool = ""
+	selected = Vector2i(-1, -1)
+	_focus(0)
+	hud.set_phase("Build and repair", m.round_number)
+	_set_clock(int(m.settings["build_clock_seconds"]))
+	_refresh()
+
+
+func _end_build() -> void:
+	if ui != Ui.BUILD:
+		return
+	m.end_build_phase()
+	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
+	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
+		m.set_launch_orders(MatchState.ENEMY, [])
+	ui = Ui.TARGETING
+	tool = ""
+	orders = []
+	missile_choice = {}
+	selected = Vector2i(-1, -1)
+	active_launcher = _next_free_launcher()
+	_focus(1)
+	hud.set_phase("Targeting", m.round_number)
+	_set_clock(int(m.settings["targeting_clock_seconds"]))
+	_refresh()
+
+
+func _attack() -> void:
+	if ui != Ui.TARGETING:
+		return
+	_set_clock(0)
+	ui = Ui.PLAYOUT
+	hud.set_phase("Playout", m.round_number)
+	_refresh()
+	_run_playout()
+
+
+func _after_playout() -> void:
+	if m.phase == MatchState.Phase.COIN_FLIP:
+		ui = Ui.COIN
+		hud.show_overlay("Both sides lost their last base this round, with equal money.\nThe enemy calls %s." % String(m.coin["call"]).to_upper(),
+			[["Flip the coin", _flip_coin]])
+	elif m.is_over():
+		_show_game_over()
+	else:
+		_start_round()
+
+
+func _flip_coin() -> void:
+	for ev in m.resolve_coin_flip():
+		_log_event(ev)
+	_show_game_over()
+
+
+func _show_game_over() -> void:
+	ui = Ui.OVER
+	var won: bool = m.winner == MatchState.PLAYER
+	var why := {"bases": "All three enemy bases destroyed." if won else "All three of your bases were destroyed.",
+		"money": "Both sides fell together; %s more money." % ("you had" if won else "the enemy had"),
+		"coin": "Coin: enemy called %s, it landed %s." % [m.coin.get("call", ""), m.coin.get("flip", "")]}
+	hud.show_overlay(("ISLAND TAKEN\n" if won else "DEFEAT\n") + String(why.get(m.end_reason, "")),
+		[["New game", func(): get_tree().reload_current_scene()], ["Quit", func(): get_tree().quit()]])
+	_refresh()
+
+
+# --- Clock -----------------------------------------------------------------
+
+func _set_clock(seconds: int) -> void:
+	clock_left = float(seconds)
+	clock_running = seconds > int(m.settings["clock_off_value"])
+	hud.set_timer(clock_left if clock_running else -1.0)
+
+
+func _process(delta: float) -> void:
+	if clock_running and not hud.overlay_visible():
+		clock_left -= delta
+		hud.set_timer(maxf(clock_left, 0.0))
+		if clock_left <= 0.0:
+			clock_running = false
+			if ui == Ui.BUILD:
+				_end_build()
+			elif ui == Ui.TARGETING:
+				_attack()   # orders placed so far are launched
+	var pan := Vector2(Input.get_axis("ui_left", "ui_right"), Input.get_axis("ui_up", "ui_down"))
+	if pan != Vector2.ZERO:
+		camera.position += pan * PAN_SPEED * delta / camera.zoom.x
+		_update_viewing()
+
+
+# --- Input -----------------------------------------------------------------
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
+			if mb.pressed:
+				_dragging = true
+				_drag_from = mb.position
+				_drag_moved = 0.0
+			else:
+				_dragging = false
+				if mb.button_index == MOUSE_BUTTON_RIGHT and _drag_moved < 6.0:
+					_cancel()
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_at(1.12, mb.position)
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_at(1.0 / 1.12, mb.position)
+		elif mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			var hit := _pick(get_global_mouse_position())
+			if hit.y >= 0:
+				_click(hit.x, hit.y)
+	elif event is InputEventMouseMotion:
+		var mm := event as InputEventMouseMotion
+		if _dragging:
+			camera.position -= mm.relative / camera.zoom.x
+			_drag_moved += mm.relative.length()
+			_update_viewing()
+		var hit := _pick(get_global_mouse_position())
+		if hit != hovered:
+			hovered = hit
+			own_board.hover = hit.y if hit.x == 0 else -1
+			enemy_board.hover = hit.y if hit.x == 1 else -1
+			own_board.queue_redraw()
+			enemy_board.queue_redraw()
+			_update_info()
+	elif event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_Q: _rotate(-1)
+			KEY_E: _rotate(1)
+
+
+func _zoom_at(factor: float, screen_pos: Vector2) -> void:
+	var before := get_global_mouse_position()
+	var z := clampf(camera.zoom.x * factor, ZOOM_MIN, ZOOM_MAX)
+	camera.zoom = Vector2(z, z)
+	camera.force_update_scroll()
+	var after := get_canvas_transform().affine_inverse() * screen_pos
+	camera.position += before - after
+
+
+func _pick(world: Vector2) -> Vector2i:
+	for side in [0, 1]:
+		var board = own_board if side == 0 else enemy_board
+		var h: int = board.hex_at(world - board.position)
+		if h >= 0:
+			return Vector2i(side, h)
+	return Vector2i(-1, -1)
+
+
+func _rotate(dir: int) -> void:
+	var center_side := viewing
+	rot = (rot + dir + 6) % 6
+	own_board.set_rotation_step(rot)
+	enemy_board.set_rotation_step(rot)
+	_focus(center_side)
+
+
+func _focus(side: int) -> void:
+	var board = own_board if side == 0 else enemy_board
+	camera.position = board.position + board.bounds().get_center()
+	viewing = side
+	hud.minimap.viewing = side
+	hud.minimap.queue_redraw()
+
+
+func _on_minimap(side: int, fraction: Vector2) -> void:
+	var board = own_board if side == 0 else enemy_board
+	var r: Rect2 = board.bounds()
+	camera.position = board.position + r.position + r.size * fraction
+	_update_viewing()
+
+
+func _update_viewing() -> void:
+	var mid: float = (own_board.position.x + own_board.bounds().end.x + enemy_board.position.x + enemy_board.bounds().position.x) / 2.0
+	var v := 1 if camera.position.x > mid else 0
+	if v != viewing:
+		viewing = v
+		hud.minimap.viewing = v
+		hud.minimap.queue_redraw()
+
+
+func _cancel() -> void:
+	tool = ""
+	selected = Vector2i(-1, -1)
+	_refresh()
+
+
+func _click(side: int, hex: int) -> void:
+	match ui:
+		Ui.SETUP:
+			if side == 0:
+				_setup_click(hex)
+		Ui.BUILD:
+			if side == 0 and tool != "":
+				var e: String = m.build_action(MatchState.PLAYER, {"action": "build", "type": tool, "hex": hex})
+				if e == "":
+					hud.add_log("Built %s." % Pieces.display_name(tool))
+					if m.sides[0].money < data.cost(tool):
+						tool = ""
+				else:
+					hud.add_log("[color=salmon]%s[/color]" % e)
+			else:
+				selected = Vector2i(side, hex)
+		Ui.TARGETING:
+			if side == 1:
+				_target_click(hex)
+			else:
+				var b = m.sides[0].building_at(hex)
+				if b != null and data.role(b.type) == "launcher" and m.sides[0].weapon_active(b):
+					active_launcher = b.hex
+				selected = Vector2i(side, hex)
+		_:
+			selected = Vector2i(side, hex)
+	_refresh()
+
+
+func _setup_click(hex: int) -> void:
+	var existing = setup_trial.building_at(hex)
+	if existing != null:
+		if existing.type == "decoy":
+			setup_trial.money += data.cost("decoy")
+		setup_trial.remove_building(hex, data)
+		return
+	var e: String = setup_trial.can_place_base_like(hex, data)
+	if e != "":
+		hud.add_log("[color=salmon]%s[/color]" % e)
+		return
+	if setup_mode == "base":
+		if setup_trial.bases_alive(data) >= data.integer("bases", "per_side"):
+			hud.add_log("All three bases are placed. Click one to move it.")
+			return
+		setup_trial._add_building("base", hex, data, 0)
+	else:
+		var err: String = setup_trial.can_build("decoy", hex, data, m.settings)
+		if err != "":
+			hud.add_log("[color=salmon]%s[/color]" % err)
+			return
+		setup_trial.money -= data.cost("decoy")
+		setup_trial._add_building("decoy", hex, data, 0)
+
+
+func _target_click(hex: int) -> void:
+	if active_launcher < 0:
+		hud.add_log("No launcher free. Undo an order or end with Attack.")
+		return
+	var new_orders := orders.filter(func(o): return o["launcher"] != active_launcher)
+	new_orders.append({"launcher": active_launcher, "missile": _missile_for(active_launcher), "target": hex})
+	var e: String = m.set_launch_orders(MatchState.PLAYER, new_orders)
+	if e != "":
+		hud.add_log("[color=salmon]%s[/color]" % e)
+		return
+	orders = new_orders
+	active_launcher = _next_free_launcher()
+
+
+func _undo() -> void:
+	if orders.is_empty():
+		return
+	var last: Dictionary = orders.pop_back()
+	m.set_launch_orders(MatchState.PLAYER, orders)
+	active_launcher = int(last["launcher"])
+	_refresh()
+
+
+func _missile_for(launcher_hex: int) -> String:
+	if missile_choice.has(launcher_hex):
+		return missile_choice[launcher_hex]
+	var b = m.sides[0].building_at(launcher_hex)
+	for mt in data.building(b.type)["missiles"]:
+		if m.sides[0].missile_unlocked(mt, data):
+			return mt
+	return ""
+
+
+func _cycle_missile(launcher_hex: int) -> void:
+	var b = m.sides[0].building_at(launcher_hex)
+	var options: Array = data.building(b.type)["missiles"].filter(func(mt): return m.sides[0].missile_unlocked(mt, data))
+	var cur := _missile_for(launcher_hex)
+	var next: String = options[(options.find(cur) + 1) % options.size()]
+	missile_choice[launcher_hex] = next
+	for o in orders:
+		if o["launcher"] == launcher_hex:
+			o["missile"] = next
+	if m.set_launch_orders(MatchState.PLAYER, orders) != "":
+		missile_choice[launcher_hex] = cur
+		for o in orders:
+			if o["launcher"] == launcher_hex:
+				o["missile"] = cur
+		hud.add_log("[color=salmon]Not enough fuel for that.[/color]")
+	active_launcher = launcher_hex
+	_refresh()
+
+
+func _next_free_launcher() -> int:
+	var used := {}
+	for o in orders:
+		used[o["launcher"]] = true
+	for b in m.sides[0].of_role(data, "launcher"):
+		if m.sides[0].weapon_active(b) and not used.has(b.hex):
+			return b.hex
+	return -1
+
+
+func _fuel_planned() -> int:
+	return m.sides[0].launch_fuel(orders, data)
+
+
+# --- Refresh ---------------------------------------------------------------
+
+func _refresh() -> void:
+	var own_state = setup_trial if ui == Ui.SETUP and setup_trial != null else m.sides[0]
+	if ui != Ui.PLAYOUT:
+		own_board.set_tiles(BoardView.own_tiles(own_state, data))
+		enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
+	own_board.selected = selected.y if selected.x == 0 else -1
+	enemy_board.selected = selected.y if selected.x == 1 else -1
+	if ui == Ui.TARGETING and active_launcher >= 0:
+		own_board.selected = active_launcher
+	enemy_board.markers = {}
+	for o in orders:
+		enemy_board.markers[o["target"]] = Color(1, 0.25, 0.2)
+	_update_placement_hints(own_state)
+	_update_ranges(own_state)
+	hud.minimap.set_data(m.sides[0].island.grid, own_board.tiles, enemy_board.tiles)
+	hud.set_resources(own_state.money, own_state.fuel, own_state.compute_income(data)["research"] if own_state.count_role(data, "lab") > 0 else 0)
+	_build_toolbar(own_state)
+	_update_info()
+	own_board.queue_redraw()
+	enemy_board.queue_redraw()
+
+
+func _update_placement_hints(st) -> void:
+	var ok := {}
+	if ui == Ui.SETUP:
+		for h in st.island.land_hexes():
+			if st.can_place_base_like(h, data) == "":
+				ok[h] = true
+	elif ui == Ui.BUILD and tool != "":
+		for h in st.island.land_hexes():
+			if st.can_build(tool, h, data, m.settings) == "":
+				ok[h] = true
+	own_board.placement_ok = ok
+
+
+func _update_ranges(st) -> void:
+	own_board.range_rings = []
+	if selected.x != 0 or ui == Ui.SETUP:
+		return
+	var b = st.building_at(selected.y)
+	if b == null:
+		return
+	var g = st.island.grid
+	match data.role(b.type):
+		"anti_air":
+			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("anti_air")["radius"])), "color": Color(0.4, 1.0, 0.5, 0.6)}]
+		"radar":
+			own_board.range_rings = [{"hexes": g.within(b.hex, st.radar_range(b, data)), "color": Color(0.8, 0.5, 1.0, 0.7)}]
+
+
+func _build_toolbar(st) -> void:
+	hud.clear_tools()
+	match ui:
+		Ui.SETUP:
+			var placed: int = st.bases_alive(data)
+			var decoys: int = st.count_role(data, "decoy")
+			var max_decoys := int(m.settings["decoys_per_side"])
+			hud.add_label("Setup")
+			hud.add_tool_button("Place bases (%d/3)" % placed, func(): setup_mode = "base"; _refresh(), false, setup_mode == "base")
+			hud.add_tool_button("Place decoy, 20 (%d/%d)" % [decoys, max_decoys], func(): setup_mode = "decoy"; _refresh(),
+				decoys >= max_decoys, setup_mode == "decoy")
+			hud.add_label("Click a placed piece to remove it.", true)
+			hud.add_tool_button("Start", _start_setup_game, placed != data.integer("bases", "per_side"))
+		Ui.BUILD:
+			hud.add_label("Build")
+			for type in data.building_types():
+				var def: Dictionary = data.building(type)
+				if not bool(def.get("buildable", true)):
+					continue
+				var unlocked: bool = st.building_unlocked(type, data)
+				var text := "%s  %d" % [Pieces.display_name(type), data.cost(type)]
+				if not unlocked:
+					text += "  (research)"
+				var t: String = type
+				hud.add_tool_button(text, func(): tool = t; selected = Vector2i(-1, -1); _refresh(),
+					not unlocked or st.money < data.cost(type), tool == type)
+			hud.add_tool_button("Done", _end_build)
+		Ui.TARGETING:
+			var planned := _fuel_planned()
+			hud.add_label("Fuel  %d / %d" % [planned, st.fuel])
+			for b in st.of_role(data, "launcher"):
+				var name := Pieces.display_name(b.type)
+				if not st.weapon_active(b):
+					hud.add_label("%s: out of action" % name, true)
+					continue
+				var mt := _missile_for(b.hex)
+				var assigned := orders.any(func(o): return o["launcher"] == b.hex)
+				var text := "%s: %s, %d fuel%s" % [name, Pieces.MISSILE_NAMES.get(mt, mt), int(data.missile(mt)["fuel"]), "  (aimed)" if assigned else ""]
+				var hx: int = b.hex
+				hud.add_tool_button(text, func(): active_launcher = hx; _refresh(), false, active_launcher == b.hex)
+				var options: Array = data.building(b.type)["missiles"].filter(func(x): return st.missile_unlocked(x, data))
+				if options.size() > 1:
+					hud.add_tool_button("   switch missile", func(): _cycle_missile(hx))
+			hud.add_tool_button("Undo", _undo, orders.is_empty())
+			hud.add_tool_button("Attack", _attack)
+		Ui.PLAYOUT:
+			hud.add_label("Playout")
+
+
+func _update_info() -> void:
+	var target := selected if selected.y >= 0 else hovered
+	hud.clear_info_actions()
+	if target.y < 0:
+		hud.set_info("")
+		return
+	if target.x == 0:
+		var st = setup_trial if ui == Ui.SETUP and setup_trial != null else m.sides[0]
+		var isl = st.island
+		var lines: Array = []
+		lines.append(("Land, level %d" % isl.level[target.y]) if isl.is_land(target.y) else "Sea")
+		var b = st.building_at(target.y)
+		if b != null:
+			lines.push_front("[b]%s[/b]" % Pieces.display_name(b.type))
+			if data.is_base_like(b.type):
+				lines.append("Hits taken: %s of %s" % [_fmt(b.hits), _fmt(float(data.building(b.type)["hits_to_destroy"]))])
+			else:
+				lines.append("HP %d / %d" % [b.hp, data.max_hp(b.type)])
+				if b.repairing:
+					lines.append("Under repair")
+				elif b.disabled:
+					lines.append("Out of action until repaired")
+				elif st.is_half_strength(b, data):
+					lines.append("Half strength")
+			if ui == Ui.BUILD and target == selected:
+				_info_actions_for(st, b)
+		hud.set_info("\n".join(lines))
+	else:
+		var e = m.knowledge[0].get(target.y)
+		if e == null:
+			hud.set_info("Unexplored")
+			return
+		var lines: Array = [("Land, level %d" % e["level"]) if e["land"] else "Sea",
+			"Last seen in round %d" % e["seen_round"]]
+		var b = e["building"]
+		if b != null:
+			if b["type"] == "suspected_base":
+				lines.push_front("[b]Potential base: %s hits[/b]" % _fmt(float(b["hits"])))
+			else:
+				lines.push_front("[b]%s[/b]" % Pieces.display_name(String(b["type"])))
+				if b["disabled"]:
+					lines.append("Out of action")
+				elif b["damaged"]:
+					lines.append("Damaged")
+		elif String(e["destroyed"]) != "":
+			lines.push_front("[b]Destroyed %s[/b]" % Pieces.display_name(String(e["destroyed"])))
+		hud.set_info("\n".join(lines))
+
+
+func _info_actions_for(st, b) -> void:
+	if st.needs_repair(b, data):
+		var cost: int = st.repair_cost(b.type, data)
+		var hx: int = b.hex
+		var do_repair := func():
+			var e: String = m.build_action(MatchState.PLAYER, {"action": "repair", "hex": hx})
+			if e != "":
+				hud.add_log("[color=salmon]%s[/color]" % e)
+			else:
+				audio.play(REPAIR_SOUND)
+			_refresh()
+		hud.add_info_action("Repair (%d)" % cost, do_repair, st.can_repair(b.hex, data) != "")
+	if data.role(b.type) == "lab":
+		var p = st.project_for_lab(b.id)
+		if p != null:
+			hud.add_info_text("Researching %s: %d / %d" % [String(p["item"]).capitalize(), p["progress"],
+				int(data.research_item(String(p["item"]))["points"])])
+		else:
+			var oldest = st.oldest_project()
+			hud.add_info_text("Helping %s" % String(oldest["item"]).capitalize() if oldest != null else "Idle")
+			for item in st.research_available(data):
+				var it: String = item
+				var def: Dictionary = data.research_item(item)
+				var lab_id: int = b.id
+				var do_research := func():
+					var e: String = m.build_action(MatchState.PLAYER, {"action": "research", "lab": lab_id, "item": it})
+					if e != "":
+						hud.add_log("[color=salmon]%s[/color]" % e)
+					_refresh()
+				hud.add_info_action("%s (%d, %d pts)" % [item.capitalize(), int(def["cost"]), int(def["points"])],
+					do_research, st.can_start_research(b.id, item, data) != "")
+
+
+static func _fmt(v: float) -> String:
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
+
+
+# --- Playout ---------------------------------------------------------------
+
+func _run_playout() -> void:
+	var pre_own: Array = BoardView.own_tiles(m.sides[0], data)
+	var pre_enemy: Array = BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
+	own_board.set_tiles(pre_own)
+	enemy_board.set_tiles(pre_enemy)
+	enemy_board.markers = {}
+	var events: Array = m.resolve_playout()
+	var by_id := {}
+	for ev in events:
+		if ev.has("id"):
+			if not by_id.has(ev["id"]):
+				by_id[ev["id"]] = {}
+			by_id[ev["id"]][ev["type"]] = ev
+	var launches := [events.filter(func(e): return e["type"] == "launch" and e["side"] == 0),
+		events.filter(func(e): return e["type"] == "launch" and e["side"] == 1)]
+
+	# Both sides launch.
+	_focus(0)
+	await _wait(0.4)
+	for k in launches[0].size():
+		_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
+	await _wait(0.9 + launches[0].size() * 0.15)
+	if not launches[1].is_empty():
+		_focus(1)
+		hud.add_log("Enemy launches %d missile%s." % [launches[1].size(), "" if launches[1].size() == 1 else "s"])
+		var center: int = m.sides[1].island.grid.center_index()
+		for k in launches[1].size():
+			_rise(enemy_board, center, Color(1, 0.4, 0.4), k * 0.15, Vector2((k - launches[1].size() / 2.0) * 22.0, 0))
+		await _wait(0.9 + launches[1].size() * 0.15)
+
+	# Enemy strikes land on our island, then damage shows.
+	if not launches[1].is_empty():
+		_focus(0)
+		await _wait(0.3)
+		for k in launches[1].size():
+			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
+		await _wait(1.4 + launches[1].size() * 0.35)
+	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data))
+	for ev in events:
+		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
+			_log_event(ev)
+
+	# Our strikes land on the enemy island.
+	if not launches[0].is_empty():
+		_focus(1)
+		await _wait(0.3)
+		for k in launches[0].size():
+			_strike(enemy_board, null, by_id[launches[0][k]["id"]], int(launches[0][k]["target"]), Color(1, 0.9, 0.5), k * 0.35)
+		await _wait(1.4 + launches[0].size() * 0.35)
+	enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
+	for ev in events:
+		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
+			_log_event(ev)
+		elif ev["type"] in ["game_over", "coin_flip_needed"]:
+			_log_event(ev)
+	await _wait(0.8)
+	effects.clear()
+	ui = Ui.BUILD   # placeholder until the next phase sets itself
+	_after_playout()
+
+
+func _wait(seconds: float) -> void:
+	await get_tree().create_timer(seconds).timeout
+
+
+func _rise(board, hex: int, color: Color, delay: float, offset: Vector2 = Vector2.ZERO) -> void:
+	await _wait(delay)
+	var ms = effects.add_missile(board.position + board.tile_center(hex) + offset, 0.0, color)
+	var t := create_tween()
+	t.tween_property(ms, "alt", 700.0, 0.8).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	await t.finished
+	effects.remove_missile(ms)
+
+
+## One incoming missile: falls toward its aimed hex, may be engaged by
+## anti-air, may seek, then explodes. `isl` is the defender's island when we
+## can show anti-air positions (our own); null when it is the enemy's.
+func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: float) -> void:
+	await _wait(delay)
+	var ground: Vector2 = board.position + board.tile_center(target)
+	var ms = effects.add_missile(ground, 700.0, color)
+	var t := create_tween()
+	t.tween_property(ms, "alt", 120.0, 0.6).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	await t.finished
+	if info.has("engage"):
+		var eng: Dictionary = info["engage"]
+		if isl != null:
+			effects.tracer(board.position + board.tile_center(int(eng["anti_air"])) - Vector2(0, 20), ground - Vector2(0, ms.alt))
+		else:
+			effects.tracer(ground + Vector2(-60, 30), ground - Vector2(0, ms.alt))
+		await _wait(0.15)
+		if eng["hit"]:
+			effects.burst(ground - Vector2(0, ms.alt))
+			effects.remove_missile(ms)
+			return
+	t = create_tween()
+	t.tween_property(ms, "alt", 0.0, 0.2).set_ease(Tween.EASE_IN)
+	await t.finished
+	if info.has("seek"):
+		var dest: Vector2 = board.position + board.tile_center(int(info["seek"]["to"]))
+		ms.alt = 12.0
+		t = create_tween()
+		t.tween_property(ms, "ground", dest, 0.3)
+		await t.finished
+		ground = dest
+	effects.remove_missile(ms)
+	var imp: Dictionary = info.get("impact", {})
+	var is_scout: bool = String(imp.get("missile", "")) == "scouting"
+	effects.explosion(ground, 14.0 if is_scout else 26.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
+	for d in imp.get("damaged", []):
+		var p: Vector2 = board.position + board.tile_center(int(d["hex"]))
+		if d.has("damage"):
+			effects.float_text(p, "-%d" % int(d["damage"]), Color(1, 0.8, 0.6))
+		else:
+			effects.float_text(p, "+%s hit" % _fmt(float(d["hits"])), Color(1, 1, 1))
+
+
+# --- Log -------------------------------------------------------------------
+
+func _log_event(ev: Dictionary) -> void:
+	var mine: bool = ev.get("side", -1) == MatchState.PLAYER
+	match String(ev["type"]):
+		"round_start":
+			hud.add_log("[b]Round %d[/b]" % m.round_number)
+		"income":
+			if mine:
+				var inc: Dictionary = ev["income"]
+				hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]])
+		"research_done":
+			if mine:
+				hud.add_log("[color=lightgreen]Research complete: %s.[/color]" % String(ev["item"]).capitalize())
+		"destroyed":
+			if mine:
+				hud.add_log("[color=salmon]Our %s was destroyed.[/color]" % Pieces.display_name(String(ev["building"])))
+			else:
+				var shown: String = "base" if ev["building"] == "base" else Pieces.display_name(String(ev["building"]))
+				hud.add_log("[color=lightgreen]Enemy %s destroyed.[/color]" % shown)
+		"disabled":
+			hud.add_log(("Our %s is out of action." if mine else "Enemy %s knocked out.") % Pieces.display_name(String(ev["building"])))
+		"damaged":
+			hud.add_log(("Our %s was damaged." if mine else "Enemy %s damaged.") % Pieces.display_name(String(ev["building"])))
+		"decoy_revealed":
+			hud.add_log("Our decoy has been exposed." if mine else "[color=lightgreen]That base was a decoy.[/color]")
+		"coin_flip_needed":
+			hud.add_log("Both sides lost their last base. Money is equal: coin flip.")
+		"coin_flip":
+			hud.add_log("The enemy called %s. The coin shows %s." % [ev["call"], ev["flip"]])
+		"game_over":
+			hud.add_log("[b]%s[/b]" % ("Victory." if ev["winner"] == MatchState.PLAYER else "Defeat."))

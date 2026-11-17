@@ -183,6 +183,14 @@ func _hex_error(hex: int) -> String:
 	return ""
 
 
+## Whether a base or decoy may stand on this hex (ignores money and limits).
+func can_place_base_like(hex: int, data) -> String:
+	var e := _hex_error(hex)
+	if e != "":
+		return e
+	return _base_spacing_error(hex, data)
+
+
 func can_build(type: String, hex: int, data, settings: Dictionary) -> String:
 	if not data.has_building(type):
 		return "Unknown building"

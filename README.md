@@ -13,6 +13,28 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 | `tests/` | Rules tests and a small test runner. |
 | `game/` | Scenes and presentation (step 4 onward). |
 
+## Play
+
+```powershell
+& "C:\Godot\Godot_v4.7.2-stable_win64.exe" --path .                   # new game, random seed
+& "C:\Godot\Godot_v4.7.2-stable_win64.exe" --path . -- --seed 1234    # reproducible island and dice
+```
+
+You can also open the folder in the Godot editor and press F5.
+
+Controls:
+
+| Action | How |
+| --- | --- |
+| Select or place | Left click |
+| Pan | Right-drag or middle-drag, or the arrow keys |
+| Zoom | Mouse wheel |
+| Rotate the board 60° | Q / E, or the arrow buttons at the top |
+| Look at the other island | Click its half of the minimap |
+| Cancel a tool or selection | Right click |
+
+Labs choose research from the info box when you select them in the build phase.
+
 ## Commands
 
 Set `GODOT` to the console build, for example `C:\Godot\Godot_v4.7.2-stable_win64_console.exe`.
@@ -38,3 +60,9 @@ Batch runner (AI against AI, headless):
 ```
 
 `--set` overrides a data value for that run only. It never edits the data files. The defaults for match count, seed and the round cap are in `data/ai.json` under `batch`. A match that reaches the round cap is reported as a timeout.
+
+Screenshots (development aid: drives the real scene through one round in a window):
+
+```powershell
+& "C:\Godot\Godot_v4.7.2-stable_win64_console.exe" --path . -s tools/capture.gd -- <output folder> [seed]
+```
