@@ -1,0 +1,23 @@
+{
+  "simple": {
+    "build_order": [
+      "basic_launcher", "bank", "refinery",
+      "lab", "anti_air", "radar",
+      "basic_launcher", "bank", "refinery",
+      "basic_launcher", "lab"
+    ],
+    "research_order": ["radar"],
+    "buy_decoys_at_setup": true,
+    "base_min_spacing": 3,
+    "repair_priority": ["basic_launcher", "ballistic_launcher", "anti_air", "radar", "refinery", "bank", "lab"],
+    "target_priority": ["suspected_base", "basic_launcher", "ballistic_launcher", "anti_air", "radar"],
+    "search_center_bias": 0.5,
+    "anti_air_protect_weights": { "base": 3, "decoy": 1, "default": 1 }
+  },
+
+  "batch": {
+    "default_matches": 200,
+    "default_seed": 1,
+    "max_rounds": 300
+  }
+}

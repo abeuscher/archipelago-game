@@ -27,3 +27,14 @@ $GODOT = "C:\Godot\Godot_v4.7.2-stable_win64_console.exe"
 ```
 
 The test runner exits with code 0 when every test passes.
+
+Batch runner (AI against AI, headless):
+
+```powershell
+& $GODOT --headless --path . -s tools/batch.gd -- --matches 500
+& $GODOT --headless --path . -s tools/batch.gd -- --matches 500 --seed 501
+& $GODOT --headless --path . -s tools/batch.gd -- --matches 500 --set rules.anti_air.engagements=1
+& $GODOT --headless --path . -s tools/batch.gd -- --matches 100 --csv batch_results/run.csv
+```
+
+`--set` overrides a data value for that run only. It never edits the data files. The defaults for match count, seed and the round cap are in `data/ai.json` under `batch`. A match that reaches the round cap is reported as a timeout.
