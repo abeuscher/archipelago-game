@@ -31,7 +31,7 @@ Controls:
 | Pan | Right-drag or middle-drag, or the arrow keys |
 | Zoom | Mouse wheel, or the magnifier buttons under the minimap |
 | Rotate the board 60° | Q / E, or the rotate buttons under the minimap |
-| Look at the other island | Click or drag in its half of the minimap |
+| Look at the other island | Click or drag on the minimap (enemy island north, yours south); the view also moves there when the phase changes |
 | Cancel a tool or selection | Right click |
 | Pause, options, quit | Esc |
 | Debug panel: add money, clear the fog of war | \` (the key left of 1) |

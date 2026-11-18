@@ -62,6 +62,7 @@ func _run() -> void:
 	main._refresh()
 	await _shot("02_setup_placed")
 	main._start_setup_game()
+	await create_timer(1.1).timeout   # camera flight
 	await _shot("03_build_tip")
 	main.tool = "anti_air"
 	main._refresh()
@@ -92,6 +93,9 @@ func _run() -> void:
 	await _shot("09_rotated")
 	main._rotate(-1)
 	main._end_build()
+	await create_timer(0.4).timeout
+	await _shot("10a_flight")
+	await create_timer(0.8).timeout
 	await _shot("10_targeting")
 	main._target_click(main.m.sides[1].island.grid.center_index())
 	main._refresh()

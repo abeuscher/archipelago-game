@@ -8,6 +8,8 @@ const StrongAI = preload("res://ai/strong_ai.gd")
 const BoardView = preload("res://game/board_view.gd")
 const Effects = preload("res://game/effects.gd")
 const Minimap = preload("res://game/minimap.gd")
+const OceanView = preload("res://game/ocean_view.gd")
+const Iso = preload("res://game/iso.gd")
 const Pieces = preload("res://game/pieces.gd")
 const Audio = preload("res://game/audio.gd")
 const Hud = preload("res://game/hud.gd")
@@ -16,7 +18,9 @@ const Tips = preload("res://game/tips.gd")
 const Earnings = preload("res://game/earnings.gd")
 
 const REPAIR_SOUND := "assets/audio/repair_work_crew.ogg"
-const BOARD_GAP := 320.0
+const CHANNEL_ROWS := 4        ## rows of open sea between the two islands
+const FLY_SECONDS := 0.9       ## camera move between islands at a phase change
+const FIT_MARGIN := 0.92       ## share of the free screen an island fills when fitted
 const ZOOM_MIN := 0.3
 const ZOOM_MAX := 3.0
 const PAN_SPEED := 700.0
@@ -56,6 +60,8 @@ var hovered: Vector2i = Vector2i(-1, -1)
 var _drag_from: Vector2
 var _dragging: bool = false
 var _drag_moved: float = 0.0
+var ocean
+var _cam_tween: Tween
 var debug_no_fog: bool = false       ## debug tool: show the enemy island as it really is
 
 
@@ -69,13 +75,16 @@ func _ready() -> void:
 	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
 	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
 
-	own_board = BoardView.new()
-	own_board.setup(m.sides[0].island.grid)
-	add_child(own_board)
+	# Sea first, then the enemy island (north, further back), then ours.
+	ocean = OceanView.new()
+	add_child(ocean)
 	enemy_board = BoardView.new()
 	enemy_board.setup(m.sides[1].island.grid)
 	enemy_board.show_hits = true
 	add_child(enemy_board)
+	own_board = BoardView.new()
+	own_board.setup(m.sides[0].island.grid)
+	add_child(own_board)
 	_layout_boards()
 	effects = Effects.new()
 	effects.z_index = 10
@@ -87,7 +96,7 @@ func _ready() -> void:
 
 	hud = Hud.new()
 	add_child(hud)
-	hud.minimap.setup(own_board, enemy_board, camera)
+	hud.minimap.setup(own_board, enemy_board, ocean, camera)
 	hud.minimap.view_requested.connect(_on_minimap)
 	hud.rotate_requested.connect(_rotate)
 	hud.zoom_requested.connect(func(dir: int): _zoom_at(ZOOM_STEP if dir > 0 else 1.0 / ZOOM_STEP, get_viewport_rect().size / 2.0))
@@ -117,12 +126,18 @@ func _seed_from_args() -> int:
 	return int(Time.get_unix_time_from_system() * 1000.0) & 0x7FFFFFFF
 
 
+## Our island at the origin, the enemy's straight north across a channel of
+## CHANNEL_ROWS rows of sea, for the current rotation. Both centres sit on
+## the shared hex lattice (see iso.gd), so the sea lines up with both.
 func _layout_boards() -> void:
-	# Spacing uses the bounding circle so rotation never makes boards overlap.
-	var r: Rect2 = own_board.iso.bounds()
-	var span := r.size.length()
 	own_board.position = Vector2.ZERO
-	enemy_board.position = Vector2(span + BOARD_GAP, 0)
+	var own_top: float = -own_board.iso.plane_extent().position.y
+	var enemy_bottom: float = enemy_board.iso.plane_extent().end.y
+	var need := own_top + enemy_bottom + (CHANNEL_ROWS + 1) * Iso.ROW_H
+	# Straight north on the lattice is axial (1, -2): two rows up per step.
+	var steps := ceili(need / (2.0 * Iso.ROW_H))
+	enemy_board.position = Vector2(0, -steps * 2.0 * Iso.ROW_H * Iso.SQUASH)
+	ocean.rebuild([own_board, enemy_board])
 
 
 # --- Phases ----------------------------------------------------------------
@@ -132,7 +147,7 @@ func _enter_setup() -> void:
 	tips_snoozed = []
 	setup_trial = m.sides[0].duplicate_state()
 	setup_mode = "base"
-	_focus(0)
+	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
 	_set_clock(0)
 	hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
@@ -167,7 +182,7 @@ func _start_round() -> void:
 	tips_snoozed = []
 	orders = []   # last round's aim markers don't carry over
 	selected = Vector2i(-1, -1)
-	_focus(0)
+	_fly_to(0)
 	hud.set_phase("Build and repair", m.round_number)
 	_set_clock(int(prefs["build_clock_seconds"]))
 	_refresh()
@@ -188,7 +203,7 @@ func _end_build() -> void:
 	missile_choice = {}
 	selected = Vector2i(-1, -1)
 	active_launcher = _next_free_launcher()
-	_focus(1)
+	_fly_to(1)
 	hud.set_phase("Targeting", m.round_number)
 	_set_clock(int(prefs["targeting_clock_seconds"]))
 	_refresh()
@@ -252,6 +267,7 @@ func _process(delta: float) -> void:
 				_attack()   # orders placed so far are launched
 	var pan := Vector2(Input.get_axis("ui_left", "ui_right"), Input.get_axis("ui_up", "ui_down"))
 	if pan != Vector2.ZERO:
+		_stop_flight()
 		camera.position += pan * PAN_SPEED * delta / camera.zoom.x
 		_update_viewing()
 
@@ -281,6 +297,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		if _dragging:
+			_stop_flight()
 			camera.position -= mm.relative / camera.zoom.x
 			_drag_moved += mm.relative.length()
 			_update_viewing()
@@ -302,6 +319,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _zoom_at(factor: float, screen_pos: Vector2) -> void:
+	_stop_flight()
 	var before := get_canvas_transform().affine_inverse() * screen_pos
 	var z := clampf(camera.zoom.x * factor, ZOOM_MIN, ZOOM_MAX)
 	camera.zoom = Vector2(z, z)
@@ -324,29 +342,57 @@ func _rotate(dir: int) -> void:
 	rot = (rot + dir + 6) % 6
 	own_board.set_rotation_step(rot)
 	enemy_board.set_rotation_step(rot)
+	_layout_boards()
 	_focus(center_side)
 
 
+## Centres the view on an island at once, keeping the zoom.
 func _focus(side: int) -> void:
+	_stop_flight()
 	var board = own_board if side == 0 else enemy_board
 	camera.position = board.position + board.bounds().get_center()
 	viewing = side
-	hud.minimap.viewing = side
-	hud.minimap.queue_redraw()
+
+
+## Moves and zooms the view so the island fills the free part of the screen
+## (between the toolbar, the strip, the top bar and the bottom panels). With seconds > 0 the
+## camera glides there, so the player sees how the two islands sit.
+func _fly_to(side: int, seconds: float = FLY_SECONDS) -> void:
+	_stop_flight()
+	viewing = side
+	var board = own_board if side == 0 else enemy_board
+	var island: Rect2 = board.bounds()
+	island.position += board.position
+	var vp := get_viewport_rect().size
+	var free := Rect2(Vector2(Hud.TOOLBAR_W + 16, 70), Vector2.ZERO)
+	free.end = Vector2(vp.x - Hud.STRIP_W - 28, vp.y - Hud.BOTTOM_H - Hud.MAP_BAR_H - 8)
+	var z := clampf(minf(free.size.x / island.size.x, free.size.y / island.size.y) * FIT_MARGIN, ZOOM_MIN, ZOOM_MAX)
+	var target := island.get_center() - (free.get_center() - vp / 2.0) / z
+	if seconds <= 0.0:
+		camera.zoom = Vector2(z, z)
+		camera.position = target
+		return
+	_cam_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_cam_tween.tween_property(camera, "position", target, seconds)
+	_cam_tween.tween_property(camera, "zoom", Vector2(z, z), seconds)
+
+
+## Any manual pan or zoom takes over from a camera flight.
+func _stop_flight() -> void:
+	if _cam_tween != null and _cam_tween.is_valid():
+		_cam_tween.kill()
 
 
 func _on_minimap(world_pos: Vector2) -> void:
+	_stop_flight()
 	camera.position = world_pos
 	_update_viewing()
 
 
+## Which island the view is over: north of the channel's middle is the enemy's.
 func _update_viewing() -> void:
-	var mid: float = (own_board.position.x + own_board.bounds().end.x + enemy_board.position.x + enemy_board.bounds().position.x) / 2.0
-	var v := 1 if camera.position.x > mid else 0
-	if v != viewing:
-		viewing = v
-		hud.minimap.viewing = v
-		hud.minimap.queue_redraw()
+	var mid: float = (own_board.position.y + enemy_board.position.y) / 2.0
+	viewing = 1 if camera.position.y < mid else 0
 
 
 func _cancel() -> void:
@@ -982,8 +1028,8 @@ func _run_playout() -> void:
 
 	# Our missiles launch. The enemy's launches are not shown: its missiles
 	# are only seen arriving, with the view staying on our island.
-	_focus(0)
-	await _wait(0.4)
+	_fly_to(0, 0.6)
+	await _wait(0.7)
 	for k in launches[0].size():
 		_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
 	await _wait(0.9 + launches[0].size() * 0.15)
@@ -1003,8 +1049,8 @@ func _run_playout() -> void:
 
 	# Our strikes land on the enemy island.
 	if not launches[0].is_empty():
-		_focus(1)
-		await _wait(0.3)
+		_fly_to(1, 0.6)
+		await _wait(0.7)
 		for k in launches[0].size():
 			_strike(enemy_board, null, by_id[launches[0][k]["id"]], int(launches[0][k]["target"]), Color(1, 0.9, 0.5), k * 0.35, post_enemy)
 		await _wait(1.4 + launches[0].size() * 0.35)

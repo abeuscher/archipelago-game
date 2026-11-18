@@ -70,7 +70,8 @@ var _debug_fog: CheckBox
 
 const TOOLBAR_W := 260
 const INFO_W := 420
-const MINIMAP_W := 380
+const MINIMAP_W := 230
+const MINIMAP_H := 250        ## taller than wide: the islands are stacked north and south
 const BOTTOM_H := 170
 const MAP_BAR_H := 44         ## gap under the minimap and info box, holding the map controls
 const STRIP_W := 64
@@ -205,7 +206,7 @@ func _ready() -> void:
 	_log_panel.offset_left = -STRIP_W - 24 - 400
 	_log_panel.offset_right = -STRIP_W - 24
 	_log_panel.offset_top = 80
-	_log_panel.offset_bottom = -BOTTOM_H - MAP_BAR_H - 8
+	_log_panel.offset_bottom = -MINIMAP_H - MAP_BAR_H - 8
 	_log_panel.visible = false
 	root.add_child(_log_panel)
 	_log = RichTextLabel.new()
@@ -221,8 +222,8 @@ func _ready() -> void:
 	_strip.anchor_bottom = 0.5
 	_strip.offset_left = -STRIP_W - 12
 	_strip.offset_right = -12
-	_strip.offset_top = -200
-	_strip.offset_bottom = 200
+	_strip.offset_top = -250
+	_strip.offset_bottom = 150
 	_strip.alignment = BoxContainer.ALIGNMENT_CENTER
 	_strip.add_theme_constant_override("separation", 6)
 	root.add_child(_strip)
@@ -267,7 +268,7 @@ func _ready() -> void:
 	minimap.anchor_bottom = 1.0
 	minimap.offset_left = -MINIMAP_W - 8
 	minimap.offset_right = -8
-	minimap.offset_top = -BOTTOM_H - MAP_BAR_H
+	minimap.offset_top = -MINIMAP_H - MAP_BAR_H
 	minimap.offset_bottom = -MAP_BAR_H
 	minimap.tooltip_text = "Click or drag to move the view. This is how you look at the other island."
 	root.add_child(minimap)

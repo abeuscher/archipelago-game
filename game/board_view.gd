@@ -22,6 +22,7 @@ var _order: Array = []
 var _time: float = 0.0
 var _since_redraw: float = 0.0
 var _has_fog: bool = false
+var _edge: Dictionary = {}        ## hexes on the border of the space
 
 const SEA := Color(0.16, 0.30, 0.45)
 const SEA_EDGE := Color(0.12, 0.24, 0.37)
@@ -51,6 +52,9 @@ const SELECTED_WIDTH := 2.0
 func setup(grid) -> void:
 	iso = Iso.new(grid)
 	_order = iso.draw_order()
+	for i in grid.count:
+		if grid.neighbors(i).size() < 6:
+			_edge[i] = true
 
 
 func set_rotation_step(step: int) -> void:
@@ -113,12 +117,6 @@ func _draw() -> void:
 			if not rings_at.has(h):
 				rings_at[h] = []
 			rings_at[h].append(ring["color"])
-	# The sea ring around the space: always visible, so the enemy's fog sits
-	# inside a clear frame. Flat at sea level, so it goes first.
-	for k in iso.frame.size():
-		var fp := iso.frame_polygon(k)
-		draw_colored_polygon(fp, SEA)
-		draw_polyline(_closed(fp), SEA_EDGE, 1.0)
 	for i in _order:
 		var t: Dictionary = tiles[i]
 		var lvl := _lvl(t)
@@ -214,10 +212,12 @@ func _draw_fog(i: int, top: PackedVector2Array) -> void:
 
 
 ## Drawn after every tile: feathered edges that spill softly over the
-## neighbouring hexes, then drifting wisps and the odd slow swirl.
+## neighbouring hexes, then drifting wisps and the odd slow swirl. Hexes on
+## the border of the space get none of these, so the fog stops at the
+## island's edge and never spills onto the open sea around it.
 func _draw_fog_overlay() -> void:
 	for i in tiles.size():
-		if tiles[i].get("known", false):
+		if tiles[i].get("known", false) or _edge.has(i):
 			continue
 		var c := iso.top_center(i, 0, false)
 		var top := iso.top_polygon(i, 0, false)
@@ -227,7 +227,7 @@ func _draw_fog_overlay() -> void:
 				poly.append(c + (v - c) * float(f[0]))
 			draw_colored_polygon(poly, Color(FOG, float(f[1]) * 0.5))
 	for i in tiles.size():
-		if tiles[i].get("known", false):
+		if tiles[i].get("known", false) or _edge.has(i):
 			continue
 		var h := _hash(i)
 		var c := iso.top_center(i, 0, false)
