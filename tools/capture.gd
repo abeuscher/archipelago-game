@@ -112,11 +112,18 @@ func _run() -> void:
 	await _shot("13_options")
 	main.hud.esc_menu.close_menu()
 	main._attack()
-	await create_timer(2.6).timeout
-	await _shot("14_playout")
-	main.hud.announcer._ok.pressed.emit()
-	await create_timer(0.3).timeout
-	await _shot("14b_announcement_closed")
+	await create_timer(2.2).timeout
+	await _shot("14a_siren")
+	while not main.hud.announcing():
+		await process_frame
+	await create_timer(0.4).timeout
+	await _shot("14_incoming_warning")
+	while main.hud.announcing():
+		await process_frame
+	await create_timer(0.75).timeout
+	await _shot("14b_missile_falling")
+	await create_timer(0.35).timeout
+	await _shot("14c_explosion")
 	while main.ui == main.Ui.PLAYOUT:
 		await process_frame
 	main.hud._log_button.button_pressed = true

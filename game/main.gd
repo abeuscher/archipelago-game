@@ -25,6 +25,9 @@ const ZOOM_MIN := 0.3
 const ZOOM_MAX := 3.0
 const PAN_SPEED := 700.0
 const ZOOM_STEP := 1.25        ## per press of a zoom button
+const ROUND_LINE_ID := "round_announcement"   ## remembered when the player hides round announcements
+const ALARM_TURNS := 2.0       ## the siren turns this many times before the warning
+const WARNING_SECONDS := 2.0   ## the incoming warning stays fully shown this long
 
 enum Ui { SETUP, BUILD, TARGETING, PLAYOUT, COIN, OVER }
 
@@ -43,6 +46,7 @@ var prefs_path: String = UserSettings.PATH
 var tips: Array = []
 var current_tip = null
 var tips_snoozed: Array = []         ## hidden for the rest of this phase
+var lines: Dictionary = {}           ## the character's lines (tips.json "announcements")
 
 var ui: int = Ui.SETUP
 var viewing: int = 0
@@ -72,6 +76,7 @@ func _ready() -> void:
 		prefs_path = String(get_meta("settings_path"))
 	prefs = UserSettings.load_settings(data.settings, prefs_path)
 	tips = Tips.load_tips(data)
+	lines = Tips.load_lines()
 	seed_value = _seed_from_args()
 	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
 	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
@@ -176,20 +181,21 @@ func _start_setup_game() -> void:
 
 func _start_round() -> void:
 	var events: Array = m.begin_round()
-	# The character announces the round (and its income); those lines go to
-	# the log history without flashing.
-	var said := "Round %d." % m.round_number
+	# The character announces the round (and its income); the log keeps the
+	# plain record without flashing it.
+	var said := String(lines.get("round_first", "Round {n}.")).format({"n": m.round_number})
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
 		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
 			var inc: Dictionary = ev["income"]
-			var line := "Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]]
-			said += " " + line
-			hud.add_log(line, false)
+			said = String(lines.get("round", "Round {n}.")).format({"n": m.round_number,
+				"money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]})
+			hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]], false)
 		else:
 			_log_event(ev)
-	hud.announce(said)
+	if not prefs["tips_done"].has(ROUND_LINE_ID):
+		hud.announce(said, ROUND_LINE_ID)
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
@@ -1111,13 +1117,17 @@ func _run_playout() -> void:
 
 	# Enemy strikes land on our island, then damage shows.
 	if not launches[1].is_empty():
-		# The enemy attack is announced in the log, and the alarm light
-		# starts with it.
-		var incoming := "%d enemy missile%s incoming!" % [launches[1].size(), "" if launches[1].size() == 1 else "s"]
+		# Warning first: the siren turns twice, then the character warns of the
+		# attack and stays two full seconds, then she goes and the missiles land.
+		var n: int = launches[1].size()
+		var incoming := String(lines.get("incoming_one" if n == 1 else "incoming_many", "{n} enemy missiles incoming!")).format({"n": n})
 		hud.set_alarm(true)
-		hud.announce(incoming)
-		hud.add_log(incoming, false)
-		await _wait(0.3)
+		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
+		await _wait(hud.alarm_seconds(ALARM_TURNS))
+		hud.announce(incoming, "", WARNING_SECONDS, false)
+		while hud.announcing():
+			await get_tree().process_frame
+		await _wait(0.25)
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
 		await _wait(1.4 + launches[1].size() * 0.35)
@@ -1208,7 +1218,7 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 	effects.remove_missile(ms)
 	var imp: Dictionary = info.get("impact", {})
 	var is_scout: bool = String(imp.get("missile", "")) == "scouting"
-	effects.explosion(ground, 14.0 if is_scout else 26.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
+	effects.explosion(ground, 18.0 if is_scout else 40.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
 	for h in imp.get("revealed", []):
 		if not reveal_tiles.is_empty():
 			board.tiles[int(h)] = reveal_tiles[int(h)]

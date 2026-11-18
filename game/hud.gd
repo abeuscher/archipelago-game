@@ -347,6 +347,7 @@ func _ready() -> void:
 	announcer.slot = _portrait_slot
 	announcer.anchor_rect = _anchor_rect
 	announcer.tip_dismissed.connect(func(id: String, forever: bool): tip_dismissed.emit(id, forever))
+	announcer.announcement_dismissed.connect(func(id: String, forever: bool): tip_dismissed.emit(id, forever))
 	root.add_child(announcer)
 
 	# Centre overlay for the coin flip and the end of the game.
@@ -833,9 +834,15 @@ func show_tip(tip) -> void:
 	announcer.set_tip(tip)
 
 
-## A short line from the character, closing itself after a few seconds.
-func announce(text: String) -> void:
-	announcer.announce(text)
+## A line from the character, closing itself after `seconds` of being
+## fully shown. id/can_hide: see announcer.gd.
+func announce(text: String, id: String = "", seconds: float = 3.5, can_hide: bool = true) -> void:
+	announcer.announce(text, id, seconds, can_hide)
+
+
+## How long the alarm light takes to turn `turns` times.
+func alarm_seconds(turns: float) -> float:
+	return turns * TAU / Beacon.SPIN
 
 
 func announcing() -> bool:

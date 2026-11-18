@@ -4,8 +4,11 @@
 ##     OK at bottom right. A tip with an anchor dims the screen around what
 ##     it points at. A tip marked pause also blocks the screen behind it.
 ##   announcement: round starts, incoming attacks. OK closes it, or it goes
-##     after a few seconds. Announcements come before tips; a tip waiting
+##     after a few seconds (counted from when the bubble is fully shown).
+##     It can carry "Don't show this again" (unticked to start) and an id
+##     to remember that by. Announcements come before tips; a tip waiting
 ##     behind one shows when it is gone.
+## Everything is spoken by the character to the player.
 ## The character pops out from the centre of the portrait space, then the
 ## bubble pops in. Characters (name, portrait) are in data/characters.json.
 extends Control
@@ -22,6 +25,7 @@ const DIM := Color(0, 0, 0, 0.55)
 const SPOT_EDGE := Color(1.0, 0.85, 0.35)
 
 signal tip_dismissed(id: String, forever: bool)
+signal announcement_dismissed(id: String, forever: bool)
 
 var slot: Control                 ## the portrait space in the toolbar
 var anchor_rect: Callable         ## anchor name -> Rect2 on screen (empty if not shown)
@@ -137,8 +141,11 @@ func set_tip(tip) -> void:
 	_refresh()
 
 
-func announce(text: String, character: String = "", seconds: float = ANNOUNCE_SECONDS) -> void:
-	_queue.append({"text": text, "character": character, "seconds": seconds})
+## id: remembered when closed with "Don't show this again" ticked (see
+## announcement_dismissed). can_hide false: no such box.
+func announce(text: String, id: String = "", seconds: float = ANNOUNCE_SECONDS, can_hide: bool = true,
+		character: String = "") -> void:
+	_queue.append({"text": text, "id": id, "seconds": seconds, "can_hide": can_hide and id != "", "character": character})
 	_refresh()
 
 
@@ -186,12 +193,14 @@ func _on_ok() -> void:
 		tip_dismissed.emit(id, forever)   # may set the next tip
 		_refresh()
 	else:
-		_queue.pop_front()
+		var done: Dictionary = _queue.pop_front()
+		if bool(done.get("can_hide", false)):
+			announcement_dismissed.emit(String(done["id"]), _forever.button_pressed)
 		_refresh()
 
 
 func _process(delta: float) -> void:
-	if _msg != null and not _msg.has("tip"):
+	if _msg != null and not _msg.has("tip") and _box.visible:
 		_left -= delta
 		if _left <= 0.0:
 			_on_ok()
@@ -209,9 +218,9 @@ func _show_msg() -> void:
 	_name.text = String(characters.get(who, {}).get("name", ""))
 	_name.visible = _name.text != ""
 	_text.text = String(_msg["text"])
-	_forever.visible = is_tip
-	_forever.button_pressed = true
-	_left = float(_msg.get("seconds", ANNOUNCE_SECONDS))
+	_forever.visible = is_tip or bool(_msg.get("can_hide", false))
+	_forever.button_pressed = is_tip
+	_left = float(_msg.get("seconds", ANNOUNCE_SECONDS)) + BUBBLE_POP_SECONDS
 	var tip: Dictionary = _msg.get("tip", {})
 	var pause := bool(tip.get("pause", false))
 	_spot.visible = is_tip and (pause or anchor_rect.is_valid() and anchor_rect.call(String(tip.get("anchor", ""))).has_area())

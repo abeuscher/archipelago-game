@@ -1,23 +1,61 @@
 {
-  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. pause: true holds the phase clock while the tip is up. {build_clock} is filled with the player's build clock when shown. character names who says it (data/characters.json); without one, the default character speaks. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
+  "_note": "Tips introduce the game, spoken by a character to the player (addressed as General), as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. pause: true holds the phase clock while the tip is up. {build_clock} is filled with the player's build clock when shown. character names who says it (data/characters.json); without one, the default character speaks. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
   "tips": [
-    { "id": "place_bases", "when": "setup", "anchor": "tool:base",
-      "text": "Place your bases carefully. If you lose all three you lose the game. Your decoy can help to distract the enemy from your real targets." },
-    { "id": "round_timer", "when": "build_clock_running", "anchor": "timer", "pause": true,
-      "text": "You have {build_clock} seconds every round to place your buildings. Make sure to produce fuel, money, and of course to wreak havoc upon the enemy as best you can." },
-    { "id": "build_launcher", "when": "build_without_launcher", "anchor": "tool:basic_launcher",
-      "text": "The missile launcher is your first offensive weapon. Make sure to build one early on so you can begin attacking and discover where your enemies' bases lie before it's too late." },
-    { "id": "build_anti_air", "when": "build_without_anti_air",
-      "text": "Build anti-air first. Each one shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round." },
-    { "id": "research_radar", "when": "radar_not_started",
-      "text": "Research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to choose research." },
-    { "id": "aim", "when": "targeting",
-      "text": "Pick a launcher on the left, then click a hex on the enemy space to aim it. The enemy island is under fog: missiles have to find its coast first. Undo is free." },
-    { "id": "suspected_base", "when": "suspected_base_seen",
-      "text": "The number on a potential base counts its hits. A base falls at {base_hits} hits. A decoy falls at {decoy_hits}, and then you know it was a decoy." },
-    { "id": "repair", "when": "own_damaged",
-      "text": "Something of yours is damaged. Select it and press Repair. A damaged weapon stays out of action until it is repaired. A repair takes the building out of action for the round, and it is back to full next round." },
-    { "id": "fuel", "when": "fuel_short",
-      "text": "You don't have the fuel to fire every launcher. Each refinery adds {refinery_fuel} fuel a round." }
-  ]
+    {
+      "id": "place_bases",
+      "when": "setup",
+      "anchor": "tool:base",
+      "text": "General, place our bases carefully. If we lose all three, we lose the war. A decoy can help draw the enemy away from our real targets."
+    },
+    {
+      "id": "round_timer",
+      "when": "build_clock_running",
+      "anchor": "timer",
+      "pause": true,
+      "text": "General, you have {build_clock} seconds every round to place your buildings. Make sure we're producing fuel and money, and of course wreak as much havoc on the enemy as you can."
+    },
+    {
+      "id": "build_launcher",
+      "when": "build_without_launcher",
+      "anchor": "tool:basic_launcher",
+      "text": "General, the missile launcher is our first offensive weapon. Build one early so we can start hitting back and find out where the enemy's bases are before it's too late."
+    },
+    {
+      "id": "build_anti_air",
+      "when": "build_without_anti_air",
+      "text": "We need anti-air, General. Each one shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round."
+    },
+    {
+      "id": "research_radar",
+      "when": "radar_not_started",
+      "text": "General, I'd research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to pick the research."
+    },
+    {
+      "id": "aim",
+      "when": "targeting",
+      "text": "Pick a launcher on the left, General, then click a hex on the enemy's island to aim it. They're hidden in fog, so our missiles have to find the coast first. Undo costs nothing."
+    },
+    {
+      "id": "suspected_base",
+      "when": "suspected_base_seen",
+      "text": "General, the number on a possible base counts the hits it's taken. A base falls at {base_hits} hits. A decoy falls at {decoy_hits}, and then we'll know it was a fake."
+    },
+    {
+      "id": "repair",
+      "when": "own_damaged",
+      "text": "General, something of ours is damaged. Select it and press Repair. A damaged weapon stays out of action until it's fixed, and a repair takes the building out for the round. It's back to full the round after."
+    },
+    {
+      "id": "fuel",
+      "when": "fuel_short",
+      "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
+    }
+  ],
+  "announcements": {
+    "_note": "Lines the character says at moments in the game. {n}, {money}, {fuel}, {research} are filled in when said. Every one but incoming has a Don't show this again box.",
+    "round_first": "Round {n}, General. Let's get to work.",
+    "round": "Round {n}, General. We took in {money} money, {fuel} fuel and {research} research.",
+    "incoming_one": "General! An enemy missile is incoming!",
+    "incoming_many": "General! {n} enemy missiles incoming!"
+  }
 }

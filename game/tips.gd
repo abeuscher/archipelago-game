@@ -22,6 +22,14 @@ static func load_tips(data, path: String = PATH) -> Array:
 	return out
 
 
+## The character's lines for game moments ("announcements" in tips.json).
+static func load_lines(path: String = PATH) -> Dictionary:
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if parsed is Dictionary:
+		return parsed.get("announcements", {})
+	return {}
+
+
 static func placeholders(data) -> Dictionary:
 	var aa: Dictionary = data.section("anti_air")
 	return {

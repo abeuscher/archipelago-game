@@ -8,6 +8,8 @@ class Missile extends RefCounted:
 	var alt: float        ## height above that point, in screen pixels
 	var color: Color
 	var alive: bool = true
+	var last_alt: float = -1.0   ## to tell rising from falling
+	var falling: bool = true
 
 
 class Flash extends RefCounted:
@@ -21,6 +23,8 @@ class Flash extends RefCounted:
 	var text: String
 
 
+const TRAIL_LENGTH := 70.0
+
 var missiles: Array = []
 var flashes: Array = []
 
@@ -29,6 +33,7 @@ func add_missile(ground: Vector2, alt: float, color: Color) -> Missile:
 	var m := Missile.new()
 	m.ground = ground
 	m.alt = alt
+	m.falling = alt > 0.0   # launched from the ground: rising
 	m.color = color
 	missiles.append(m)
 	return m
@@ -38,8 +43,8 @@ func remove_missile(m: Missile) -> void:
 	missiles.erase(m)
 
 
-func explosion(pos: Vector2, radius: float = 26.0, color: Color = Color(1.0, 0.55, 0.15)) -> void:
-	_flash("explosion", pos, radius, color, 0.55)
+func explosion(pos: Vector2, radius: float = 40.0, color: Color = Color(1.0, 0.55, 0.15)) -> void:
+	_flash("explosion", pos, radius, color, 0.85)
 
 
 func burst(pos: Vector2) -> void:
@@ -86,19 +91,38 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	for m in missiles:
+		if m.last_alt >= 0.0 and not is_equal_approx(m.alt, m.last_alt):
+			m.falling = m.alt < m.last_alt
+		m.last_alt = m.alt
 		var shadow_r := clampf(9.0 - m.alt / 60.0, 3.0, 9.0)
 		draw_colored_polygon(_ellipse(m.ground, shadow_r, shadow_r * 0.45), Color(0, 0, 0, 0.35))
 		var p: Vector2 = m.ground - Vector2(0, m.alt)
-		draw_line(p, p - Vector2(0, 14), Color(1, 1, 1, 0.35), 3.0)
-		draw_circle(p, 4.0, m.color)
+		# A long fading smoke trail on the side the missile came from, then a
+		# glowing head.
+		var back := Vector2(0, -1) if m.falling else Vector2(0, 1)
+		var steps := 10
+		for k in steps:
+			var t0 := float(k) / steps
+			var t1 := float(k + 1) / steps
+			var a := 0.75 * (1.0 - t0)
+			draw_line(p + back * (TRAIL_LENGTH * t0), p + back * (TRAIL_LENGTH * t1),
+				Color(1, 0.95, 0.85, a), lerpf(5.0, 1.5, t0))
+		draw_circle(p, 9.0, Color(m.color, 0.30))
+		draw_circle(p, 5.0, m.color)
+		draw_circle(p, 2.2, Color(1, 1, 0.9))
 	for f in flashes:
 		var k: float = f.t / f.duration
 		var col: Color = f.color
 		col.a = 1.0 - k
 		match f.kind:
 			"explosion":
-				draw_circle(f.pos, f.radius * (0.4 + 0.6 * k), col)
-				draw_arc(f.pos, f.radius * (0.6 + 0.8 * k), 0, TAU, 24, Color(1, 0.9, 0.6, col.a), 2.0)
+				# Smoke that lingers, the fireball, a hot core and a shock ring.
+				if k > 0.35:
+					var sk := (k - 0.35) / 0.65
+					draw_circle(f.pos + Vector2(0, -12.0 * sk), f.radius * (0.6 + 0.4 * sk), Color(0.18, 0.17, 0.16, 0.5 * (1.0 - sk)))
+				draw_circle(f.pos, f.radius * (0.45 + 0.55 * k), col)
+				draw_circle(f.pos, f.radius * 0.5 * (1.0 - k), Color(1.0, 0.95, 0.7, 1.0 - k))
+				draw_arc(f.pos, f.radius * (0.6 + 1.0 * k), 0, TAU, 32, Color(1, 0.9, 0.6, col.a), 3.0)
 			"burst":
 				for a in 8:
 					var dir := Vector2.RIGHT.rotated(TAU * a / 8.0)
