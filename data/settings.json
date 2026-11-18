@@ -2,7 +2,10 @@
   "build_clock_seconds": 120,
   "targeting_clock_seconds": 60,
   "clock_off_value": 0,
+  "clock_seconds_max": 600,
+  "clock_seconds_step": 10,
   "decoys_per_side": 1,
   "decoys_per_side_min": 1,
-  "decoys_per_side_max": 3
+  "decoys_per_side_max": 3,
+  "show_tips": true
 }

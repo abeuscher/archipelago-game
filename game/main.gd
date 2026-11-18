@@ -11,6 +11,9 @@ const Minimap = preload("res://game/minimap.gd")
 const Pieces = preload("res://game/pieces.gd")
 const Audio = preload("res://game/audio.gd")
 const Hud = preload("res://game/hud.gd")
+const UserSettings = preload("res://game/user_settings.gd")
+const Tips = preload("res://game/tips.gd")
+const Earnings = preload("res://game/earnings.gd")
 
 const REPAIR_SOUND := "assets/audio/repair_work_crew.ogg"
 const BOARD_GAP := 320.0
@@ -30,6 +33,10 @@ var effects
 var camera: Camera2D
 var audio
 var hud
+var prefs: Dictionary                ## the player's settings (user_settings.gd)
+var prefs_path: String = UserSettings.PATH
+var tips: Array = []
+var current_tip = null
 
 var ui: int = Ui.SETUP
 var viewing: int = 0
@@ -51,8 +58,12 @@ var _drag_moved: float = 0.0
 
 func _ready() -> void:
 	data = GameData.load_default()
+	if has_meta("settings_path"):
+		prefs_path = String(get_meta("settings_path"))
+	prefs = UserSettings.load_settings(data.settings, prefs_path)
+	tips = Tips.load_tips(data)
 	seed_value = _seed_from_args()
-	m = MatchState.create(data, seed_value)
+	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
 	enemy_ai = SimpleAI.new(MatchState.ENEMY, data, seed_value)
 
 	own_board = BoardView.new()
@@ -75,6 +86,13 @@ func _ready() -> void:
 	add_child(hud)
 	hud.minimap.view_requested.connect(_on_minimap)
 	hud.rotate_requested.connect(_rotate)
+	hud.earnings_requested.connect(_update_earnings)
+	hud.tip_dismissed.connect(_on_tip_dismissed)
+	hud.tips_off_requested.connect(_on_tips_off)
+	hud.research_panel.start_requested.connect(_start_research)
+	hud.esc_menu.setup(data.settings, prefs)
+	hud.esc_menu.settings_changed.connect(_on_settings_changed)
+	hud.esc_menu.quit_requested.connect(func(): get_tree().quit())
 
 	var es: Dictionary = enemy_ai.choose_setup(m.view_for(MatchState.ENEMY))
 	var e: String = m.setup_side(MatchState.ENEMY, es["bases"], es["decoys"])
@@ -142,7 +160,7 @@ func _start_round() -> void:
 	selected = Vector2i(-1, -1)
 	_focus(0)
 	hud.set_phase("Build and repair", m.round_number)
-	_set_clock(int(m.settings["build_clock_seconds"]))
+	_set_clock(int(prefs["build_clock_seconds"]))
 	_refresh()
 
 
@@ -150,6 +168,7 @@ func _end_build() -> void:
 	if ui != Ui.BUILD:
 		return
 	m.end_build_phase()
+	hud.research_panel.visible = false
 	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
 		m.set_launch_orders(MatchState.ENEMY, [])
@@ -161,7 +180,7 @@ func _end_build() -> void:
 	active_launcher = _next_free_launcher()
 	_focus(1)
 	hud.set_phase("Targeting", m.round_number)
-	_set_clock(int(m.settings["targeting_clock_seconds"]))
+	_set_clock(int(prefs["targeting_clock_seconds"]))
 	_refresh()
 
 
@@ -207,7 +226,7 @@ func _show_game_over() -> void:
 
 func _set_clock(seconds: int) -> void:
 	clock_left = float(seconds)
-	clock_running = seconds > int(m.settings["clock_off_value"])
+	clock_running = seconds > int(data.settings["clock_off_value"])
 	hud.set_timer(clock_left if clock_running else -1.0)
 
 
@@ -256,7 +275,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_drag_moved += mm.relative.length()
 			_update_viewing()
 		var hit := _pick(get_global_mouse_position())
-		if hit != hovered:
+		if hit == hovered:
+			_update_hover_text()
+		else:
 			hovered = hit
 			own_board.hover = hit.y if hit.x == 0 else -1
 			enemy_board.hover = hit.y if hit.x == 1 else -1
@@ -447,8 +468,15 @@ func _fuel_planned() -> int:
 
 # --- Refresh ---------------------------------------------------------------
 
+const LEVEL_NAMES := ["base level", "middle level", "top level"]
+
+
+func _own_state():
+	return setup_trial if ui == Ui.SETUP and setup_trial != null else m.sides[0]
+
+
 func _refresh() -> void:
-	var own_state = setup_trial if ui == Ui.SETUP and setup_trial != null else m.sides[0]
+	var own_state = _own_state()
 	if ui != Ui.PLAYOUT:
 		own_board.set_tiles(BoardView.own_tiles(own_state, data))
 		enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
@@ -464,6 +492,12 @@ func _refresh() -> void:
 	hud.minimap.set_data(m.sides[0].island.grid, own_board.tiles, enemy_board.tiles)
 	hud.set_resources(own_state.money, own_state.fuel, own_state.compute_income(data)["research"] if own_state.count_role(data, "lab") > 0 else 0)
 	_build_toolbar(own_state)
+	_build_strip(own_state)
+	if hud.earnings_visible():
+		_update_earnings()
+	if hud.research_panel.visible:
+		hud.research_panel.show_state(m.sides[0], data, ui == Ui.BUILD)
+	_update_tips()
 	_update_info()
 	own_board.queue_redraw()
 	enemy_board.queue_redraw()
@@ -497,89 +531,271 @@ func _update_ranges(st) -> void:
 			own_board.range_rings = [{"hexes": g.within(b.hex, st.radar_range(b, data)), "color": Color(0.8, 0.5, 1.0, 0.7)}]
 
 
+func _building_tooltip(type: String) -> String:
+	var lines: Array = [Pieces.display_name(type), Pieces.BUILDING_TEXT.get(type, "")]
+	var def: Dictionary = data.building(type)
+	lines.append("Cost %d" % data.cost(type))
+	if def.has("hp"):
+		lines.append("%d HP" % int(def["hp"]))
+	elif def.has("hits_to_destroy"):
+		lines.append("Destroyed by %d hits" % int(def["hits_to_destroy"]))
+	if def.has("requires"):
+		lines.append("Needs research: %s" % Pieces.research_name(String(def["requires"])))
+	return "\n".join(lines)
+
+
 func _build_toolbar(st) -> void:
 	hud.clear_tools()
 	match ui:
 		Ui.SETUP:
 			var placed: int = st.bases_alive(data)
+			var per_side: int = data.integer("bases", "per_side")
 			var decoys: int = st.count_role(data, "decoy")
 			var max_decoys := int(m.settings["decoys_per_side"])
-			hud.add_label("Setup")
-			hud.add_tool_button("Place bases (%d/3)" % placed, func(): setup_mode = "base"; _refresh(), false, setup_mode == "base")
-			hud.add_tool_button("Place decoy, 20 (%d/%d)" % [decoys, max_decoys], func(): setup_mode = "decoy"; _refresh(),
-				decoys >= max_decoys, setup_mode == "decoy")
+			hud.add_label("Place your bases on your island. Bases and decoys may not touch each other.", true)
+			hud.add_piece_button("base", "Base", "%d/%d" % [placed, per_side], "Free",
+				func(): setup_mode = "base"; _refresh(), false, setup_mode == "base", _building_tooltip("base"))
+			hud.add_piece_button("decoy", "Decoy (optional)", "%d/%d" % [decoys, max_decoys], "%d money" % data.cost("decoy"),
+				func(): setup_mode = "decoy"; _refresh(), decoys >= max_decoys, setup_mode == "decoy", _building_tooltip("decoy"))
 			hud.add_label("Click a placed piece to remove it.", true)
-			hud.add_tool_button("Start", _start_setup_game, placed != data.integer("bases", "per_side"))
+			hud.add_spacer()
+			hud.add_tool_button("Start", _start_setup_game, placed != per_side, false,
+				"Begin round 1" if placed == per_side else "Place all %d bases first" % per_side)
 		Ui.BUILD:
-			hud.add_label("Build")
 			for type in data.building_types():
 				var def: Dictionary = data.building(type)
 				if not bool(def.get("buildable", true)):
 					continue
 				var unlocked: bool = st.building_unlocked(type, data)
-				var text := "%s  %d" % [Pieces.display_name(type), data.cost(type)]
+				var note := ""
+				var at_limit := false
 				if not unlocked:
-					text += "  (research)"
+					note = "Research %s first" % Pieces.research_name(String(def.get("requires", "")))
+				elif type == "decoy" and st.count_role(data, "decoy") >= int(m.settings["decoys_per_side"]):
+					note = "Limit reached"
+					at_limit = true
+				elif st.money < data.cost(type):
+					note = "Not enough money"
 				var t: String = type
-				hud.add_tool_button(text, func(): tool = t; selected = Vector2i(-1, -1); _refresh(),
-					not unlocked or st.money < data.cost(type), tool == type)
-			hud.add_tool_button("Done", _end_build)
+				hud.add_piece_button(type, Pieces.display_name(type), str(data.cost(type)), note,
+					func(): tool = t; selected = Vector2i(-1, -1); _refresh(),
+					not unlocked or at_limit or st.money < data.cost(type), tool == type, _building_tooltip(type))
+			hud.add_label("Select a building to repair it. Select a lab, or click a beaker on the right, for research.", true)
+			hud.add_spacer()
+			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now")
 		Ui.TARGETING:
-			var planned := _fuel_planned()
-			hud.add_label("Fuel  %d / %d" % [planned, st.fuel])
-			for b in st.of_role(data, "launcher"):
+			hud.add_fuel_planner(st.fuel, _fuel_planned())
+			hud.add_label("Weapons")
+			var launchers: Array = st.of_role(data, "launcher")
+			if launchers.is_empty():
+				hud.add_label("No launchers. Build one in the build and repair phase.", true)
+			for b in launchers:
 				var name := Pieces.display_name(b.type)
+				var hx: int = b.hex
 				if not st.weapon_active(b):
-					hud.add_label("%s: out of action" % name, true)
+					hud.add_piece_button(b.type, name, "", "Under repair" if b.repairing else "Out of action",
+						func(): pass, true, false, "Repair it in the build and repair phase.")
 					continue
 				var mt := _missile_for(b.hex)
-				var assigned := orders.any(func(o): return o["launcher"] == b.hex)
-				var text := "%s: %s, %d fuel%s" % [name, Pieces.MISSILE_NAMES.get(mt, mt), int(data.missile(mt)["fuel"]), "  (aimed)" if assigned else ""]
-				var hx: int = b.hex
-				hud.add_tool_button(text, func(): active_launcher = hx; _refresh(), false, active_launcher == b.hex)
+				var aimed := false
+				for o in orders:
+					if o["launcher"] == b.hex:
+						aimed = true
+				var note: String = Pieces.MISSILE_NAMES.get(mt, mt) + ("  · aimed" if aimed else "")
+				hud.add_piece_button(b.type, name, "%d fuel" % int(data.missile(mt)["fuel"]), note,
+					func(): active_launcher = hx; _refresh(), false, active_launcher == b.hex,
+					"Select this launcher, then click an enemy hex to aim it.")
 				var options: Array = data.building(b.type)["missiles"].filter(func(x): return st.missile_unlocked(x, data))
 				if options.size() > 1:
-					hud.add_tool_button("   switch missile", func(): _cycle_missile(hx))
-			hud.add_tool_button("Undo", _undo, orders.is_empty())
-			hud.add_tool_button("Attack", _attack)
+					hud.add_tool_button("    Switch missile", func(): _cycle_missile(hx), false, false,
+						"Change what this launcher fires")
+			hud.add_spacer()
+			hud.add_tool_button("Undo", _undo, orders.is_empty(), false, "Take back the last order. Free.")
+			hud.add_tool_button("Attack", _attack, false, false, "Launch the orders placed and end targeting")
 		Ui.PLAYOUT:
-			hud.add_label("Playout")
+			hud.add_label("Missiles in flight.", true)
+
+
+## The right-hand strip: a beaker per research project, then a button per
+## base. Destroyed bases stay as grey buttons.
+func _build_strip(st) -> void:
+	var items: Array = []
+	var labs: Array = st.of_role(data, "lab")
+	var projects: Array = st.projects.duplicate()
+	projects.sort_custom(func(a, b): return int(a["order"]) < int(b["order"]))
+	for p in projects:
+		var item := String(p["item"])
+		var need := int(data.research_item(item)["points"])
+		var left := Earnings.rounds_left(st, data, item)
+		var details := "%s: %d / %d points, %s" % [Pieces.research_name(item), int(p["progress"]), need,
+			"stalled" if left < 0 else "about %d round%s left" % [left, "" if left == 1 else "s"]]
+		if int(p["lab_id"]) == -1:
+			details += " (its lab was destroyed)"
+		var lab_id: int = int(p["lab_id"]) if int(p["lab_id"]) != -1 else (labs[0].id if not labs.is_empty() else -1)
+		items.append({"kind": "beaker", "fraction": float(p["progress"]) / need, "details": details,
+			"action": func(): _open_research(lab_id), "enabled": ui == Ui.BUILD and lab_id != -1})
+	var per_side: int = data.integer("bases", "per_side")
+	var max_hits := float(data.building("base")["hits_to_destroy"])
+	var bases: Array = st.of_role(data, "base")
+	for i in per_side:
+		if i < bases.size():
+			var b = bases[i]
+			var left := max_hits - float(b.hits)
+			var hx: int = b.hex
+			items.append({"kind": "base", "hits_left": left, "hits_max": max_hits,
+				"details": "Base %d: %s of %d hits left" % [i + 1, _fmt(left), int(max_hits)],
+				"action": func(): _show_own_hex(hx), "enabled": true})
+		elif ui != Ui.SETUP:
+			items.append({"kind": "base", "hits_left": 0.0, "hits_max": max_hits,
+				"details": "Base %d: destroyed" % (i + 1), "enabled": false})
+	hud.set_strip(items)
+
+
+func _show_own_hex(hex: int) -> void:
+	camera.position = own_board.position + own_board.tile_center(hex)
+	_update_viewing()
+	selected = Vector2i(0, hex)
+	_refresh()
+
+
+func _open_research(lab_id: int) -> void:
+	if ui != Ui.BUILD:
+		return
+	hud.research_panel.open_lab(m.sides[0], data, lab_id, true)
+
+
+func _start_research(lab_id: int, item: String) -> void:
+	if ui != Ui.BUILD:
+		return
+	var e: String = m.build_action(MatchState.PLAYER, {"action": "research", "lab": lab_id, "item": item})
+	if e != "":
+		hud.add_log("[color=salmon]%s[/color]" % e)
+	else:
+		hud.add_log("Research started: %s." % Pieces.research_name(item))
+	_refresh()
+
+
+func _update_earnings() -> void:
+	var p: Dictionary = Earnings.project(_own_state(), data, m.round_number)
+	hud.set_earnings(p["lines"], int(p["round"]))
+
+
+# --- Tips ------------------------------------------------------------------
+
+func _tip_context() -> Dictionary:
+	var st = m.sides[0]
+	var phase := ""
+	match ui:
+		Ui.SETUP: phase = "setup"
+		Ui.BUILD: phase = "build"
+		Ui.TARGETING: phase = "targeting"
+	var seen := false
+	for e in m.knowledge[0].values():
+		if e["building"] != null and String(e["building"]["type"]) == "suspected_base":
+			seen = true
+			break
+	var damaged := false
+	for b in st.buildings_sorted():
+		if st.needs_repair(b, data):
+			damaged = true
+			break
+	var need_fuel := 0
+	for b in st.of_role(data, "launcher"):
+		if st.weapon_active(b):
+			var mt := _missile_for(b.hex)
+			if mt != "":
+				need_fuel += int(data.missile(mt)["fuel"])
+	return {
+		"phase": phase,
+		"has_anti_air": st.count_role(data, "anti_air") > 0,
+		"radar_started": st.is_unlocked("radar") or st.project_for_item("radar") != null,
+		"suspected_base_seen": seen,
+		"own_damaged": damaged,
+		"fuel_short": need_fuel > st.fuel,
+	}
+
+
+func _update_tips() -> void:
+	if not bool(prefs["show_tips"]) or ui in [Ui.PLAYOUT, Ui.COIN, Ui.OVER]:
+		hud.show_tip(null)
+		return
+	var r: Dictionary = Tips.update(tips, _tip_context(), prefs["tips_done"], current_tip)
+	current_tip = r["current"]
+	if r["done"].size() != prefs["tips_done"].size():
+		prefs["tips_done"] = r["done"]
+		_save_prefs()
+	hud.show_tip(current_tip)
+
+
+func _on_tip_dismissed(id: String) -> void:
+	if id != "" and not prefs["tips_done"].has(id):
+		prefs["tips_done"].append(id)
+		_save_prefs()
+	current_tip = null
+	_update_tips()
+
+
+func _on_tips_off() -> void:
+	prefs["show_tips"] = false
+	_save_prefs()
+	_update_tips()
+
+
+func _on_settings_changed(s: Dictionary) -> void:
+	prefs = s
+	_save_prefs()
+	current_tip = null
+	_refresh()
+
+
+func _save_prefs() -> void:
+	UserSettings.save_settings(prefs, prefs_path)
+	hud.esc_menu.setup(data.settings, prefs)
+
+
+# --- Info box --------------------------------------------------------------
+
+func _level_text(level: int) -> String:
+	return "Land, %s" % LEVEL_NAMES[clampi(level, 0, LEVEL_NAMES.size() - 1)]
 
 
 func _update_info() -> void:
 	var target := selected if selected.y >= 0 else hovered
 	hud.clear_info_actions()
+	_update_hover_text()
 	if target.y < 0:
 		hud.set_info("")
 		return
 	if target.x == 0:
-		var st = setup_trial if ui == Ui.SETUP and setup_trial != null else m.sides[0]
+		var st = _own_state()
 		var isl = st.island
 		var lines: Array = []
-		lines.append(("Land, level %d" % isl.level[target.y]) if isl.is_land(target.y) else "Sea")
+		lines.append(_level_text(isl.level[target.y]) if isl.is_land(target.y) else "Sea")
 		var b = st.building_at(target.y)
 		if b != null:
 			lines.push_front("[b]%s[/b]" % Pieces.display_name(b.type))
 			if data.is_base_like(b.type):
-				lines.append("Hits taken: %s of %s" % [_fmt(b.hits), _fmt(float(data.building(b.type)["hits_to_destroy"]))])
+				var max_hits := float(data.building(b.type)["hits_to_destroy"])
+				lines.append("Hits taken: %s of %s" % [_fmt(b.hits), _fmt(max_hits)])
 			else:
 				lines.append("HP %d / %d" % [b.hp, data.max_hp(b.type)])
 				if b.repairing:
-					lines.append("Under repair")
+					lines.append("Under repair: back next round")
 				elif b.disabled:
-					lines.append("Out of action until repaired")
+					lines.append("[color=salmon]Out of action until repaired[/color]")
 				elif st.is_half_strength(b, data):
-					lines.append("Half strength")
+					lines.append("[color=orange]Half strength until repaired[/color]")
+				lines.append_array(_building_detail_lines(st, b))
 			if ui == Ui.BUILD and target == selected:
 				_info_actions_for(st, b)
 		hud.set_info("\n".join(lines))
 	else:
 		var e = m.knowledge[0].get(target.y)
 		if e == null:
-			hud.set_info("Unexplored")
+			hud.set_info("[b]Unexplored[/b]\nUnder fog. Nothing is known here.")
 			return
-		var lines: Array = [("Land, level %d" % e["level"]) if e["land"] else "Sea",
-			"Last seen in round %d" % e["seen_round"]]
+		var lines: Array = [_level_text(int(e["level"])) if e["land"] else "Sea",
+			"Last seen in round %d%s" % [e["seen_round"], "" if int(e["seen_round"]) == m.round_number else " (may have changed)"]]
 		var b = e["building"]
 		if b != null:
 			if b["type"] == "suspected_base":
@@ -595,37 +811,64 @@ func _update_info() -> void:
 		hud.set_info("\n".join(lines))
 
 
+## What a building does right now, for the info box.
+func _building_detail_lines(st, b) -> Array:
+	var out: Array = []
+	var produces: Dictionary = data.building(b.type).get("produces", {})
+	for res in produces:
+		var v := int(produces[res])
+		if st.is_half_strength(b, data):
+			v = st.half_income(v, data)
+		out.append("Makes %d %s a round" % [v, res])
+	match data.role(b.type):
+		"anti_air":
+			out.append("Covers %d hexes around it, %d missiles a round" % [int(data.section("anti_air")["radius"]), st.anti_air_engagements(data)])
+		"radar":
+			out.append("Range %d hexes" % st.radar_range(b, data))
+		"launcher":
+			var names: Array = []
+			for mt in data.building(b.type)["missiles"]:
+				if st.missile_unlocked(mt, data):
+					names.append(Pieces.MISSILE_NAMES.get(mt, mt))
+			out.append("Fires: %s" % ", ".join(names))
+		"lab":
+			var p = st.project_for_lab(b.id)
+			if p != null:
+				out.append("Researching %s" % Pieces.research_name(String(p["item"])))
+			else:
+				var oldest = st.oldest_project()
+				out.append("Helping %s" % Pieces.research_name(String(oldest["item"])) if oldest != null else "Idle: choose research")
+	return out
+
+
 func _info_actions_for(st, b) -> void:
 	if st.needs_repair(b, data):
 		var cost: int = st.repair_cost(b.type, data)
 		var hx: int = b.hex
+		var type: String = b.type
 		var do_repair := func():
 			var e: String = m.build_action(MatchState.PLAYER, {"action": "repair", "hex": hx})
 			if e != "":
 				hud.add_log("[color=salmon]%s[/color]" % e)
 			else:
 				audio.play(REPAIR_SOUND)
+				hud.add_log("Repairing %s." % Pieces.display_name(type))
 			_refresh()
-		hud.add_info_action("Repair (%d)" % cost, do_repair, st.can_repair(b.hex, data) != "")
+		var err: String = st.can_repair(b.hex, data)
+		hud.add_info_action("Repair (%d)" % cost, do_repair, err != "", err)
 	if data.role(b.type) == "lab":
-		var p = st.project_for_lab(b.id)
-		if p != null:
-			hud.add_info_text("Researching %s: %d / %d" % [String(p["item"]).capitalize(), p["progress"],
-				int(data.research_item(String(p["item"]))["points"])])
-		else:
-			var oldest = st.oldest_project()
-			hud.add_info_text("Helping %s" % String(oldest["item"]).capitalize() if oldest != null else "Idle")
-			for item in st.research_available(data):
-				var it: String = item
-				var def: Dictionary = data.research_item(item)
-				var lab_id: int = b.id
-				var do_research := func():
-					var e: String = m.build_action(MatchState.PLAYER, {"action": "research", "lab": lab_id, "item": it})
-					if e != "":
-						hud.add_log("[color=salmon]%s[/color]" % e)
-					_refresh()
-				hud.add_info_action("%s (%d, %d pts)" % [item.capitalize(), int(def["cost"]), int(def["points"])],
-					do_research, st.can_start_research(b.id, item, data) != "")
+		var lab_id: int = b.id
+		hud.add_info_action("Research...", func(): _open_research(lab_id), false, "Open the research panel for this lab")
+
+
+## Hover text beside the mouse for potential enemy bases (section 5).
+func _update_hover_text() -> void:
+	var text := ""
+	if hovered.x == 1 and hovered.y >= 0:
+		var e = m.knowledge[0].get(hovered.y)
+		if e != null and e["building"] != null and String(e["building"]["type"]) == "suspected_base":
+			text = "Potential base: %s hits" % _fmt(float(e["building"]["hits"]))
+	hud.set_hover_text(text, get_viewport().get_mouse_position())
 
 
 static func _fmt(v: float) -> String:
@@ -696,7 +939,7 @@ func _run_playout() -> void:
 
 
 func _wait(seconds: float) -> void:
-	await get_tree().create_timer(seconds).timeout
+	await get_tree().create_timer(seconds, false).timeout
 
 
 func _rise(board, hex: int, color: Color, delay: float, offset: Vector2 = Vector2.ZERO) -> void:

@@ -11,7 +11,7 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 | `ai/` | The enemy AI. It sees only a `SideView`. |
 | `tools/` | The headless batch runner. |
 | `tests/` | Rules tests and a small test runner. |
-| `game/` | Scenes and presentation (step 4 onward). |
+| `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Tip wording is in `data/tips.json`. |
 
 ## Play
 
@@ -32,8 +32,16 @@ Controls:
 | Rotate the board 60° | Q / E, or the arrow buttons at the top |
 | Look at the other island | Click its half of the minimap |
 | Cancel a tool or selection | Right click |
+| Pause, options, quit | Esc |
 
-Labs choose research from the info box when you select them in the build phase.
+The screen follows section 14 of the spec:
+
+- **Left toolbar.** Buildings during build and repair. During targeting: the fuel planner, your launchers, Undo and Attack. The timer is at the bottom.
+- **Right strip.** A beaker for each research project, then a button for each base showing its hits left. Click a beaker to open the research panel. Click a base to jump to it.
+- **Research.** Select a lab and press "Research...", or click a beaker.
+- **Top right.** "Next round" shows next round's projected income. "Log" opens the full game log; events also flash at the top as they happen.
+
+Settings and tip progress are saved to `user://settings.json`. On Windows that is `%APPDATA%\Godotpp_userdata\Archipelago\settings.json`. Delete the file to reset them.
 
 ## Commands
 
@@ -61,7 +69,7 @@ Batch runner (AI against AI, headless):
 
 `--set` overrides a data value for that run only. It never edits the data files. The defaults for match count, seed and the round cap are in `data/ai.json` under `batch`. A match that reaches the round cap is reported as a timeout.
 
-Screenshots (development aid: drives the real scene through one round in a window):
+Screenshots (development aid: drives the real scene through setup, a build with research, targeting, the Esc menu and one playout, in a window; it uses its own settings file):
 
 ```powershell
 & "C:\Godot\Godot_v4.7.2-stable_win64_console.exe" --path . -s tools/capture.gd -- <output folder> [seed]

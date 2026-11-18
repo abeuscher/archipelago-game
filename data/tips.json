@@ -1,0 +1,17 @@
+{
+  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
+  "tips": [
+    { "id": "build_anti_air", "when": "build_without_anti_air",
+      "text": "Build anti-air first. Each one shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round." },
+    { "id": "research_radar", "when": "radar_not_started",
+      "text": "Research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to choose research." },
+    { "id": "aim", "when": "targeting",
+      "text": "Pick a launcher on the left, then click a hex on the enemy space to aim it. The enemy island is under fog: missiles have to find its coast first. Undo is free." },
+    { "id": "suspected_base", "when": "suspected_base_seen",
+      "text": "The number on a potential base counts its hits. A base falls at {base_hits} hits. A decoy is exposed when it reaches {decoy_reveal_hits} hits." },
+    { "id": "repair", "when": "own_damaged",
+      "text": "Something of yours is damaged. Select it and press Repair. A damaged weapon stays out of action until it is repaired." },
+    { "id": "fuel", "when": "fuel_short",
+      "text": "You don't have the fuel to fire every launcher. Each refinery adds {refinery_fuel} fuel a round." }
+  ]
+}

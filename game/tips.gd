@@ -1,0 +1,66 @@
+## Tips that introduce the game as the player goes (section 14). The list,
+## order and wording are in data/tips.json; the conditions are named here.
+## One tip shows at a time. A tip is done when the player dismisses it or
+## when its condition stops holding after it was shown (for example, the
+## anti-air tip once anti-air is built). Done tips never come back.
+extends RefCounted
+
+const PATH := "res://data/tips.json"
+
+
+static func load_tips(data, path: String = PATH) -> Array:
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var out: Array = []
+	if not (parsed is Dictionary):
+		return out
+	var fill := placeholders(data)
+	for t in parsed.get("tips", []):
+		out.append({"id": String(t["id"]), "when": String(t["when"]), "text": String(t["text"]).format(fill)})
+	return out
+
+
+static func placeholders(data) -> Dictionary:
+	var aa: Dictionary = data.section("anti_air")
+	return {
+		"aa_radius": int(aa["radius"]),
+		"aa_engagements": int(aa["engagements"]),
+		"acc": roundi(float(aa["accuracy"]) * 100.0),
+		"acc_radar": roundi(float(aa["accuracy_with_radar"]) * 100.0),
+		"base_hits": int(data.building("base")["hits_to_destroy"]),
+		"decoy_reveal_hits": int(data.building("decoy")["reveals_as_decoy_at_hits"]),
+		"refinery_fuel": int(data.building("refinery")["produces"]["fuel"]),
+	}
+
+
+## ctx keys: phase ("setup", "build", "targeting", ...), has_anti_air,
+## radar_started, suspected_base_seen, own_damaged, fuel_short.
+static func holds(when: String, ctx: Dictionary) -> bool:
+	var phase := String(ctx.get("phase", ""))
+	match when:
+		"build_without_anti_air":
+			return phase == "build" and not ctx.get("has_anti_air", false)
+		"radar_not_started":
+			return phase == "build" and not ctx.get("radar_started", false)
+		"targeting":
+			return phase == "targeting"
+		"suspected_base_seen":
+			return phase in ["build", "targeting"] and ctx.get("suspected_base_seen", false)
+		"own_damaged":
+			return phase == "build" and ctx.get("own_damaged", false)
+		"fuel_short":
+			return phase == "targeting" and ctx.get("fuel_short", false)
+	return false
+
+
+## Returns {"current": tip or null, "done": Array of ids}. `current` is the
+## tip on screen before this update (or null).
+static func update(tips: Array, ctx: Dictionary, done: Array, current) -> Dictionary:
+	var new_done := done.duplicate()
+	if current != null and not holds(String(current["when"]), ctx) and not new_done.has(current["id"]):
+		new_done.append(current["id"])
+	for t in tips:
+		if new_done.has(t["id"]):
+			continue
+		if holds(String(t["when"]), ctx):
+			return {"current": t, "done": new_done}
+	return {"current": null, "done": new_done}

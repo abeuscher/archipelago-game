@@ -1,6 +1,8 @@
 ## Development aid: runs the real main scene in a window, drives it through
-## setup, build, targeting and one playout, and saves screenshots.
+## setup, build, research, targeting and one playout, and saves screenshots.
 ##   godot --path . -s tools/capture.gd -- <output_dir> [seed]
+## Uses its own settings file in the output folder, so it never touches the
+## player's saved settings or tips.
 extends SceneTree
 
 const SimpleAI = preload("res://ai/simple_ai.gd")
@@ -15,10 +17,13 @@ func _initialize() -> void:
 		out_dir = args[0]
 	var seed_arg := "7" if args.size() < 2 else args[1]
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	# main.gd reads --seed from user args; pass it through.
+	var settings_path := out_dir.path_join("capture_settings.json")
+	if FileAccess.file_exists(settings_path):
+		DirAccess.remove_absolute(settings_path)
 	var scene: PackedScene = load("res://game/main.tscn")
 	main = scene.instantiate()
 	main.set_meta("seed_override", int(seed_arg))
+	main.set_meta("settings_path", settings_path)
 	root.add_child(main)
 	_run.call_deferred()
 
@@ -36,6 +41,14 @@ func _shot(name: String) -> void:
 	print("saved ", name)
 
 
+func _free_hexes() -> Array:
+	var free: Array = []
+	for h in main.m.sides[0].island.land_hexes():
+		if main.m.sides[0].building_at(h) == null:
+			free.append(h)
+	return free
+
+
 func _run() -> void:
 	await _frames(10)
 	await _shot("01_setup")
@@ -49,32 +62,49 @@ func _run() -> void:
 	main._refresh()
 	await _shot("02_setup_placed")
 	main._start_setup_game()
-	await _shot("03_build")
-	main.tool = "basic_launcher"
+	await _shot("03_build_tip")
+	main.tool = "anti_air"
 	main._refresh()
 	await _shot("04_build_tool")
-	var free: Array = []
-	for h in main.m.sides[0].island.land_hexes():
-		if main.m.sides[0].building_at(h) == null:
-			free.append(h)
+	var free := _free_hexes()
+	main._click(0, free[60])
+	main.tool = "basic_launcher"
+	main._click(0, free[90])
+	main.m.sides[0].money += 60   # capture only: afford the lab as well
+	main.tool = "lab"
 	main._click(0, free[20])
-	main.tool = "anti_air"
-	main._click(0, free[60])
 	main.tool = ""
-	main._click(0, free[60])
-	await _shot("05_built_selected")
+	var lab = main.m.sides[0].building_at(free[20])
+	main._click(0, free[20])
+	await _shot("05_lab_selected")
+	main._open_research(lab.id)
+	await _shot("06_research_panel")
+	main._start_research(lab.id, "radar")
+	await _shot("07_research_started")
+	main.hud.research_panel.visible = false
+	main.hud._earn_button.button_pressed = true
+	main._refresh()
+	await _shot("08_earnings")
+	main.hud._earn_button.button_pressed = false
 	main._rotate(1)
-	await _shot("06_rotated")
+	await _shot("09_rotated")
 	main._rotate(-1)
 	main._end_build()
-	await _shot("07_targeting")
+	await _shot("10_targeting")
 	main._target_click(main.m.sides[1].island.grid.center_index())
 	main._refresh()
-	await _shot("08_target_set")
+	await _shot("11_target_set")
+	main.hud.esc_menu.open_menu()
+	print("esc menu rect ", main.hud.esc_menu.get_global_rect())
+	await _shot("12_esc_menu")
+	main.hud.esc_menu._show_options()
+	await _shot("13_options")
+	main.hud.esc_menu.close_menu()
 	main._attack()
 	await create_timer(2.6).timeout
-	await _shot("09_playout")
+	await _shot("14_playout")
 	while main.ui == main.Ui.PLAYOUT:
 		await process_frame
-	await _shot("10_round2")
+	main.hud._log_button.button_pressed = true
+	await _shot("15_round2_log")
 	quit()

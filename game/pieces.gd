@@ -21,6 +21,34 @@ const COLORS := {
 	"radar": Color(0.70, 0.45, 0.90), "ballistic_launcher": Color(0.60, 0.15, 0.15),
 }
 const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile"}
+## One-line descriptions for tooltips and the research panel. Numbers are
+## not written here; they come from data where they are shown.
+const BUILDING_TEXT := {
+	"base": "Lose all three and you lose the island.",
+	"decoy": "Looks exactly like a base to the enemy, and takes one more hit to destroy.",
+	"bank": "Produces money every round.",
+	"refinery": "Produces fuel every round. Fuel launches missiles.",
+	"lab": "Produces research points. Each lab works on one research item.",
+	"basic_launcher": "Fires one basic missile a round, or a scouting missile once researched.",
+	"anti_air": "Shoots at incoming missiles aimed near it. Uses no fuel.",
+	"radar": "Anti-air inside its range hits far more often. Range grows with height.",
+	"ballistic_launcher": "Fires one ballistic missile a round: less damage, wider blast.",
+}
+const RESEARCH_NAMES := {
+	"radar": "Radar", "scouting_missile": "Scouting missile", "anti_air_capacity": "Anti-air capacity",
+	"motion_sensor": "Motion sensor", "ballistic_launcher": "Ballistic launcher",
+}
+const RESEARCH_TEXT := {
+	"radar": "Unlocks the radar building, which raises the accuracy of anti-air inside its range.",
+	"scouting_missile": "Basic launchers can fire a cheap scouting missile that sees a wide area and does no damage.",
+	"anti_air_capacity": "Each anti-air engages one more missile a round.",
+	"motion_sensor": "A basic missile that lands on an empty hex moves to the nearest enemy building close by, on the same level.",
+	"ballistic_launcher": "Unlocks the ballistic launcher.",
+}
+
+
+static func research_name(item: String) -> String:
+	return RESEARCH_NAMES.get(item, item.replace("_", " ").capitalize())
 
 static var _sprites: Dictionary = {}
 
