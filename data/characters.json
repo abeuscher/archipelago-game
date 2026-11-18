@@ -4,7 +4,7 @@
   "characters": {
     "ginger": {
       "name": "Ginger",
-      "portrait": "res://assets/characters/ginger_circle.jpg",
+      "portrait": "res://assets/characters/ginger.jpg",
       "circle": [598, 448, 418]
     }
   }
