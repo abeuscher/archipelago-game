@@ -9,10 +9,17 @@
 ##   --set path=value    override a data value for this run only, e.g.
 ##                       --set rules.anti_air.engagements=1   (repeatable)
 ##   --csv FILE          also write one row per match
+##   --ai0 NAME          AI for side 0: simple, strong, or strong:<handicap>
+##   --ai1 NAME          AI for side 1 (both default to strong)
+##   --swap              alternate which side each AI plays, match by match,
+##                       so a side advantage can't favour one AI
+##   --set1 path=value   override an ai.* value for the --ai1 AI only, to
+##                       test a variant against the unchanged AI (repeatable)
 extends SceneTree
 
 const GameData = preload("res://rules/game_data.gd")
 const SimpleAI = preload("res://ai/simple_ai.gd")
+const StrongAI = preload("res://ai/strong_ai.gd")
 const MatchRunner = preload("res://ai/match_runner.gd")
 
 
@@ -24,6 +31,9 @@ func _initialize() -> void:
 	var max_rounds := int(batch_cfg["max_rounds"])
 	var csv_path := ""
 	var overrides: Array[String] = []
+	var ai_names := ["strong", "strong"]
+	var swap := false
+	var ai1_sets: Array = []
 
 	var args := OS.get_cmdline_user_args()
 	var i := 0
@@ -33,6 +43,12 @@ func _initialize() -> void:
 			"--seed": first_seed = int(args[i + 1]); i += 1
 			"--max-rounds": max_rounds = int(args[i + 1]); i += 1
 			"--csv": csv_path = args[i + 1]; i += 1
+			"--ai0": ai_names[0] = args[i + 1]; i += 1
+			"--ai1": ai_names[1] = args[i + 1]; i += 1
+			"--swap": swap = true
+			"--set1":
+				ai1_sets.append(args[i + 1])
+				i += 1
 			"--set":
 				var kv := args[i + 1].split("=", true, 1)
 				data.set_path(kv[0], JSON.parse_string(kv[1]))
@@ -44,15 +60,35 @@ func _initialize() -> void:
 				return
 		i += 1
 
+	# Each AI reads its own copy of the data; only ai.* may differ, so the
+	# rules both sides play under stay identical.
+	var ai_data := [data, data.duplicate_data()]
+	for kv_text in ai1_sets:
+		var kv: PackedStringArray = String(kv_text).split("=", true, 1)
+		if not kv[0].begins_with("ai."):
+			push_error("--set1 only takes ai.* paths: " + kv[0])
+			quit(2)
+			return
+		ai_data[1].set_path(kv[0], JSON.parse_string(kv[1]))
+		overrides.append("ai1: " + kv_text)
+	if not ai1_sets.is_empty():
+		ai_names[1] = ai_names[1] + "*"
+
 	var t0 := Time.get_ticks_msec()
 	var results: Array = []
 	for k in matches:
 		var seed_in := first_seed + k
-		var ais := [SimpleAI.new(0, data, seed_in), SimpleAI.new(1, data, seed_in)]
-		results.append(MatchRunner.play(data, seed_in, ais, max_rounds))
+		var flip := swap and k % 2 == 1
+		var names: Array = [ai_names[1], ai_names[0]] if flip else ai_names
+		var slot: Array = [1, 0] if flip else [0, 1]
+		var ais := [make_ai(names[0], 0, ai_data[slot[0]], seed_in), make_ai(names[1], 1, ai_data[slot[1]], seed_in)]
+		var r: Dictionary = MatchRunner.play(data, seed_in, ais, max_rounds)
+		r["ai_names"] = names
+		results.append(r)
 	var secs := (Time.get_ticks_msec() - t0) / 1000.0
 
 	_report(results, overrides, matches, first_seed, max_rounds, secs)
+	_report_ais(results, ai_names, swap)
 	if csv_path != "":
 		_write_csv(results, csv_path)
 	var any_errors := results.any(func(r): return not r["errors"].is_empty())
@@ -95,6 +131,29 @@ func _report(results: Array, overrides: Array[String], matches: int, first_seed:
 	if error_count > 0:
 		print("Rejected AI actions: %d (first: %s)" % [error_count,
 			results.filter(func(r): return not r["errors"].is_empty())[0]["errors"][0]])
+
+
+static func make_ai(name: String, side: int, data, seed_in: int):
+	var parts := name.trim_suffix("*").split(":")
+	match parts[0]:
+		"simple":
+			return SimpleAI.new(side, data, seed_in)
+		"strong":
+			return StrongAI.new(side, data, seed_in, parts[1] if parts.size() > 1 else "")
+	push_error("Unknown AI " + name)
+	return SimpleAI.new(side, data, seed_in)
+
+
+func _report_ais(results: Array, ai_names: Array, swap: bool) -> void:
+	print("AIs: side 0 %s, side 1 %s%s" % [ai_names[0], ai_names[1], " (sides alternate each match)" if swap else ""])
+	if ai_names[0] == ai_names[1]:
+		return
+	var by_name := {ai_names[0]: 0, ai_names[1]: 0}
+	for r in results:
+		if r["winner"] >= 0:
+			var n: String = r["ai_names"][r["winner"]]
+			by_name[n] += 1
+	print("Wins by AI: %s %d, %s %d" % [ai_names[0], by_name[ai_names[0]], ai_names[1], by_name[ai_names[1]]])
 
 
 func _median(sorted: Array) -> String:

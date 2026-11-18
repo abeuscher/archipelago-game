@@ -28,6 +28,9 @@ var dice
 var sides: Array = []
 var knowledge: Array = [{}, {}]            ## side -> hex -> sighting of the opposing space
 var bases_destroyed_by: Array = [[], []]   ## side -> hexes of enemy bases it destroyed
+## side -> hex -> {"count", "last_round"}: missiles that landed on this side's
+## island (where they finally exploded, after any seeking).
+var bombed: Array = [{}, {}]
 var round_number: int = 0
 var phase: int = Phase.SETUP
 var orders: Array = [[], []]
@@ -218,6 +221,13 @@ func record_sighting(viewer: int, hex: int) -> void:
 	knowledge[viewer][hex] = entry
 
 
+func note_bombed(side: int, hex: int) -> void:
+	var e: Dictionary = bombed[side].get(hex, {"count": 0, "last_round": 0})
+	e["count"] = int(e["count"]) + 1
+	e["last_round"] = round_number
+	bombed[side][hex] = e
+
+
 func note_destroyed(side: int, hex: int, type: String) -> void:
 	_destroyed_this_round[Vector2i(side, hex)] = type
 	if data.role(type) == "base":
@@ -256,6 +266,9 @@ func view_for(side: int):
 	v.enemy_knowledge = knowledge[side].duplicate(true)
 	v.enemy_bases_destroyed = bases_destroyed_by[side].duplicate()
 	v.enemy_bases_total = data.integer("bases", "per_side")
+	v.own_seen_by_enemy = {}
+	for h in knowledge[opponent(side)]:
+		v.own_seen_by_enemy[h] = true
 	return v
 
 

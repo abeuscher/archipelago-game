@@ -47,7 +47,7 @@ func _draw() -> void:
 			if i >= tiles.size():
 				break
 			var t: Dictionary = tiles[i]
-			var col := Color(0.33, 0.34, 0.37)
+			var col := Color(0.10, 0.11, 0.13)
 			if t.get("known", false):
 				if not t["land"]:
 					col = Color(0.16, 0.30, 0.45)

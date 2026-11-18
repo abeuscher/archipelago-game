@@ -14,6 +14,10 @@ var enemy_height: int
 var enemy_knowledge: Dictionary   ## hex -> sighting (see MatchState.record_sighting)
 var enemy_bases_destroyed: Array  ## hexes where this side has destroyed an enemy base
 var enemy_bases_total: int
+## Own hexes the enemy has revealed (hex -> true). A side sees where enemy
+## missiles land on its own island, so this tells it nothing hidden; the
+## player sees the same set drawn lighter on their island.
+var own_seen_by_enemy: Dictionary
 
 
 ## Sighting at a hex, or null if never seen.

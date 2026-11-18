@@ -8,7 +8,7 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 | --- | --- |
 | `data/` | Every number: `rules.json`, `settings.json`, `ai.json`. Also `required_assets.txt`, which lists the media the game needs. |
 | `rules/` | The rules engine: plain GDScript classes with no scenes or rendering. |
-| `ai/` | The enemy AI. It sees only a `SideView`. |
+| `ai/` | The enemy AIs. Each sees only a `SideView`. `strong_ai.gd` is the section 12 AI the game uses; `simple_ai.gd` is the step 3 baseline. |
 | `tools/` | The headless batch runner. |
 | `tests/` | Rules tests and a small test runner. |
 | `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Tip wording is in `data/tips.json`. |
@@ -65,7 +65,11 @@ Batch runner (AI against AI, headless):
 & $GODOT --headless --path . -s tools/batch.gd -- --matches 500 --seed 501
 & $GODOT --headless --path . -s tools/batch.gd -- --matches 500 --set rules.anti_air.engagements=1
 & $GODOT --headless --path . -s tools/batch.gd -- --matches 100 --csv batch_results/run.csv
+& $GODOT --headless --path . -s tools/batch.gd -- --matches 200 --ai0 strong --ai1 simple --swap
+& $GODOT --headless --path . -s tools/batch.gd -- --matches 200 --ai0 strong --ai1 strong:easy --swap
 ```
+
+`--ai0` and `--ai1` pick the AI for each side: `simple`, `strong`, or `strong:<handicap>` with a preset from `data/ai.json` (`none`, `medium`, `easy`). Both default to `strong`, which is the AI the game uses. `--swap` alternates sides match by match and reports wins by AI.
 
 `--set` overrides a data value for that run only. It never edits the data files. The defaults for match count, seed and the round cap are in `data/ai.json` under `batch`. A match that reaches the round cap is reported as a timeout.
 

@@ -165,3 +165,27 @@ func test_tips_phase_change_and_snooze() -> void:
 	r = Tips.update(tips, build, r["done"], null, ["build_anti_air"])
 	eq(r["current"]["id"], "research_radar", "snoozed tip skipped")
 	check(not r["done"].has("build_anti_air"), "snoozed tip not done")
+
+
+func test_bombed_hexes_counted_with_last_round() -> void:
+	var m = flat_match()
+	put(m, 1, "basic_launcher", 1, 1)
+	m.sides[1].fuel = 30
+	var target := hex(m, 7, 7)
+	var launcher_hex := hex(m, 1, 1)
+	play_round(m, [], [{"launcher": launcher_hex, "missile": "basic", "target": target}])
+	eq(m.bombed[0].get(target, {}).get("count", 0), 1, "one hit")
+	eq(m.bombed[0][target]["last_round"], 1, "round 1")
+	play_round(m, [], [{"launcher": launcher_hex, "missile": "basic", "target": target}])
+	eq(m.bombed[0][target]["count"], 2, "two hits")
+	eq(m.bombed[0][target]["last_round"], 2, "last in round 2")
+	check(m.bombed[1].is_empty(), "nothing landed on side 1")
+
+
+func test_hit_outline_colours() -> void:
+	const BoardView = preload("res://game/board_view.gd")
+	check(BoardView.bombed_color(1) != BoardView.bombed_color(2), "1 and 2 differ")
+	check(BoardView.bombed_color(2) != BoardView.bombed_color(3), "2 and 3 differ")
+	eq(BoardView.bombed_color(5), BoardView.bombed_color(3), "red from 3 on")
+	check(BoardView.bombed_color(1).g > BoardView.bombed_color(2).g and BoardView.bombed_color(2).g > BoardView.bombed_color(3).g, "yellow, orange, red")
+	check(BoardView.SELECTED != BoardView.bombed_color(1), "selection never looks like a hit")

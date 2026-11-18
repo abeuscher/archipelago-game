@@ -19,17 +19,26 @@ var range_rings: Array = []       ## [{"hexes": PackedInt32Array, "color": Color
 var placement_ok: Dictionary = {} ## hex -> true where the current tool may place
 var show_hits: bool = false       ## draw hit counts on suspected bases
 var _order: Array = []
+var _time: float = 0.0
+var _since_redraw: float = 0.0
+var _has_fog: bool = false
 
 const SEA := Color(0.16, 0.30, 0.45)
 const SEA_EDGE := Color(0.12, 0.24, 0.37)
 const LAND_TOP := [Color(0.42, 0.56, 0.32), Color(0.55, 0.58, 0.36), Color(0.62, 0.55, 0.42)]
 const WALL := [Color(0.30, 0.36, 0.22), Color(0.38, 0.36, 0.24), Color(0.42, 0.35, 0.27)]
-const FOG := Color(0.33, 0.34, 0.37)
-const FOG_SPECK := Color(0.42, 0.43, 0.46)
-const FOG_SPECK_DARK := Color(0.27, 0.28, 0.30)
+## Fog: near-black, feathered over its edges, with faint blotches that stay
+## put (so panning is visible) and a few slow drifting wisps and swirls.
+const FOG := Color(0.045, 0.05, 0.065)
+const FOG_BLOTCH := Color(0.16, 0.17, 0.20, 0.10)
+const FOG_WISP := Color(0.42, 0.45, 0.50)
+const FOG_FEATHER := [[1.18, 0.55], [1.38, 0.28], [1.6, 0.12]]   ## [scale, alpha]
+const FOG_FPS := 30.0
 const STALE_TINT := Color(0.2, 0.2, 0.25, 0.22)
 ## Own hexes the enemy has revealed are lightened slightly.
 const ENEMY_SEEN_TINT := Color(1, 1, 1, 0.15)
+## Selection is cyan so it never reads as a hit outline (yellow to red).
+const SELECTED := Color(0.35, 0.9, 1.0)
 
 
 func setup(grid) -> void:
@@ -45,7 +54,19 @@ func set_rotation_step(step: int) -> void:
 
 func set_tiles(new_tiles: Array) -> void:
 	tiles = new_tiles
+	_has_fog = tiles.any(func(t): return not t.get("known", false))
 	queue_redraw()
+
+
+## Only boards with fog animate, at a modest frame rate.
+func _process(delta: float) -> void:
+	if not _has_fog:
+		return
+	_time += delta
+	_since_redraw += delta
+	if _since_redraw >= 1.0 / FOG_FPS:
+		_since_redraw = 0.0
+		queue_redraw()
 
 
 func bounds() -> Rect2:
@@ -108,6 +129,13 @@ func _draw() -> void:
 		elif String(t.get("destroyed", "")) != "":
 			Pieces.draw_rubble(self, c, String(t["destroyed"]))
 
+	if _has_fog:
+		_draw_fog_overlay()
+	for i in tiles.size():
+		var n := int(tiles[i].get("bombed", 0))
+		if n > 0:
+			var tb: Dictionary = tiles[i]
+			draw_polyline(_closed(iso.top_polygon(i, _lvl(tb), _land(tb))), bombed_color(n), 2.0)
 	for ring in range_rings:
 		for h in ring["hexes"]:
 			var t2: Dictionary = tiles[h]
@@ -124,7 +152,7 @@ func _draw() -> void:
 		draw_polyline(_closed(iso.top_polygon(hover, _lvl(th), _land(th))), Color(1, 1, 1, 0.9), 2.0)
 	if selected >= 0:
 		var ts: Dictionary = tiles[selected]
-		draw_polyline(_closed(iso.top_polygon(selected, _lvl(ts), _land(ts))), Color(1.0, 0.85, 0.2), 2.5)
+		draw_polyline(_closed(iso.top_polygon(selected, _lvl(ts), _land(ts))), SELECTED, 2.5)
 
 
 func _draw_walls(i: int, top: PackedVector2Array, lvl: int) -> void:
@@ -146,16 +174,81 @@ func _draw_walls(i: int, top: PackedVector2Array, lvl: int) -> void:
 ## the view pans or rotates.
 func _draw_fog(i: int, top: PackedVector2Array) -> void:
 	draw_colored_polygon(top, FOG)
-	draw_polyline(_closed(top), FOG.darkened(0.15), 1.0)
+	# Fixed blotches, so the fog has a texture that moves when you pan.
 	var c := iso.top_center(i, 0, false)
-	var h := (i * 2654435761) & 0xFFFFFFFF
-	for k in 5:
-		h = (h * 1103515245 + 12345) & 0x7FFFFFFF
+	var h := _hash(i)
+	for k in 2:
+		h = _next(h)
 		var ox := float(h % 1000) / 1000.0 - 0.5
-		h = (h * 1103515245 + 12345) & 0x7FFFFFFF
+		h = _next(h)
 		var oy := float(h % 1000) / 1000.0 - 0.5
-		var p := c + Vector2(ox * Iso.HEX_SIZE * 1.2, oy * Iso.HEX_SIZE * Iso.SQUASH * 1.2)
-		draw_circle(p, 2.5 if k % 2 == 0 else 1.6, FOG_SPECK if k % 2 == 0 else FOG_SPECK_DARK)
+		var p := c + Vector2(ox * Iso.HEX_SIZE, oy * Iso.HEX_SIZE * Iso.SQUASH)
+		_soft_ellipse(p, 9.0 + float(h % 7), FOG_BLOTCH, 3)
+
+
+## Drawn after every tile: feathered edges that spill softly over the
+## neighbouring hexes, then drifting wisps and the odd slow swirl.
+func _draw_fog_overlay() -> void:
+	for i in tiles.size():
+		if tiles[i].get("known", false):
+			continue
+		var c := iso.top_center(i, 0, false)
+		var top := iso.top_polygon(i, 0, false)
+		for f in FOG_FEATHER:
+			var poly := PackedVector2Array()
+			for v in top:
+				poly.append(c + (v - c) * float(f[0]))
+			draw_colored_polygon(poly, Color(FOG, float(f[1]) * 0.5))
+	for i in tiles.size():
+		if tiles[i].get("known", false):
+			continue
+		var h := _hash(i)
+		var c := iso.top_center(i, 0, false)
+		var phase := float(h % 6283) / 1000.0
+		if h % 4 == 0:
+			var drift := Vector2(sin(_time * 0.25 + phase) * 10.0, cos(_time * 0.19 + phase) * 4.0)
+			var a := 0.035 + 0.025 * (0.5 + 0.5 * sin(_time * 0.4 + phase * 2.0))
+			_soft_ellipse(c + drift, 22.0, Color(FOG_WISP, a), 5)
+		if h % 11 == 0:
+			var ang := _time * 0.35 * (1.0 if h % 2 == 0 else -1.0) + phase
+			var a2 := 0.10 + 0.06 * sin(_time * 0.5 + phase)
+			_swirl(c, 12.0 + float(h % 5), ang, Color(FOG_WISP, a2))
+
+
+## A filled ellipse made of `layers` stacked translucent ellipses, so its
+## edge fades out instead of ending sharply.
+func _soft_ellipse(c: Vector2, r: float, col: Color, layers: int) -> void:
+	for k in layers:
+		var rr := r * (1.0 - float(k) / layers)
+		draw_colored_polygon(_ellipse_points(c, rr, rr * Iso.SQUASH, 18), Color(col, col.a / layers * (k + 1) * 0.6))
+
+
+## A short spiral curl lying flat on the hex.
+func _swirl(c: Vector2, r: float, start: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	var steps := 22
+	for k in steps + 1:
+		var t := float(k) / steps
+		var ang := start + t * 4.2
+		var rr := r * (0.35 + 0.65 * t)
+		pts.append(c + Vector2(cos(ang) * rr, sin(ang) * rr * Iso.SQUASH))
+	draw_polyline(pts, col, 1.6, true)
+
+
+static func _ellipse_points(c: Vector2, rx: float, ry: float, n: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for k in n:
+		var a := TAU * k / n
+		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
+
+
+static func _hash(i: int) -> int:
+	return ((i + 1) * 2654435761) & 0x7FFFFFFF
+
+
+static func _next(h: int) -> int:
+	return (h * 1103515245 + 12345) & 0x7FFFFFFF
 
 
 ## Hit count drawn flat on the hex in perspective, like a yard marker.
@@ -175,14 +268,25 @@ static func _closed(poly: PackedVector2Array) -> PackedVector2Array:
 
 # --- Tile builders ---------------------------------------------------------
 
+## Outline for a hex hit n times: yellow, orange, then red from 3 on.
+static func bombed_color(n: int) -> Color:
+	if n >= 3:
+		return Color(0.95, 0.2, 0.15)
+	if n == 2:
+		return Color(1.0, 0.55, 0.1)
+	return Color(1.0, 0.9, 0.2)
+
+
 ## Tiles for a side's own island: everything visible. `enemy_seen` holds
 ## the hexes the enemy has revealed (its knowledge); they are drawn lighter.
-static func own_tiles(st, data, enemy_seen: Dictionary = {}) -> Array:
+## `bombed` maps hexes to {"count", "last_round"} for missiles that landed.
+static func own_tiles(st, data, enemy_seen: Dictionary = {}, bombed: Dictionary = {}) -> Array:
 	var out: Array = []
 	var isl = st.island
 	for i in isl.grid.count:
 		var t := {"known": true, "land": isl.is_land(i), "level": isl.level[i], "stale": false,
-			"building": null, "destroyed": "", "enemy_seen": enemy_seen.has(i)}
+			"building": null, "destroyed": "", "enemy_seen": enemy_seen.has(i),
+			"bombed": int(bombed.get(i, {}).get("count", 0))}
 		var b = st.building_at(i)
 		if b != null:
 			t["building"] = {

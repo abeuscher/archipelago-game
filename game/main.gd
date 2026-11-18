@@ -4,7 +4,7 @@ extends Node2D
 
 const GameData = preload("res://rules/game_data.gd")
 const MatchState = preload("res://rules/match_state.gd")
-const SimpleAI = preload("res://ai/simple_ai.gd")
+const StrongAI = preload("res://ai/strong_ai.gd")
 const BoardView = preload("res://game/board_view.gd")
 const Effects = preload("res://game/effects.gd")
 const Minimap = preload("res://game/minimap.gd")
@@ -65,7 +65,7 @@ func _ready() -> void:
 	tips = Tips.load_tips(data)
 	seed_value = _seed_from_args()
 	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
-	enemy_ai = SimpleAI.new(MatchState.ENEMY, data, seed_value)
+	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
 
 	own_board = BoardView.new()
 	own_board.setup(m.sides[0].island.grid)
@@ -159,6 +159,7 @@ func _start_round() -> void:
 	ui = Ui.BUILD
 	tool = ""
 	tips_snoozed = []
+	orders = []   # last round's aim markers don't carry over
 	selected = Vector2i(-1, -1)
 	_focus(0)
 	hud.set_phase("Build and repair", m.round_number)
@@ -481,7 +482,7 @@ func _own_state():
 func _refresh() -> void:
 	var own_state = _own_state()
 	if ui != Ui.PLAYOUT:
-		own_board.set_tiles(BoardView.own_tiles(own_state, data, m.knowledge[1]))
+		own_board.set_tiles(BoardView.own_tiles(own_state, data, m.knowledge[1], m.bombed[0]))
 		enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
 	own_board.selected = selected.y if selected.x == 0 else -1
 	enemy_board.selected = selected.y if selected.x == 1 else -1
@@ -771,6 +772,7 @@ func _update_info() -> void:
 		var isl = st.island
 		var lines: Array = []
 		lines.append(_level_text(isl.level[target.y]) if isl.is_land(target.y) else "Sea")
+		lines.append_array(_enemy_intel_lines(target.y))
 		var b = st.building_at(target.y)
 		if b != null:
 			lines.push_front("[b]%s[/b]" % Pieces.display_name(b.type))
@@ -861,9 +863,40 @@ func _info_actions_for(st, b) -> void:
 		hud.add_info_action("Research...", func(): _open_research(lab_id), false, "Open the research panel for this lab")
 
 
-## Hover text beside the mouse for potential enemy bases (section 5).
+## What the enemy knows about one of our hexes: missiles that landed on it
+## and when the enemy last saw it, so the player can tell whether that
+## knowledge is current.
+func _enemy_intel_lines(hex: int) -> Array:
+	var out: Array = []
+	var hit = m.bombed[0].get(hex)
+	if hit != null:
+		var n := int(hit["count"])
+		out.append("[color=#%s]Hit %d time%s, last in round %d[/color]" % [BoardView.bombed_color(n).to_html(false),
+			n, "" if n == 1 else "s", int(hit["last_round"])])
+	var seen = m.knowledge[1].get(hex)
+	if seen != null:
+		var r := int(seen["seen_round"])
+		var b = m.sides[0].building_at(hex)
+		var current := true
+		if b != null and int(b.built_round) > r:
+			current = false
+		out.append("Enemy last saw this hex in round %d%s" % [r, "" if current else ": it hasn't seen what's here now"])
+	return out
+
+
+## Hover text beside the mouse for potential enemy bases (section 5), and
+## for our own hexes the enemy has hit.
 func _update_hover_text() -> void:
 	var text := ""
+	if hovered.x == 0 and hovered.y >= 0 and ui != Ui.SETUP:
+		var hit = m.bombed[0].get(hovered.y)
+		if hit != null:
+			var n := int(hit["count"])
+			text = "Hit %d time%s, last in round %d" % [n, "" if n == 1 else "s", int(hit["last_round"])]
+			var seen = m.knowledge[1].get(hovered.y)
+			if seen != null:
+				text += "
+Enemy last saw it in round %d" % int(seen["seen_round"])
 	if hovered.x == 1 and hovered.y >= 0:
 		var e = m.knowledge[0].get(hovered.y)
 		if e != null and e["building"] != null and String(e["building"]["type"]) == "suspected_base":
@@ -878,7 +911,7 @@ static func _fmt(v: float) -> String:
 # --- Playout ---------------------------------------------------------------
 
 func _run_playout() -> void:
-	var pre_own: Array = BoardView.own_tiles(m.sides[0], data, m.knowledge[1])
+	var pre_own: Array = BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0])
 	var pre_enemy: Array = BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
 	own_board.set_tiles(pre_own)
 	enemy_board.set_tiles(pre_enemy)
@@ -916,7 +949,7 @@ func _run_playout() -> void:
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
 		await _wait(1.4 + launches[1].size() * 0.35)
-	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1]))
+	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
 			_log_event(ev)
@@ -996,6 +1029,9 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 			board.tiles[int(h)] = reveal_tiles[int(h)]
 		else:
 			board.tiles[int(h)]["enemy_seen"] = true
+	if reveal_tiles.is_empty() and imp.has("hex"):
+		var ih := int(imp["hex"])
+		board.tiles[ih]["bombed"] = int(board.tiles[ih].get("bombed", 0)) + 1
 	board.queue_redraw()
 	for d in imp.get("damaged", []):
 		var p: Vector2 = board.position + board.tile_center(int(d["hex"]))

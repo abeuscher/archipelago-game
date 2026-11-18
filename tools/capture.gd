@@ -107,4 +107,13 @@ func _run() -> void:
 		await process_frame
 	main.hud._log_button.button_pressed = true
 	await _shot("15_round2_log")
+	main.hud._log_button.button_pressed = false
+	var hit: Array = main.m.bombed[0].keys()
+	if not hit.is_empty():
+		main.tool = ""
+		main._click(0, int(hit[0]))
+		await _shot("16_hit_hex_selected")
+	main._focus(1)
+	await create_timer(1.0).timeout
+	await _shot("17_fog")
 	quit()
