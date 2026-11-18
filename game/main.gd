@@ -176,8 +176,20 @@ func _start_setup_game() -> void:
 
 func _start_round() -> void:
 	var events: Array = m.begin_round()
+	# The character announces the round (and its income); those lines go to
+	# the log history without flashing.
+	var said := "Round %d." % m.round_number
 	for ev in events:
-		_log_event(ev)
+		if ev["type"] == "round_start":
+			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
+		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
+			var inc: Dictionary = ev["income"]
+			var line := "Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]]
+			said += " " + line
+			hud.add_log(line, false)
+		else:
+			_log_event(ev)
+	hud.announce(said)
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
@@ -877,9 +889,11 @@ func _update_tips() -> void:
 	hud.show_tip(shown)
 
 
-## A tip marked "pause" holds the phase clock (and the board) until it is
-## dismissed.
+## The phase clock holds while the character is announcing something, and
+## while a tip marked "pause" is up (until it is dismissed).
 func _tip_holds_clock() -> bool:
+	if hud.announcing():
+		return true
 	return current_tip != null and bool(current_tip.get("pause", false)) and hud.tip_showing() == String(current_tip["id"])
 
 
@@ -1099,8 +1113,10 @@ func _run_playout() -> void:
 	if not launches[1].is_empty():
 		# The enemy attack is announced in the log, and the alarm light
 		# starts with it.
+		var incoming := "%d enemy missile%s incoming!" % [launches[1].size(), "" if launches[1].size() == 1 else "s"]
 		hud.set_alarm(true)
-		hud.add_log("%d enemy missile%s incoming!" % [launches[1].size(), "" if launches[1].size() == 1 else "s"])
+		hud.announce(incoming)
+		hud.add_log(incoming, false)
 		await _wait(0.3)
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)

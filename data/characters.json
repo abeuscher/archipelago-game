@@ -1,0 +1,11 @@
+{
+  "_note": "Characters who speak to the player from the portrait space in the left toolbar. portrait is a picture with the face inside a circle; circle is [centre x, centre y, radius] of that circle in the picture's pixels. Messages and tips name a character by id; without one, default speaks.",
+  "default": "ginger",
+  "characters": {
+    "ginger": {
+      "name": "Ginger",
+      "portrait": "res://assets/characters/ginger_circle.jpg",
+      "circle": [598, 448, 418]
+    }
+  }
+}

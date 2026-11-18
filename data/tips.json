@@ -1,5 +1,5 @@
 {
-  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. pause: true holds the phase clock while the tip is up. {build_clock} is filled with the player's build clock when shown. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
+  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. pause: true holds the phase clock while the tip is up. {build_clock} is filled with the player's build clock when shown. character names who says it (data/characters.json); without one, the default character speaks. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
   "tips": [
     { "id": "place_bases", "when": "setup", "anchor": "tool:base",
       "text": "Place your bases carefully. If you lose all three you lose the game. Your decoy can help to distract the enemy from your real targets." },

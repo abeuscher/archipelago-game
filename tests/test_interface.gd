@@ -282,3 +282,14 @@ func test_first_build_tips_timer_then_launcher() -> void:
 	ctx["clock_on"] = false
 	r = Tips.update(tips, ctx, [], null)
 	check(r["current"]["id"] != "round_timer", "no timer tip with the clock off")
+
+
+func test_characters_data() -> void:
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://data/characters.json"))
+	check(parsed is Dictionary, "characters.json parses")
+	var chars: Dictionary = parsed["characters"]
+	check(chars.has(String(parsed["default"])), "default character exists")
+	for id in chars:
+		var c: Dictionary = chars[id]
+		check(FileAccess.file_exists(String(c["portrait"])), "portrait file for " + id)
+		eq(c["circle"].size(), 3, "circle is [x, y, radius] for " + id)

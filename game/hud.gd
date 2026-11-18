@@ -19,6 +19,7 @@ const ToolButton = preload("res://game/tool_button.gd")
 const FuelPlanner = preload("res://game/fuel_planner.gd")
 const IconButton = preload("res://game/icon_button.gd")
 const Beacon = preload("res://game/beacon.gd")
+const Announcer = preload("res://game/announcer.gd")
 const ResearchPanel = preload("res://game/research_panel.gd")
 const EscMenu = preload("res://game/esc_menu.gd")
 
@@ -37,9 +38,8 @@ var _tools: VBoxContainer
 var _timer
 var _timer_label: RichTextLabel
 var _beacon
-var _tip_anchor: String = ""
-var _tip_arrow: Polygon2D
-var _tip_blocker: ColorRect
+var announcer
+var _portrait_slot: Control
 var _money_val: Label
 var _money_next: Label
 var _fuel_val: Label
@@ -61,10 +61,6 @@ var _earn_button: Button
 var _strip: VBoxContainer
 var _strip_title: PanelContainer
 var _strip_title_text: Label
-var _tip: PanelContainer
-var _tip_text: Label
-var _tip_id: String = ""
-var _tip_forever: CheckBox
 var _hover: PanelContainer
 var _hover_text: Label
 var _overlay: PanelContainer
@@ -79,6 +75,7 @@ const INFO_W := 420
 const MINIMAP_W := 230
 const MINIMAP_H := 250        ## taller than wide: the islands are stacked north and south
 const BOTTOM_H := 170
+const PORTRAIT_SLOT_H := 160  ## the character's space above the alarm light
 const MAP_BAR_H := 44         ## gap under the minimap and info box, holding the map controls
 const STRIP_W := 64
 const FLASH_SECONDS := 4.0
@@ -118,8 +115,13 @@ func _ready() -> void:
 	_tools.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tools.add_theme_constant_override("separation", 4)
 	scroll.add_child(_tools)
-	# Alarm light, then the "Round Timer" label (shown while the clock runs),
-	# then the timer itself.
+	# The space where characters appear to talk to the player (announcer.gd),
+	# then the alarm light, the "Round Timer" label (shown while the clock
+	# runs) and the timer itself.
+	_portrait_slot = Control.new()
+	_portrait_slot.custom_minimum_size = Vector2(0, PORTRAIT_SLOT_H)
+	_portrait_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lv.add_child(_portrait_slot)
 	_beacon = Beacon.new()
 	lv.add_child(_beacon)
 	_timer_label = RichTextLabel.new()
@@ -318,52 +320,6 @@ func _ready() -> void:
 	_map_button(bar, "zoom_out", "Zoom out", func(): zoom_requested.emit(-1))
 	_map_button(bar, "zoom_in", "Zoom in", func(): zoom_requested.emit(1))
 
-	# Tip callout, top left of the board area.
-	# Behind a pausing tip: dims and blocks the screen until it is dismissed.
-	_tip_blocker = ColorRect.new()
-	_tip_blocker.color = Color(0, 0, 0, 0.35)
-	_tip_blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_tip_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
-	_tip_blocker.visible = false
-	root.add_child(_tip_blocker)
-	_tip_arrow = Polygon2D.new()
-	_tip_arrow.color = Color(0.45, 0.75, 0.95)
-	_tip_arrow.visible = false
-	root.add_child(_tip_arrow)
-	_tip = PanelContainer.new()
-	_tip.visible = false
-	var tstyle := StyleBoxFlat.new()
-	tstyle.bg_color = Color(0.12, 0.2, 0.28, 0.95)
-	tstyle.border_color = Color(0.45, 0.75, 0.95)
-	tstyle.set_border_width_all(2)
-	tstyle.set_corner_radius_all(6)
-	tstyle.set_content_margin_all(10)
-	_tip.add_theme_stylebox_override("panel", tstyle)
-	root.add_child(_tip)
-	var tv := VBoxContainer.new()
-	_tip.add_child(tv)
-	var th := Label.new()
-	th.text = "Tip"
-	th.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
-	tv.add_child(th)
-	_tip_text = Label.new()
-	_tip_text.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_tip_text.custom_minimum_size = Vector2(356, 0)
-	tv.add_child(_tip_text)
-	var tb := HBoxContainer.new()
-	tv.add_child(tb)
-	_tip_forever = CheckBox.new()
-	_tip_forever.text = "Don't show this again"
-	_tip_forever.button_pressed = true
-	_tip_forever.focus_mode = Control.FOCUS_NONE
-	_tip_forever.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tb.add_child(_tip_forever)
-	var ok := Button.new()
-	ok.text = "Got it"
-	ok.focus_mode = Control.FOCUS_NONE
-	ok.pressed.connect(func(): tip_dismissed.emit(_tip_id, _tip_forever.button_pressed))
-	tb.add_child(ok)
-
 	# Hover text that follows the mouse over the board.
 	_hover = PanelContainer.new()
 	_hover.visible = false
@@ -385,6 +341,13 @@ func _ready() -> void:
 	research_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	research_panel.visible = false
 	root.add_child(research_panel)
+
+	# The character and speech bubble, above the board and panels.
+	announcer = Announcer.new()
+	announcer.slot = _portrait_slot
+	announcer.anchor_rect = _anchor_rect
+	announcer.tip_dismissed.connect(func(id: String, forever: bool): tip_dismissed.emit(id, forever))
+	root.add_child(announcer)
 
 	# Centre overlay for the coin flip and the end of the game.
 	_overlay = PanelContainer.new()
@@ -673,11 +636,14 @@ func notice_showing() -> String:
 # --- Log -------------------------------------------------------------------
 
 ## Adds an event to the history and flashes it at the top of the screen.
-func add_log(text: String) -> void:
+## flash false: into the history only (for lines the character says).
+func add_log(text: String, flash: bool = true) -> void:
 	_log.append_text(text + "\n")
 	if not _log_panel.visible:
 		_unread += 1
 		_log_button.text = "Log (%d)" % _unread
+	if not flash:
+		return
 	var l := RichTextLabel.new()
 	l.bbcode_enabled = true
 	l.fit_content = true
@@ -862,44 +828,22 @@ func set_hover_text(text: String, screen_pos: Vector2) -> void:
 	_hover.position = screen_pos + Vector2(18, 14)
 
 
+## Tips are spoken by the announcer; null clears the current tip.
 func show_tip(tip) -> void:
-	if tip == null:
-		_tip.visible = false
-		_tip_arrow.visible = false
-		_tip_blocker.visible = false
-		_tip_id = ""
-		return
-	if String(tip["id"]) != _tip_id:
-		_tip_forever.button_pressed = true
-	_tip_id = String(tip["id"])
-	_tip_anchor = String(tip.get("anchor", ""))
-	_tip_blocker.visible = bool(tip.get("pause", false))
-	_tip_text.text = String(tip["text"])
-	_tip.visible = true
-	_place_tip.call_deferred()
+	announcer.set_tip(tip)
 
 
-## A tip with an anchor sits just right of what it points at, with an arrow
-## to it: "timer" for the round timer, "tool:<type>" for a toolbar button.
-## Without one (or if the anchor isn't on screen) it sits at the bottom left
-## of the board area.
-func _place_tip() -> void:
-	_tip.reset_size()
-	var sz := _tip.get_combined_minimum_size()
-	var view := _tip.get_viewport_rect().size
-	var target := _anchor_rect(_tip_anchor)
-	if not target.has_area():
-		_tip.position = Vector2(TOOLBAR_W + 16, view.y - sz.y - 16)
-		_tip_arrow.visible = false
-		return
-	var y := clampf(target.get_center().y - sz.y / 2.0, 8.0, view.y - sz.y - 8.0)
-	_tip.position = Vector2(TOOLBAR_W + 22, y)
-	var tip_y := clampf(target.get_center().y, y + 14.0, y + sz.y - 14.0)
-	_tip_arrow.polygon = PackedVector2Array([Vector2(target.end.x + 4, target.get_center().y),
-		Vector2(TOOLBAR_W + 23, tip_y - 10), Vector2(TOOLBAR_W + 23, tip_y + 10)])
-	_tip_arrow.visible = true
+## A short line from the character, closing itself after a few seconds.
+func announce(text: String) -> void:
+	announcer.announce(text)
 
 
+func announcing() -> bool:
+	return announcer.announcing()
+
+
+## Where a tip's anchor is on screen: "timer" for the round timer,
+## "tool:<type>" for a toolbar button. Empty if it isn't shown.
 func _anchor_rect(anchor: String) -> Rect2:
 	if anchor == "timer":
 		return _timer.get_global_rect()
@@ -912,7 +856,7 @@ func _anchor_rect(anchor: String) -> Rect2:
 
 
 func tip_showing() -> String:
-	return _tip_id if _tip.visible else ""
+	return announcer.tip_showing()
 
 
 # --- Overlay ---------------------------------------------------------------

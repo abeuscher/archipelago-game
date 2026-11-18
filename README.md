@@ -12,7 +12,7 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 | `tools/` | The headless batch runner, the screenshot tool, and `sprites/`, which renders the building sprite sheets. |
 | `assets/buildings/` | Building sprite sheets (six frames each, one per board rotation) and `sprites.json`. |
 | `tests/` | Rules tests and a small test runner. |
-| `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Tip wording is in `data/tips.json`. |
+| `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `announcer.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Tip wording is in `data/tips.json`; the characters who speak tips and announcements are in `data/characters.json`. |
 
 ## Play
 
@@ -41,6 +41,7 @@ The screen follows section 14 of the spec:
 - **Left toolbar.** Buildings during build and repair. During targeting: the fuel planner, your launchers, Undo and Attack. The timer is at the bottom.
 - **Right strip.** A beaker for each research project, then a button for each base showing its hits left. Click a beaker to open the research panel. Click a base to jump to it.
 - **Research.** Select a lab and press "Research...", or click a beaker.
+- **Ginger.** Speaks tips and announcements (round starts, incoming attacks) from the left toolbar. A tip dims the screen around what it is about.
 - **Notices.** When something can't be done (out of money, out of fuel, a damaged launcher), a red notice under the round title says why.
 - **Top right.** Money (with next round's income in brackets), fuel and research. "Next round" shows next round's projected income in full. "Log" opens the full game log; events also flash at the top as they happen.
 

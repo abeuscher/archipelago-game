@@ -2,7 +2,7 @@
 
 ## Waiting on a spec
 
-- **Announcer (Ginger).** Portrait filed at `assets/characters/ginger.jpg`. She will appear in the left-hand panel between the toolbar and the timer to announce game events. Behaviour to come.
+- **More characters.** The announcer space takes any character listed in `data/characters.json`; tips and announcements can name who speaks. Ginger is the only one so far.
 - **Fog look and feel.** Edges are clean for now (no soft spill onto revealed ground); revisit the style later.
 
 ## Session 005 (play-test notes, 2026-11-18): done

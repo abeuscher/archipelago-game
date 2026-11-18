@@ -2,4 +2,4 @@
 # One asset per line: <path under res://> | <what it is> | <spec section>
 # The game plays a sound only if its file exists.
 assets/audio/repair_work_crew.ogg | Work-crew sound on a hex under repair | 9
-assets/characters/ginger.jpg | Portrait of Ginger, the announcer who will appear in the left-hand panel between the toolbar and the timer to announce game events (not used yet; behaviour to be specified) | 14
+assets/characters/ginger_circle.jpg | Portrait of Ginger, who speaks tips and announcements from the left-hand panel; face inside a circle, position in data/characters.json | 14

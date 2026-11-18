@@ -63,6 +63,8 @@ func _run() -> void:
 	await _shot("02_setup_placed")
 	main._start_setup_game()
 	await create_timer(1.1).timeout   # camera flight
+	await _shot("03a_round_announced")
+	await create_timer(3.8).timeout   # the announcement closes itself
 	await _shot("03_build_tip")
 	main._on_tip_dismissed("round_timer", true)
 	main._refresh()
