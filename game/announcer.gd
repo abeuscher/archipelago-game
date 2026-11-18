@@ -144,9 +144,11 @@ func set_tip(tip) -> void:
 
 ## id: remembered when closed with "Don't show this again" ticked (see
 ## announcement_dismissed). can_hide false: no such box.
+## hold: whether the phase clock waits while this is on screen.
 func announce(text: String, id: String = "", seconds: float = ANNOUNCE_SECONDS, can_hide: bool = true,
-		character: String = "") -> void:
-	_queue.append({"text": text, "id": id, "seconds": seconds, "can_hide": can_hide and id != "", "character": character})
+		character: String = "", hold: bool = true) -> void:
+	_queue.append({"text": text, "id": id, "seconds": seconds, "can_hide": can_hide and id != "",
+		"character": character, "hold": hold})
 	_refresh()
 
 
@@ -157,6 +159,11 @@ func tip_showing() -> String:
 
 func announcing() -> bool:
 	return _msg != null and not _msg.has("tip")
+
+
+## An announcement on screen that the phase clock waits for.
+func holds_clock() -> bool:
+	return announcing() and bool(_msg.get("hold", true))
 
 
 func _refresh() -> void:

@@ -75,15 +75,11 @@
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
   ],
-  "_announcements": "Said at moments in the game. {n}, {money}, {fuel}, {research} are filled in when said. Every one but the incoming warning has a Don't show this again box.",
+  "_announcements": "Said at moments in the game. income is the report at the start of each round from round 2 (no Don't show this again box; the round clock runs underneath it). {money}, {fuel}, {research}, {n} are filled in when said. The incoming warning has no Don't show this again box either.",
   "announcements": {
-    "round_first": {
+    "income": {
       "character": "pilot",
-      "text": "Round {n}, General. Let's get to work."
-    },
-    "round": {
-      "character": "pilot",
-      "text": "Round {n}, General. We took in {money} money, {fuel} fuel and {research} research."
+      "text": "General, we took in {money} money, {fuel} fuel and {research} research."
     },
     "incoming_one": {
       "character": "ginger",

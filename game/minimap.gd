@@ -74,7 +74,10 @@ func _draw() -> void:
 	var f := _fit()
 	var s: float = f["scale"]
 	var off: Vector2 = f["offset"]
+	var wb: Rect2 = ocean.world_rect()
 	for c in ocean.cells:
+		if not wb.has_point(c):
+			continue
 		draw_colored_polygon(_scaled(Iso.hex_at(c), Vector2.ZERO, s, off), SEA)
 	for b in boards:
 		if b.iso == null:

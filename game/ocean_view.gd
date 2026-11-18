@@ -7,7 +7,8 @@ extends Node2D
 
 const Iso = preload("res://game/iso.gd")
 const Palette = preload("res://game/palette.gd")
-const MARGIN_HEXES := 2       ## open sea beyond the outermost island hex
+const MARGIN_HEXES := 2       ## open sea framed by the minimap beyond the outermost island hex
+const FAR_HEXES := 26         ## sea drawn this far out, so it reaches the screen edges when zoomed out
 
 var cells: Array = []         ## screen centres of the sea hexes
 var show_grid: bool = false   ## outline every sea hex (the "Show grid" option)
@@ -30,7 +31,8 @@ func rebuild(boards: Array) -> void:
 				first = false
 			else:
 				plane_rect = plane_rect.expand(p)
-	plane_rect = plane_rect.grow(Iso.HEX_W * MARGIN_HEXES)
+	var map_rect := plane_rect.grow(Iso.HEX_W * MARGIN_HEXES)
+	plane_rect = plane_rect.grow(Iso.HEX_W * FAR_HEXES)
 	cells = []
 	var r0 := floori(plane_rect.position.y / Iso.ROW_H)
 	var r1 := ceili(plane_rect.end.y / Iso.ROW_H)
@@ -43,12 +45,13 @@ func rebuild(boards: Array) -> void:
 			if not plane_rect.has_point(p) or occupied.has(a):
 				continue
 			cells.append(Vector2(p.x, p.y * Iso.SQUASH))
-	_rect = Rect2(Vector2(plane_rect.position.x, plane_rect.position.y * Iso.SQUASH),
-		Vector2(plane_rect.size.x, plane_rect.size.y * Iso.SQUASH)).grow(Iso.HEX_SIZE)
+	_rect = Rect2(Vector2(map_rect.position.x, map_rect.position.y * Iso.SQUASH),
+		Vector2(map_rect.size.x, map_rect.size.y * Iso.SQUASH)).grow(Iso.HEX_SIZE)
 	queue_redraw()
 
 
-## Screen bounds of the sea, which contains both islands.
+## Screen bounds of the sea the minimap shows: both islands and a little
+## open water. (The sea is drawn much further out than this.)
 func world_rect() -> Rect2:
 	return _rect
 

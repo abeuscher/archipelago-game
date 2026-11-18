@@ -71,9 +71,6 @@ func _run() -> void:
 	await _shot("02b_setup_done_tip")
 	main._start_setup_game()
 	await create_timer(1.1).timeout   # camera flight
-	await _shot("03a_round_announced")
-	main.hud.announcer._ok.pressed.emit()   # announcements wait for OK
-	await create_timer(0.3).timeout
 	await _shot("03_build_tip")
 	main.hud.announcer._ok.pressed.emit()   # the real OK button
 	await create_timer(0.3).timeout
@@ -139,7 +136,8 @@ func _run() -> void:
 	while main.ui == main.Ui.PLAYOUT:
 		await process_frame
 	await create_timer(0.3).timeout
-	main.hud.announcer._ok.pressed.emit()   # round 2 announcement
+	await _shot("15a_income_report")
+	main.hud.announcer._ok.pressed.emit()   # round 2 income report
 	main.hud._log_button.button_pressed = true
 	await _shot("15_round2_log")
 	main.hud._log_button.button_pressed = false

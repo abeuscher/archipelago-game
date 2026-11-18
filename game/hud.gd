@@ -836,8 +836,9 @@ func show_tip(tip) -> void:
 
 ## A line from the character. It stays until OK unless `seconds` > 0.
 ## id/can_hide: see announcer.gd.
-func announce(text: String, id: String = "", seconds: float = 0.0, can_hide: bool = true, character: String = "") -> void:
-	announcer.announce(text, id, seconds, can_hide, character)
+func announce(text: String, id: String = "", seconds: float = 0.0, can_hide: bool = true, character: String = "",
+		hold: bool = true) -> void:
+	announcer.announce(text, id, seconds, can_hide, character, hold)
 
 
 ## How long the alarm light takes to turn `turns` times.

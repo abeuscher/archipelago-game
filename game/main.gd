@@ -10,6 +10,7 @@ const Effects = preload("res://game/effects.gd")
 const Minimap = preload("res://game/minimap.gd")
 const OceanView = preload("res://game/ocean_view.gd")
 const Iso = preload("res://game/iso.gd")
+const Palette = preload("res://game/palette.gd")
 const Pieces = preload("res://game/pieces.gd")
 const Audio = preload("res://game/audio.gd")
 const Hud = preload("res://game/hud.gd")
@@ -26,7 +27,6 @@ const ZOOM_MIN := 0.3
 const ZOOM_MAX := 3.0
 const PAN_SPEED := 700.0
 const ZOOM_STEP := 1.25        ## per press of a zoom button
-const ROUND_LINE_ID := "round_announcement"   ## remembered when the player hides round announcements
 const ALARM_TURNS := 1.0       ## the siren turns this many times before the warning
 
 enum Ui { SETUP, BUILD, TARGETING, PLAYOUT, COIN, OVER }
@@ -81,7 +81,10 @@ func _ready() -> void:
 	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
 	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
 
-	# Sea first, then the enemy island (north, further back), then ours.
+	# Beyond the drawn sea hexes the screen is plain sea, so there is never
+	# a black edge. Then the sea, the enemy island (north, further back),
+	# then ours.
+	RenderingServer.set_default_clear_color(Palette.SEA)
 	ocean = OceanView.new()
 	add_child(ocean)
 	enemy_board = BoardView.new()
@@ -182,23 +185,22 @@ func _start_setup_game() -> void:
 
 func _start_round() -> void:
 	var events: Array = m.begin_round()
-	# The character announces the round (and its income); the log keeps the
-	# plain record without flashing it.
-	var said := _line_text("round_first").format({"n": m.round_number})
-	var said_by := _line_character("round_first")
+	# The character reports what came in (from round 2, when there is
+	# income); the clock runs underneath. The log keeps the plain record
+	# without flashing it.
+	var said := ""
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
 		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
 			var inc: Dictionary = ev["income"]
-			said = _line_text("round").format({"n": m.round_number,
+			said = _line_text("income").format({"n": m.round_number,
 				"money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]})
-			said_by = _line_character("round")
 			hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]], false)
 		else:
 			_log_event(ev)
-	if not prefs["tips_done"].has(ROUND_LINE_ID):
-		hud.announce(said, ROUND_LINE_ID, 0.0, true, said_by)
+	if said != "":
+		hud.announce(said, "", 0.0, false, _line_character("income"), false)
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
@@ -910,10 +912,10 @@ func _update_tips() -> void:
 	hud.show_tip(shown)
 
 
-## The phase clock holds while a character is saying anything: any tip or
-## announcement, until it is dismissed.
+## The phase clock holds while a tip is up, or an announcement that holds
+## it (the income report doesn't), until it is dismissed.
 func _tip_holds_clock() -> bool:
-	return hud.announcing() or hud.tip_showing() != ""
+	return hud.announcer.holds_clock() or hud.tip_showing() != ""
 
 
 func _line_text(key: String) -> String:
