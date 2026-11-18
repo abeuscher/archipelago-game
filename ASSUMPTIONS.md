@@ -102,6 +102,7 @@ Each entry says where it lives. Data keys are in `data/rules.json` unless anothe
 | D67 | **Pause.** The Esc menu covers the whole screen in black, so the board can't be studied while the clock is stopped. | `game/esc_menu.gd` |
 | D68 | **No weapons, no attack turn.** If the player has no launcher that can fire when the build and repair phase ends, targeting is skipped: the notice "Player has no weapons to attack with." shows and the playout runs with the enemy's missiles only. | `game/main.gd` `_end_build` |
 | D69 | **Announcer portrait.** `assets/characters/ginger.jpg` is filed for the character who will announce game events in the left-hand panel, between the toolbar and the timer. It is not used yet. | `data/required_assets.txt` |
+| D70 | **Grid lines.** By default only edges are inked: coasts, the edge of fog or of the space, and changes of height. Land at the same height and open sea have no lines between hexes. "Show grid" in Options (off by default, saved with the other settings) adds a faint outline on every hex, sea included. | `game/board_view.gd` `_draw_land_edges`, `edge_neighbor`; `game/ocean_view.gd`; `data/settings.json` `show_grid`; `game/esc_menu.gd` |
 
 ## Changes directed during play-testing
 

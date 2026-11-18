@@ -4,7 +4,7 @@
 extends RefCounted
 
 const PATH := "user://settings.json"
-const KEYS := ["settings_version", "build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "tips_done"]
+const KEYS := ["settings_version", "build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "show_grid", "tips_done"]
 ## Settings saved before this version drop their clock values, so a change
 ## to the default clocks reaches players who already have a settings file.
 const CLOCK_RESET_BEFORE := 2
@@ -44,6 +44,7 @@ static func sanitize(s: Dictionary, defaults: Dictionary) -> Dictionary:
 		"decoys_per_side": clampi(int(s.get("decoys_per_side", defaults["decoys_per_side"])),
 			int(defaults["decoys_per_side_min"]), int(defaults["decoys_per_side_max"])),
 		"show_tips": bool(s.get("show_tips", defaults.get("show_tips", true))),
+		"show_grid": bool(s.get("show_grid", defaults.get("show_grid", false))),
 		"tips_done": [],
 	}
 	var done = s.get("tips_done", [])

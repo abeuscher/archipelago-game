@@ -16,6 +16,7 @@ func test_settings_defaults_and_clamping() -> void:
 	eq(s["targeting_clock_seconds"], 60, "default targeting clock")
 	eq(s["decoys_per_side"], 1, "default decoys")
 	eq(s["show_tips"], true, "tips on by default")
+	eq(s["show_grid"], false, "grid off by default")
 	s = UserSettings.sanitize({"settings_version": 2, "decoys_per_side": 9, "build_clock_seconds": 7, "targeting_clock_seconds": 5000, "junk": 1}, d.settings)
 	eq(s["decoys_per_side"], 3, "decoys clamped to max")
 	eq(s["build_clock_seconds"], 10, "clock rounded to the step")

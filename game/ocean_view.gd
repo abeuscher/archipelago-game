@@ -10,6 +10,7 @@ const Palette = preload("res://game/palette.gd")
 const MARGIN_HEXES := 2       ## open sea beyond the outermost island hex
 
 var cells: Array = []         ## screen centres of the sea hexes
+var show_grid: bool = false   ## outline every sea hex (the "Show grid" option)
 var _rect := Rect2()          ## screen bounds of the whole sea
 
 
@@ -56,7 +57,8 @@ func _draw() -> void:
 	for c in cells:
 		var poly := Iso.hex_at(c)
 		draw_colored_polygon(poly, Palette.SEA)
-		var closed := poly.duplicate()
-		closed.append(poly[0])
-		draw_polyline(closed, Palette.SEA_LINE, 1.0)
+		if show_grid:
+			var closed := poly.duplicate()
+			closed.append(poly[0])
+			draw_polyline(closed, Palette.SEA_LINE, 1.0)
 		Palette.draw_wave(self, c, Palette.hash_v(c))

@@ -9,5 +9,6 @@
   "decoys_per_side_min": 1,
   "decoys_per_side_max": 3,
   "show_tips": true,
+  "show_grid": false,
   "debug_money": 100
 }

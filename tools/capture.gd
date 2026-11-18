@@ -144,4 +144,7 @@ func _run() -> void:
 	main.hud.zoom_requested.emit(1)
 	main.hud.zoom_requested.emit(1)
 	await _shot("19_zoomed")
+	main.prefs["show_grid"] = true
+	main._apply_grid()
+	await _shot("20_grid_on")
 	quit()

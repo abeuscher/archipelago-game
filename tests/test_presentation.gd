@@ -37,3 +37,21 @@ func test_draw_order_back_to_front() -> void:
 		var order: Array = iso.draw_order()
 		for i in range(1, order.size()):
 			check(iso.plane(order[i - 1]).y <= iso.plane(order[i]).y + 0.001, "sorted by depth")
+
+
+func test_edge_neighbor_matches_the_drawn_outline() -> void:
+	const BoardView = preload("res://game/board_view.gd")
+	var g = HexGrid.new(9, 9)
+	var bv = BoardView.new()
+	bv.setup(g)
+	var i: int = g.center_index()
+	for r in 6:
+		bv.iso.rotation_step = r
+		var c: Vector2 = bv.iso.top_center(i, 0, false)
+		var top: PackedVector2Array = bv.iso.top_polygon(i, 0, false)
+		for k in 6:
+			var n: int = bv.edge_neighbor(i, k)
+			check(n >= 0, "inner hex has all neighbours")
+			var expect: Vector2 = c + ((top[k] + top[(k + 1) % 6]) / 2.0 - c) * 2.0
+			check(bv.iso.top_center(n, 0, false).distance_to(expect) < 0.5, "edge %d, rotation %d faces its neighbour" % [k, r])
+	bv.free()

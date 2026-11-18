@@ -19,6 +19,7 @@ var _build_off: CheckBox
 var _target_off: CheckBox
 var _decoys: SpinBox
 var _tips: CheckBox
+var _grid: CheckBox
 var _reset_note: Label
 
 
@@ -76,6 +77,9 @@ func _ready() -> void:
 	var reset := _button("Reset tips", _reset_tips)
 	reset.tooltip_text = "Show every tip again from the beginning"
 	tips_row.add_child(reset)
+	_grid = _check("Show grid")
+	_grid.tooltip_text = "Outline every hex. Off, only coasts and changes of height are outlined."
+	_opts_box.add_child(_grid)
 	_reset_note = Label.new()
 	_reset_note.add_theme_font_size_override("font_size", 13)
 	_reset_note.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
@@ -143,6 +147,7 @@ func _show_options() -> void:
 	_target_clock.value = int(defaults["targeting_clock_seconds"]) if _target_off.button_pressed else int(settings["targeting_clock_seconds"])
 	_decoys.value = int(settings["decoys_per_side"])
 	_tips.button_pressed = bool(settings["show_tips"])
+	_grid.button_pressed = bool(settings["show_grid"])
 	_reset_note.text = ""
 	_main_box.visible = false
 	_opts_box.visible = true
@@ -155,6 +160,7 @@ func _apply() -> void:
 	s["targeting_clock_seconds"] = off if _target_off.button_pressed else int(_target_clock.value)
 	s["decoys_per_side"] = int(_decoys.value)
 	s["show_tips"] = _tips.button_pressed
+	s["show_grid"] = _grid.button_pressed
 	settings = UserSettings.sanitize(s, defaults)
 	settings_changed.emit(settings.duplicate(true))
 	_show_main()

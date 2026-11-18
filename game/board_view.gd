@@ -19,6 +19,7 @@ var markers: Dictionary = {}      ## hex -> Color, e.g. planned targets
 var range_rings: Array = []       ## [{"hexes": PackedInt32Array, "color": Color}]
 var placement_ok: Dictionary = {} ## hex -> true where the current tool may place
 var show_hits: bool = false       ## draw hit counts on suspected bases
+var show_grid: bool = false       ## outline every hex, not just coasts and height changes
 var _order: Array = []
 var _time: float = 0.0
 var _since_redraw: float = 0.0
@@ -31,6 +32,9 @@ const WALL := Palette.WALL
 ## Surf around known land: the hex footprint at sea level, scaled up, drawn
 ## under the land so it shows only where the land meets the sea.
 const SURF_SCALE := [[1.24, Palette.SURF_OUTER], [1.13, Palette.SURF]]
+## Grid directions by angle in the board plane (y down): 0, 60, ... 300 degrees.
+const DIRS_BY_ANGLE := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, -1)]
+const GRID_INK := Color(0.17, 0.12, 0.07, 0.35)
 ## Fog: near-black, feathered over its edges, with faint blotches that stay
 ## put (so panning is visible) and a few slow drifting wisps and swirls.
 const FOG := Color(0.045, 0.05, 0.065)
@@ -132,7 +136,8 @@ func _draw() -> void:
 			_draw_fog(i, top)
 		else:
 			draw_colored_polygon(top, Palette.SEA_SHALLOW if _near_land(i) else SEA)
-			draw_polyline(_closed(top), Palette.SEA_LINE, 1.0)
+			if show_grid:
+				draw_polyline(_closed(top), Palette.SEA_LINE, 1.0)
 			Palette.draw_wave(self, iso.top_center(i, 0, false), Palette.hash_i(i))
 			if t.get("stale", false):
 				draw_colored_polygon(top, STALE_TINT)
@@ -156,7 +161,7 @@ func _draw() -> void:
 		_draw_walls(i, top, lvl)
 		draw_colored_polygon(top, LAND_TOP[clampi(lvl, 0, 2)])
 		Palette.draw_ground_marks(self, iso.top_center(i, lvl, true), lvl, Palette.hash_i(i))
-		draw_polyline(_closed(top), Palette.INK, 1.3, true)
+		_draw_land_edges(i, top, lvl)
 		if t.get("stale", false):
 			draw_colored_polygon(top, STALE_TINT)
 		_draw_tile_extras(i, t, top, rings_at, font)
@@ -170,6 +175,27 @@ func _draw() -> void:
 		draw_arc(mc, 11.0, 0, TAU, 20, col, 2.0)
 		draw_line(mc + Vector2(-15, 0), mc + Vector2(15, 0), col, 2.0)
 		draw_line(mc + Vector2(0, -9), mc + Vector2(0, 9), col, 2.0)
+
+
+## Ink on the edges of a land hex that face the sea, fog, the edge of the
+## space or a different height. Edges between land at the same height are
+## left open unless the grid is on, when they get a faint line.
+func _draw_land_edges(i: int, top: PackedVector2Array, lvl: int) -> void:
+	for k in 6:
+		var n := edge_neighbor(i, k)
+		var open := n >= 0 and _land(tiles[n]) and _lvl(tiles[n]) == lvl
+		if open and not show_grid:
+			continue
+		draw_line(top[k], top[(k + 1) % 6], GRID_INK if open else Palette.INK, 1.0 if open else 1.3, true)
+
+
+## The hex across edge k (from corner k to corner k+1) of hex i's outline
+## in the current rotation, or -1 outside the space. Edge k faces the
+## screen direction 60 + 60k degrees; undoing the board rotation gives the
+## grid direction.
+func edge_neighbor(i: int, k: int) -> int:
+	var d: Vector2i = DIRS_BY_ANGLE[posmod(1 + k - iso.rotation_step, 6)]
+	return iso.grid.axial_to_index(iso.grid.axial_of(i) + d)
 
 
 ## A known sea hex next to known land is drawn as shallow water.

@@ -87,6 +87,7 @@ func _ready() -> void:
 	own_board.setup(m.sides[0].island.grid)
 	add_child(own_board)
 	_layout_boards()
+	_apply_grid()
 	effects = Effects.new()
 	effects.z_index = 10
 	add_child(effects)
@@ -889,8 +890,18 @@ func _on_tip_dismissed(id: String, forever: bool) -> void:
 func _on_settings_changed(s: Dictionary) -> void:
 	prefs = s
 	_save_prefs()
+	_apply_grid()
 	current_tip = null
 	_refresh()
+
+
+## The "Show grid" option: every hex outlined, or only coasts and height
+## changes.
+func _apply_grid() -> void:
+	var on := bool(prefs["show_grid"])
+	for v in [own_board, enemy_board, ocean]:
+		v.show_grid = on
+		v.queue_redraw()
 
 
 func _save_prefs() -> void:
