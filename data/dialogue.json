@@ -45,25 +45,25 @@
     },
     {
       "id": "research_radar",
-      "character": "ginger",
+      "character": "mechanic",
       "when": "radar_not_started",
       "text": "General, I'd research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to pick the research."
     },
     {
       "id": "aim",
-      "character": "ginger",
+      "character": "pilot",
       "when": "targeting",
       "text": "Pick a launcher on the left, General, then click a hex on the enemy's island to aim it. They're hidden in fog, so our missiles have to find the coast first. Undo costs nothing."
     },
     {
       "id": "suspected_base",
-      "character": "ginger",
+      "character": "mechanic",
       "when": "suspected_base_seen",
       "text": "General, the number on a possible base counts the hits it's taken. A base falls at {base_hits} hits. A decoy falls at {decoy_hits}, and then we'll know it was a fake."
     },
     {
       "id": "fuel",
-      "character": "ginger",
+      "character": "pilot",
       "when": "fuel_short",
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
