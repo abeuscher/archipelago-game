@@ -1,5 +1,6 @@
 {
-  "build_clock_seconds": 120,
+  "settings_version": 2,
+  "build_clock_seconds": 30,
   "targeting_clock_seconds": 60,
   "clock_off_value": 0,
   "clock_seconds_max": 600,

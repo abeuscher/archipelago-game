@@ -1,6 +1,10 @@
 {
-  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
+  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
   "tips": [
+    { "id": "round_timer", "when": "build_clock_running", "anchor": "timer",
+      "text": "You have a limited time to choose how to fortify your territory before the enemy begins its attack. Use it wisely. When this timer hits zero, the battle begins." },
+    { "id": "build_launcher", "when": "build_without_launcher", "anchor": "tool:basic_launcher",
+      "text": "The missile launcher is your first offensive weapon. Make sure to build one early on so you can begin attacking and discover where your enemies' bases lie before it's too late." },
     { "id": "build_anti_air", "when": "build_without_anti_air",
       "text": "Build anti-air first. Each one shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round." },
     { "id": "research_radar", "when": "radar_not_started",

@@ -52,6 +52,7 @@ var clock_running: bool = false
 var tool: String = ""
 var setup_mode: String = "base"
 var setup_trial                     ## SideState copy used to preview setup
+var setup_history: Array = []       ## hexes placed during setup, oldest first, for Undo
 var orders: Array = []
 var active_launcher: int = -1
 var missile_choice: Dictionary = {} ## launcher hex -> missile type
@@ -146,7 +147,9 @@ func _enter_setup() -> void:
 	ui = Ui.SETUP
 	tips_snoozed = []
 	setup_trial = m.sides[0].duplicate_state()
+	setup_history = []
 	setup_mode = "base"
+	hud.set_alarm(false)
 	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
 	_set_clock(0)
@@ -177,6 +180,7 @@ func _start_round() -> void:
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
+	hud.set_alarm(false)
 	ui = Ui.BUILD
 	tool = ""
 	tips_snoozed = []
@@ -196,6 +200,17 @@ func _end_build() -> void:
 	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
 		m.set_launch_orders(MatchState.ENEMY, [])
+	# The battle begins: the alarm light starts.
+	hud.set_alarm(true)
+	hud.show_notice(Hud.NOTICE_BATTLE)
+	if _next_free_launcher() < 0:
+		# Nothing to fire: our attack turn is skipped.
+		hud.show_notice(Hud.NOTICE_NO_WEAPONS)
+		m.set_launch_orders(MatchState.PLAYER, [])
+		orders = []
+		ui = Ui.TARGETING
+		_attack()
+		return
 	ui = Ui.TARGETING
 	tips_snoozed = []
 	tool = ""
@@ -450,9 +465,7 @@ func _rules_error(e: String) -> void:
 func _setup_click(hex: int) -> void:
 	var existing = setup_trial.building_at(hex)
 	if existing != null:
-		if existing.type == "decoy":
-			setup_trial.money += data.cost("decoy")
-		setup_trial.remove_building(hex, data)
+		_setup_remove(hex)
 		return
 	var e: String = setup_trial.can_place_base_like(hex, data)
 	if e != "":
@@ -463,6 +476,7 @@ func _setup_click(hex: int) -> void:
 			hud.add_log("All three bases are placed. Click one to move it.")
 			return
 		setup_trial._add_building("base", hex, data, 0)
+		setup_history.append(hex)
 	else:
 		var err: String = setup_trial.can_build("decoy", hex, data, m.settings)
 		if err != "":
@@ -470,6 +484,25 @@ func _setup_click(hex: int) -> void:
 			return
 		setup_trial.money -= data.cost("decoy")
 		setup_trial._add_building("decoy", hex, data, 0)
+		setup_history.append(hex)
+
+
+func _setup_remove(hex: int) -> void:
+	var existing = setup_trial.building_at(hex)
+	if existing == null:
+		return
+	if existing.type == "decoy":
+		setup_trial.money += data.cost("decoy")
+	setup_trial.remove_building(hex, data)
+	setup_history.erase(hex)
+
+
+## Takes back the last base or decoy placed.
+func _setup_undo() -> void:
+	if setup_history.is_empty():
+		return
+	_setup_remove(int(setup_history.back()))
+	_refresh()
 
 
 func _target_click(hex: int) -> void:
@@ -656,14 +689,22 @@ func _build_toolbar(st) -> void:
 			var decoys: int = st.count_role(data, "decoy")
 			var max_decoys := int(m.settings["decoys_per_side"])
 			hud.add_label("Place your bases on your island. Bases and decoys may not touch each other.", true)
-			hud.add_piece_button("base", "Base", "%d/%d" % [placed, per_side], "Free",
-				func(): setup_mode = "base"; _refresh(), false, setup_mode == "base", _building_tooltip("base"))
+			var bases_full := placed >= per_side
+			var decoys_full := decoys >= max_decoys
+			# A full piece greys out; the mode moves to the other one if it can.
+			if setup_mode == "base" and bases_full and not decoys_full:
+				setup_mode = "decoy"
+			elif setup_mode == "decoy" and decoys_full and not bases_full:
+				setup_mode = "base"
+			hud.add_piece_button("base", "Base", "%d/%d" % [placed, per_side], "All placed" if bases_full else "Free",
+				func(): setup_mode = "base"; _refresh(), bases_full, setup_mode == "base" and not bases_full, _building_tooltip("base"))
 			hud.add_piece_button("decoy", "Decoy (optional)", "%d/%d" % [decoys, max_decoys], "%d money" % data.cost("decoy"),
-				func(): setup_mode = "decoy"; _refresh(), decoys >= max_decoys, setup_mode == "decoy", _building_tooltip("decoy"))
+				func(): setup_mode = "decoy"; _refresh(), decoys_full, setup_mode == "decoy" and not decoys_full, _building_tooltip("decoy"))
 			hud.add_label("Click a placed piece to remove it.", true)
 			hud.add_spacer()
+			hud.add_tool_button("Undo", _setup_undo, setup_history.is_empty(), false, "Take back the last piece placed", "undo")
 			hud.add_tool_button("Start", _start_setup_game, placed != per_side, false,
-				"Begin round 1" if placed == per_side else "Place all %d bases first" % per_side)
+				"Begin round 1" if placed == per_side else "Place all %d bases first" % per_side, "start")
 		Ui.BUILD:
 			for type in data.building_types():
 				var def: Dictionary = data.building(type)
@@ -715,7 +756,7 @@ func _build_toolbar(st) -> void:
 					hud.add_tool_button("Switch missile", func(): _cycle_missile(hx), false, false,
 						"Change what this launcher fires")
 			hud.add_spacer()
-			hud.add_tool_button("Undo", _undo, orders.is_empty(), false, "Take back the last order. Free.")
+			hud.add_tool_button("Undo", _undo, orders.is_empty(), false, "Take back the last order. Free.", "undo")
 			hud.add_tool_button("Attack", _attack, false, false, "Launch the orders placed and end targeting")
 		Ui.PLAYOUT:
 			hud.add_label("Missiles in flight.", true)
@@ -812,6 +853,8 @@ func _tip_context() -> Dictionary:
 				need_fuel += int(data.missile(mt)["fuel"])
 	return {
 		"phase": phase,
+		"clock_on": clock_running,
+		"has_launcher": st.count_role(data, "launcher") > 0,
 		"has_anti_air": st.count_role(data, "anti_air") > 0,
 		"radar_started": st.is_unlocked("radar") or st.project_for_item("radar") != null,
 		"suspected_base_seen": seen,

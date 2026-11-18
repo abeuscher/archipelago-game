@@ -18,6 +18,7 @@ const StripButton = preload("res://game/strip_button.gd")
 const ToolButton = preload("res://game/tool_button.gd")
 const FuelPlanner = preload("res://game/fuel_planner.gd")
 const IconButton = preload("res://game/icon_button.gd")
+const Beacon = preload("res://game/beacon.gd")
 const ResearchPanel = preload("res://game/research_panel.gd")
 const EscMenu = preload("res://game/esc_menu.gd")
 
@@ -34,6 +35,10 @@ var esc_menu
 var _tool_title: Label
 var _tools: VBoxContainer
 var _timer
+var _timer_label: RichTextLabel
+var _beacon
+var _tip_anchor: String = ""
+var _tip_arrow: Polygon2D
 var _money_val: Label
 var _money_next: Label
 var _fuel_val: Label
@@ -82,6 +87,10 @@ const NOTICE_SECONDS := 3.5
 const NOTICE_MONEY := "Out of money. Build more banks."
 const NOTICE_FUEL := "Out of fuel. Build more refineries."
 const NOTICE_SILO := "Missile silo damaged. Repair during build phase."
+const NOTICE_NO_WEAPONS := "Player has no weapons to attack with."
+## Shown as the alarm light starts, when the battle begins. Placeholder
+## wording until the final text is given.
+const NOTICE_BATTLE := "Battle stations! The attack begins."
 
 
 func _ready() -> void:
@@ -100,6 +109,7 @@ func _ready() -> void:
 	lv.add_theme_constant_override("separation", 8)
 	left.add_child(lv)
 	_tool_title = Label.new()
+	_tool_title.add_theme_font_override("font", bold_font())
 	_tool_title.add_theme_font_size_override("font_size", 20)
 	lv.add_child(_tool_title)
 	var scroll := ScrollContainer.new()
@@ -110,6 +120,21 @@ func _ready() -> void:
 	_tools.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tools.add_theme_constant_override("separation", 4)
 	scroll.add_child(_tools)
+	# Alarm light, then the "Round Timer" label (shown while the clock runs),
+	# then the timer itself.
+	_beacon = Beacon.new()
+	lv.add_child(_beacon)
+	_timer_label = RichTextLabel.new()
+	_timer_label.bbcode_enabled = true
+	_timer_label.fit_content = true
+	_timer_label.scroll_active = false
+	_timer_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_timer_label.add_theme_font_override("normal_font", tracked_font(1))
+	_timer_label.add_theme_color_override("default_color", Color(1.0, 0.72, 0.35))
+	_timer_label.text = "[center]%s[/center]" % small_caps("Round Timer", 15, 11)
+	_timer_label.visible = false
+	lv.add_child(_timer_label)
 	_timer = SevenSeg.new()
 	_timer.tooltip_text = "Time left in this phase. Black when the clock is off or not running."
 	lv.add_child(_timer)
@@ -296,6 +321,10 @@ func _ready() -> void:
 	_map_button(bar, "zoom_in", "Zoom in", func(): zoom_requested.emit(1))
 
 	# Tip callout, top left of the board area.
+	_tip_arrow = Polygon2D.new()
+	_tip_arrow.color = Color(0.45, 0.75, 0.95)
+	_tip_arrow.visible = false
+	root.add_child(_tip_arrow)
 	_tip = PanelContainer.new()
 	_tip.visible = false
 	var tstyle := StyleBoxFlat.new()
@@ -407,18 +436,19 @@ func _ready() -> void:
 static func make_theme() -> Theme:
 	var th := Theme.new()
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.09, 0.11, 0.14, 0.96)
-	panel.border_color = Color(0.25, 0.29, 0.34)
+	panel.bg_color = Color(0.13, 0.15, 0.18, 0.97)
+	panel.border_color = Color(0.30, 0.32, 0.36)
 	panel.set_border_width_all(1)
 	panel.set_corner_radius_all(4)
 	panel.set_content_margin_all(10)
 	th.set_stylebox("panel", "PanelContainer", panel)
 	# Buttons look like buttons: filled, bordered, padded, text centred.
-	th.set_stylebox("normal", "Button", _button_box(Color(0.19, 0.23, 0.29), Color(0.36, 0.42, 0.5)))
-	th.set_stylebox("hover", "Button", _button_box(Color(0.25, 0.30, 0.38), Color(0.55, 0.65, 0.76)))
+	th.set_stylebox("normal", "Button", _button_box(Color(0.23, 0.25, 0.29), Color(0.40, 0.42, 0.47)))
+	th.set_stylebox("hover", "Button", _button_box(Color(0.29, 0.31, 0.36), Color(0.58, 0.61, 0.67)))
 	th.set_stylebox("pressed", "Button", _button_box(Color(0.20, 0.36, 0.52), Color(0.50, 0.78, 1.0)))
 	th.set_stylebox("hover_pressed", "Button", _button_box(Color(0.24, 0.42, 0.60), Color(0.60, 0.85, 1.0)))
-	th.set_stylebox("disabled", "Button", _button_box(Color(0.12, 0.13, 0.16), Color(0.22, 0.24, 0.28)))
+	th.set_stylebox("disabled", "Button", _button_box(Color(0.16, 0.17, 0.20), Color(0.25, 0.27, 0.30)))
+	th.set_font("font", "Button", bold_font())
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	th.set_color("font_color", "Button", Color(0.93, 0.95, 0.97))
 	th.set_color("font_hover_color", "Button", Color(1, 1, 1))
@@ -457,6 +487,16 @@ func set_phase(phase_name: String, round_number: int) -> void:
 ## seconds < 0 means the clock is off or not running: a plain black box.
 func set_timer(seconds: float) -> void:
 	_timer.set_time(seconds)
+	_timer_label.visible = seconds >= 0.0
+
+
+## The alarm light: on from the moment the battle begins.
+func set_alarm(on: bool) -> void:
+	_beacon.set_active(on)
+
+
+func alarm_on() -> bool:
+	return _beacon.active
 
 
 ## money_next: next round's money income, or -1 when there is none to show
@@ -687,9 +727,20 @@ func add_spacer(h: float = 8.0) -> void:
 	_tools.add_child(c)
 
 
-func add_tool_button(text: String, action: Callable, disabled: bool = false, pressed: bool = false, tooltip: String = "") -> Button:
+## icon: an IconButton icon kind ("undo", "start") drawn at the left.
+func add_tool_button(text: String, action: Callable, disabled: bool = false, pressed: bool = false, tooltip: String = "",
+		icon: String = "") -> Button:
 	var b := Button.new()
 	b.text = text
+	if icon != "":
+		var glyph := Control.new()
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		glyph.position = Vector2(8, 4)
+		glyph.size = Vector2(24, 28)
+		var kind := icon
+		glyph.draw.connect(func():
+			IconButton.draw_icon(glyph, kind, glyph.size / 2.0, Color(0.9, 0.93, 0.96) if not b.disabled else Color(0.45, 0.47, 0.5)))
+		b.add_child(glyph)
 	b.disabled = disabled
 	b.toggle_mode = pressed
 	b.button_pressed = pressed
@@ -809,22 +860,48 @@ func set_hover_text(text: String, screen_pos: Vector2) -> void:
 func show_tip(tip) -> void:
 	if tip == null:
 		_tip.visible = false
+		_tip_arrow.visible = false
 		_tip_id = ""
 		return
 	if String(tip["id"]) != _tip_id:
 		_tip_forever.button_pressed = true
 	_tip_id = String(tip["id"])
+	_tip_anchor = String(tip.get("anchor", ""))
 	_tip_text.text = String(tip["text"])
 	_tip.visible = true
 	_place_tip.call_deferred()
 
 
-## Bottom left of the board area, just right of the toolbar.
+## A tip with an anchor sits just right of what it points at, with an arrow
+## to it: "timer" for the round timer, "tool:<type>" for a toolbar button.
+## Without one (or if the anchor isn't on screen) it sits at the bottom left
+## of the board area.
 func _place_tip() -> void:
 	_tip.reset_size()
 	var sz := _tip.get_combined_minimum_size()
 	var view := _tip.get_viewport_rect().size
-	_tip.position = Vector2(TOOLBAR_W + 16, view.y - sz.y - 16)
+	var target := _anchor_rect(_tip_anchor)
+	if not target.has_area():
+		_tip.position = Vector2(TOOLBAR_W + 16, view.y - sz.y - 16)
+		_tip_arrow.visible = false
+		return
+	var y := clampf(target.get_center().y - sz.y / 2.0, 8.0, view.y - sz.y - 8.0)
+	_tip.position = Vector2(TOOLBAR_W + 22, y)
+	var tip_y := clampf(target.get_center().y, y + 14.0, y + sz.y - 14.0)
+	_tip_arrow.polygon = PackedVector2Array([Vector2(target.end.x + 4, target.get_center().y),
+		Vector2(TOOLBAR_W + 23, tip_y - 10), Vector2(TOOLBAR_W + 23, tip_y + 10)])
+	_tip_arrow.visible = true
+
+
+func _anchor_rect(anchor: String) -> Rect2:
+	if anchor == "timer":
+		return _timer.get_global_rect()
+	if anchor.begins_with("tool:"):
+		var type := anchor.substr(5)
+		for c in _tools.get_children():
+			if c is ToolButton and c.piece_type == type and not c.is_queued_for_deletion():
+				return c.get_global_rect()
+	return Rect2()
 
 
 func tip_showing() -> String:

@@ -64,6 +64,9 @@ func _run() -> void:
 	main._start_setup_game()
 	await create_timer(1.1).timeout   # camera flight
 	await _shot("03_build_tip")
+	main._on_tip_dismissed("round_timer", true)
+	main._refresh()
+	await _shot("03b_launcher_tip")
 	main.tool = "anti_air"
 	main._refresh()
 	await _shot("04_build_tool")

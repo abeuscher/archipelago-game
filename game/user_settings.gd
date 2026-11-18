@@ -4,7 +4,10 @@
 extends RefCounted
 
 const PATH := "user://settings.json"
-const KEYS := ["build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "tips_done"]
+const KEYS := ["settings_version", "build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "tips_done"]
+## Settings saved before this version drop their clock values, so a change
+## to the default clocks reaches players who already have a settings file.
+const CLOCK_RESET_BEFORE := 2
 
 
 ## Defaults from data, overlaid with whatever the player saved, then clamped.
@@ -30,7 +33,12 @@ static func save_settings(s: Dictionary, path: String = PATH) -> void:
 ## Keeps only known keys, fills gaps from the defaults and clamps each value
 ## to its range. A clock of clock_off_value means the clock is off.
 static func sanitize(s: Dictionary, defaults: Dictionary) -> Dictionary:
+	if int(s.get("settings_version", 1)) < CLOCK_RESET_BEFORE:
+		s = s.duplicate()
+		s.erase("build_clock_seconds")
+		s.erase("targeting_clock_seconds")
 	var out := {
+		"settings_version": int(defaults.get("settings_version", 1)),
 		"build_clock_seconds": clock_value(s.get("build_clock_seconds", defaults["build_clock_seconds"]), defaults),
 		"targeting_clock_seconds": clock_value(s.get("targeting_clock_seconds", defaults["targeting_clock_seconds"]), defaults),
 		"decoys_per_side": clampi(int(s.get("decoys_per_side", defaults["decoys_per_side"])),

@@ -17,7 +17,8 @@ static func load_tips(data, path: String = PATH) -> Array:
 		return out
 	var fill := placeholders(data)
 	for t in parsed.get("tips", []):
-		out.append({"id": String(t["id"]), "when": String(t["when"]), "text": String(t["text"]).format(fill)})
+		out.append({"id": String(t["id"]), "when": String(t["when"]), "text": String(t["text"]).format(fill),
+			"anchor": String(t.get("anchor", ""))})
 	return out
 
 
@@ -34,11 +35,16 @@ static func placeholders(data) -> Dictionary:
 	}
 
 
-## ctx keys: phase ("setup", "build", "targeting", ...), has_anti_air,
-## radar_started, suspected_base_seen, own_damaged, fuel_short.
+## ctx keys: phase ("setup", "build", "targeting", ...), clock_on,
+## has_launcher, has_anti_air, radar_started, suspected_base_seen,
+## own_damaged, fuel_short.
 static func holds(when: String, ctx: Dictionary) -> bool:
 	var phase := String(ctx.get("phase", ""))
 	match when:
+		"build_clock_running":
+			return phase == "build" and ctx.get("clock_on", false)
+		"build_without_launcher":
+			return phase == "build" and not ctx.get("has_launcher", true)
 		"build_without_anti_air":
 			return phase == "build" and not ctx.get("has_anti_air", false)
 		"radar_not_started":
