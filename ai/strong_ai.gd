@@ -194,8 +194,18 @@ func choose_build(view) -> Array:
 	return actions
 
 
+## The next building to buy: the build order, then late_cycle repeated so
+## the side keeps growing for as long as it has money. Refineries are passed
+## over while stored fuel already covers fuel_reserve_rounds of firing.
+## With skip_blocked_research, a building still waiting on research is
+## passed over rather than holding the money.
 func _next_in_order(st) -> String:
-	var order: Array = _build_order()
+	var order: Array = _build_order().duplicate()
+	var cycle: Array = cfg.get("late_cycle", [])
+	if not cycle.is_empty():
+		for k in LATE_CYCLE_REPEATS:
+			order.append_array(cycle)
+	var skip_blocked := bool(cfg.get("skip_blocked_research", false))
 	var need := {}
 	for type in order:
 		need[type] = int(need.get(type, 0)) + 1
@@ -207,13 +217,42 @@ func _next_in_order(st) -> String:
 			continue
 		if not st.building_unlocked(type, data):
 			var req := String(data.building(type).get("requires", ""))
-			if req != "" and cfg["research_order"].has(req):
+			if req != "" and cfg["research_order"].has(req) and not skip_blocked:
 				return ""
 			continue
 		if data.role(type) == "launcher" and not _can_fuel_another(st, type):
 			continue
+		if data.role(type) == "refinery" and _fuel_to_spare(st):
+			continue
 		return type
 	return ""
+
+
+const LATE_CYCLE_REPEATS := 20
+
+
+## Fuel for one round of firing every launcher (plus `extra` more).
+func _fuel_per_round(st, extra_type: String = "") -> int:
+	var per_round := 0
+	for b in st.of_role(data, "launcher"):
+		per_round += _cheapest_fuel(b.type)
+	if extra_type != "":
+		per_round += _cheapest_fuel(extra_type)
+	return per_round
+
+
+## Stored fuel covers fuel_reserve_rounds of firing every launcher.
+func _fuel_to_spare(st) -> bool:
+	var rounds := int(cfg.get("fuel_reserve_rounds", 0))
+	return rounds > 0 and st.fuel >= maxi(1, _fuel_per_round(st)) * rounds
+
+
+## Another launcher is worth it if fuel income, plus a share of the fuel
+## in store spread over fuel_reserve_rounds, pays for firing them all.
+func _can_fuel_another(st, type: String) -> bool:
+	var per_round := _fuel_per_round(st, type)
+	var rounds := maxi(1, int(cfg.get("fuel_reserve_rounds", 1)))
+	return per_round <= int(st.compute_income(data)["fuel"]) + st.fuel / rounds
 
 
 ## Placement that keeps other buildings from giving bases away and prefers

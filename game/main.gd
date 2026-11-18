@@ -994,6 +994,15 @@ func _update_info() -> void:
 		hud.set_info("\n".join(lines))
 
 
+## "2/6 points, 2 rounds left" for a research item in progress.
+func _research_progress(st, item: String) -> String:
+	var p = st.project_for_item(item)
+	var need := int(data.research_item(item)["points"])
+	var left := Earnings.rounds_left(st, data, item)
+	var eta := "stalled" if left < 0 else "%d round%s left" % [left, "" if left == 1 else "s"]
+	return "%d/%d points, %s" % [int(p["progress"]), need, eta]
+
+
 ## What a building does right now, for the info box.
 func _building_detail_lines(st, b) -> Array:
 	var out: Array = []
@@ -1013,11 +1022,15 @@ func _building_detail_lines(st, b) -> Array:
 			out.append("Fires: %s" % ", ".join(names))
 		"lab":
 			var p = st.project_for_lab(b.id)
+			var oldest = st.oldest_project()
 			if p != null:
 				out.append("Researching %s" % Pieces.research_name(String(p["item"])))
+				out.append(_research_progress(st, String(p["item"])))
+			elif oldest != null:
+				out.append("Helping %s" % Pieces.research_name(String(oldest["item"])))
+				out.append(_research_progress(st, String(oldest["item"])))
 			else:
-				var oldest = st.oldest_project()
-				out.append("Helping %s" % Pieces.research_name(String(oldest["item"])) if oldest != null else "Idle: choose research")
+				out.append("Idle: choose research")
 	return out
 
 
@@ -1037,8 +1050,11 @@ func _info_actions_for(st, b) -> void:
 		var err: String = st.can_repair(b.hex, data)
 		hud.add_info_action("Repair (%d)" % cost, do_repair, err != "", err)
 	if data.role(b.type) == "lab":
+		# Only a lab without a project of its own can start one.
 		var lab_id: int = b.id
-		hud.add_info_action("Research...", func(): _open_research(lab_id), false, "Open the research panel for this lab")
+		var own = st.project_for_lab(lab_id)
+		hud.add_info_action("Research...", func(): _open_research(lab_id), own != null,
+			"Choose research for this lab" if own == null else "Already researching %s" % Pieces.research_name(String(own["item"])))
 
 
 ## What the enemy knows about one of our hexes: missiles that landed on it

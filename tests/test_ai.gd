@@ -164,3 +164,26 @@ func test_strong_ai_search_skips_explored_ground() -> void:
 	eq(orders.size(), 1, "one search shot")
 	if orders.size() == 1:
 		check(g.distance(int(orders[0]["target"]), c) > 1, "aims away from explored ground")
+
+
+func test_strong_ai_keeps_adding_launchers() -> void:
+	# The enemy must build up its offence, not sit on one launcher.
+	const StrongAI = preload("res://ai/strong_ai.gd")
+	var d = data()
+	for seed_in in [3, 11]:
+		var m = MatchState.create(d, seed_in)
+		var ais := [StrongAI.new(0, d, seed_in), StrongAI.new(1, d, seed_in + 1)]
+		for s in 2:
+			var setup: Dictionary = ais[s].choose_setup(m.view_for(s))
+			m.setup_side(s, setup["bases"], setup["decoys"])
+		while not m.is_over() and m.round_number < 10:
+			m.begin_round()
+			for s in 2:
+				for a in ais[s].choose_build(m.view_for(s)):
+					m.build_action(s, a)
+			m.end_build_phase()
+			for s in 2:
+				m.set_launch_orders(s, ais[s].choose_targets(m.view_for(s)))
+			m.resolve_playout()
+		if not m.is_over():
+			check(m.sides[1].count_role(d, "launcher") >= 3, "at least 3 launchers by round 10 (seed %d)" % seed_in)

@@ -1,39 +1,104 @@
 {
   "simple": {
     "build_order": [
-      "basic_launcher", "bank", "refinery",
-      "lab", "anti_air", "radar",
-      "basic_launcher", "bank", "refinery",
-      "basic_launcher", "lab"
+      "basic_launcher",
+      "bank",
+      "refinery",
+      "lab",
+      "anti_air",
+      "radar",
+      "basic_launcher",
+      "bank",
+      "refinery",
+      "basic_launcher",
+      "lab"
     ],
-    "research_order": ["radar"],
+    "research_order": [
+      "radar"
+    ],
     "buy_decoys_at_setup": true,
     "base_min_spacing": 3,
-    "repair_priority": ["basic_launcher", "ballistic_launcher", "anti_air", "radar", "refinery", "bank", "lab"],
-    "target_priority": ["suspected_base", "basic_launcher", "ballistic_launcher", "anti_air", "radar"],
+    "repair_priority": [
+      "basic_launcher",
+      "ballistic_launcher",
+      "anti_air",
+      "radar",
+      "refinery",
+      "bank",
+      "lab"
+    ],
+    "target_priority": [
+      "suspected_base",
+      "basic_launcher",
+      "ballistic_launcher",
+      "anti_air",
+      "radar"
+    ],
     "search_center_bias": 0.5,
-    "anti_air_protect_weights": { "base": 3, "decoy": 1, "default": 1 }
+    "anti_air_protect_weights": {
+      "base": 3,
+      "decoy": 1,
+      "default": 1
+    }
   },
-
   "strong": {
     "_note": "The section 12 AI (ai/strong_ai.gd). The build order and weights were chosen by batch testing against the simple AI; see ASSUMPTIONS.md.",
     "build_order": [
-      "basic_launcher", "anti_air", "bank", "refinery",
-      "lab", "radar", "basic_launcher", "bank", "refinery",
-      "anti_air", "basic_launcher", "lab", "bank", "refinery", "basic_launcher"
+      "basic_launcher",
+      "anti_air",
+      "bank",
+      "refinery",
+      "basic_launcher",
+      "bank",
+      "refinery",
+      "basic_launcher",
+      "lab",
+      "bank",
+      "radar",
+      "basic_launcher",
+      "anti_air",
+      "bank",
+      "refinery",
+      "basic_launcher"
     ],
     "build_order_plain": [
-      "basic_launcher", "bank", "refinery",
-      "lab", "anti_air", "radar",
-      "basic_launcher", "bank", "refinery",
-      "basic_launcher", "lab"
+      "basic_launcher",
+      "bank",
+      "refinery",
+      "lab",
+      "anti_air",
+      "radar",
+      "basic_launcher",
+      "bank",
+      "refinery",
+      "basic_launcher",
+      "lab"
     ],
-    "research_order": ["radar", "scouting_missile", "motion_sensor", "anti_air_capacity"],
+    "research_order": [
+      "radar",
+      "scouting_missile",
+      "motion_sensor",
+      "anti_air_capacity"
+    ],
     "setup_decoys_max": 3,
     "buy_decoys_at_setup": true,
     "base_min_spacing": 3,
-    "repair_priority": ["basic_launcher", "ballistic_launcher", "anti_air", "radar", "refinery", "bank", "lab"],
-    "anti_air_protect_weights": { "base": 4, "decoy": 0.5, "launcher": 2, "radar": 1.5, "default": 1 },
+    "repair_priority": [
+      "basic_launcher",
+      "ballistic_launcher",
+      "anti_air",
+      "radar",
+      "refinery",
+      "bank",
+      "lab"
+    ],
+    "anti_air_protect_weights": {
+      "base": 4,
+      "decoy": 0.5,
+      "launcher": 2,
+      "radar": 1.5,
+      "default": 1
+    },
     "placement": {
       "edge_weight": 1.0,
       "height_weight": 0.6,
@@ -44,19 +109,49 @@
       "unseen_weight": 1.0
     },
     "targeting": {
-      "weapon_priority": ["basic_launcher", "ballistic_launcher", "radar", "anti_air"],
+      "weapon_priority": [
+        "basic_launcher",
+        "ballistic_launcher",
+        "radar",
+        "anti_air"
+      ],
       "keep_for_bases": 1,
       "max_extra_for_cover": 1,
       "extra_for_covered_weapons": false
     },
     "handicap": "none",
     "handicap_presets": {
-      "none":   { "choice_noise": 0.0,  "memory_rounds": -1, "build_order": "build_order",       "plain_placement": false },
-      "medium": { "choice_noise": 0.25, "memory_rounds": 4,  "build_order": "build_order",       "plain_placement": false },
-      "easy":   { "choice_noise": 0.5,  "memory_rounds": 2,  "build_order": "build_order_plain", "plain_placement": true }
-    }
+      "none": {
+        "choice_noise": 0.0,
+        "memory_rounds": -1,
+        "build_order": "build_order",
+        "plain_placement": false
+      },
+      "medium": {
+        "choice_noise": 0.25,
+        "memory_rounds": 4,
+        "build_order": "build_order",
+        "plain_placement": false
+      },
+      "easy": {
+        "choice_noise": 0.5,
+        "memory_rounds": 2,
+        "build_order": "build_order_plain",
+        "plain_placement": true
+      }
+    },
+    "late_cycle": [
+      "basic_launcher",
+      "bank",
+      "anti_air",
+      "basic_launcher",
+      "refinery",
+      "bank"
+    ],
+    "fuel_reserve_rounds": 4,
+    "skip_blocked_research": true,
+    "_note_growth": "After the build order, late_cycle repeats for as long as money allows. A refinery is skipped while stored fuel covers fuel_reserve_rounds rounds of firing every launcher. Another launcher is bought when fuel income plus a fuel_reserve_rounds share of the stored fuel pays for firing them all each round. With skip_blocked_research, an item waiting on research is passed over instead of holding the money."
   },
-
   "batch": {
     "default_matches": 200,
     "default_seed": 1,
