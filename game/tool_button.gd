@@ -8,6 +8,7 @@ var piece_type: String = ""
 var title: String = ""
 var detail: String = ""
 var note: String = ""
+var dimmed: bool = false   ## looks disabled but still clickable
 
 
 func _init() -> void:
@@ -18,12 +19,13 @@ func _init() -> void:
 
 func _draw() -> void:
 	var font := get_theme_default_font()
-	var col := Color(0.92, 0.94, 0.96) if not disabled else Color(0.5, 0.52, 0.55)
+	var grey := disabled or dimmed
+	var col := Color(0.92, 0.94, 0.96) if not grey else Color(0.5, 0.52, 0.55)
 	var x := 10.0
 	if piece_type != "":
 		if not Pieces.draw_sheet(self, Pieces.sheet_name({"type": piece_type}), Vector2(25, size.y / 2.0 + 9), 0, 0.82):
 			Pieces.draw_piece(self, font, Vector2(24, size.y / 2.0 + 10), {"type": piece_type})
-		if disabled:
+		if grey:
 			draw_rect(Rect2(6, 4, 36, size.y - 8), Color(0.1, 0.11, 0.13, 0.6))
 		x = 46.0
 	var y := size.y / 2.0 + (1.0 if note == "" else -5.0)

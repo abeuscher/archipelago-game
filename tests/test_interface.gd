@@ -101,14 +101,15 @@ func test_earnings_projection_matches_next_round() -> void:
 	eq(m.sides[0].money, money_before + int(p["income"]["money"]), "actual income matches projection")
 
 
-func test_earnings_counts_repairs_as_finished() -> void:
+func test_earnings_counts_repair_round_as_out() -> void:
 	var m = flat_match()
 	var bank = put(m, 0, "bank", 1, 1)
 	bank.hp = 10
 	m.begin_round()
 	ok(m.sides[0].repair(bank.hex, m.data), "repair")
 	var p: Dictionary = Earnings.project(m.sides[0], m.data, m.round_number)
-	eq(p["income"]["money"], 20 + 15, "repaired bank pays in full next round")
+	eq(p["income"]["money"], 20, "bank under repair makes nothing this round")
+	check(String(p["lines"][0]).contains("under repair"), "breakdown says why")
 
 
 func test_earnings_round_one_has_no_income_before_round_two() -> void:
@@ -203,6 +204,11 @@ func test_sprite_sheet_choice() -> void:
 	eq(Pieces.sheet_name({"type": "ballistic_launcher", "empty": true}), "ballistic_launcher_empty", "fired ballistic launcher")
 	eq(Pieces.sheet_name({"type": "bank", "empty": true}), "bank", "only launchers empty")
 	eq(Pieces.sheet_name({"type": "radar", "repairing": true}), "repair", "scaffolding while repairing")
+	eq(Pieces.sheet_name({"type": "bank", "damaged": true}), "bank_damaged", "hit bank")
+	eq(Pieces.sheet_name({"type": "basic_launcher", "disabled": true, "empty": true}), "missile_launcher_damaged", "damaged launcher has no empty version")
+	eq(Pieces.sheet_name({"type": "suspected_base", "hits": 1.0}), "base_damaged", "hit potential base")
+	eq(Pieces.sheet_name({"type": "decoy", "hits": 0.5}), "decoy_damaged", "hit decoy, owner's view")
+	eq(Pieces.sheet_name({"type": "bank", "damaged": true, "repairing": true}), "repair", "repair beats damage")
 
 
 func test_every_building_has_a_sprite_sheet() -> void:
@@ -211,6 +217,8 @@ func test_every_building_has_a_sprite_sheet() -> void:
 	check(not meta.is_empty(), "sprites.json read")
 	eq(int(meta["frames_per_sheet"]), 6, "one frame per rotation")
 	var names: Array = Pieces.SHEET_FOR.values() + ["repair", "rubble", "missile_launcher_empty", "ballistic_launcher_empty"]
+	for n in Pieces.DAMAGED_SHEETS:
+		names.append(n + "_damaged")
 	for n in names:
 		var tex: Texture2D = Pieces.sheet(n)
 		check(tex != null, "sheet loads: " + n)

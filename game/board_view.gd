@@ -113,6 +113,12 @@ func _draw() -> void:
 			if not rings_at.has(h):
 				rings_at[h] = []
 			rings_at[h].append(ring["color"])
+	# The sea ring around the space: always visible, so the enemy's fog sits
+	# inside a clear frame. Flat at sea level, so it goes first.
+	for k in iso.frame.size():
+		var fp := iso.frame_polygon(k)
+		draw_colored_polygon(fp, SEA)
+		draw_polyline(_closed(fp), SEA_EDGE, 1.0)
 	for i in _order:
 		var t: Dictionary = tiles[i]
 		var lvl := _lvl(t)

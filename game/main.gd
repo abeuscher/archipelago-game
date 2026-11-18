@@ -368,7 +368,7 @@ func _click(side: int, hex: int) -> void:
 					if m.sides[0].money < data.cost(tool):
 						tool = ""
 				else:
-					hud.add_log("[color=salmon]%s[/color]" % e)
+					_rules_error(e)
 			else:
 				selected = Vector2i(side, hex)
 		Ui.TARGETING:
@@ -376,12 +376,29 @@ func _click(side: int, hex: int) -> void:
 				_target_click(hex)
 			else:
 				var b = m.sides[0].building_at(hex)
-				if b != null and data.role(b.type) == "launcher" and m.sides[0].weapon_active(b):
-					active_launcher = b.hex
+				if b != null and data.role(b.type) == "launcher":
+					if m.sides[0].weapon_active(b):
+						active_launcher = b.hex
+					else:
+						hud.show_notice(Hud.NOTICE_SILO)
 				selected = Vector2i(side, hex)
 		_:
 			selected = Vector2i(side, hex)
 	_refresh()
+
+
+## A rules error from a player action: the common ones get a notice that
+## says what to do; anything else goes to the log.
+func _rules_error(e: String) -> void:
+	match e:
+		"Not enough money":
+			hud.show_notice(Hud.NOTICE_MONEY)
+		"Not enough fuel":
+			hud.show_notice(Hud.NOTICE_FUEL)
+		"Launcher is out of action":
+			hud.show_notice(Hud.NOTICE_SILO)
+		_:
+			hud.add_log("[color=salmon]%s[/color]" % e)
 
 
 func _setup_click(hex: int) -> void:
@@ -417,7 +434,7 @@ func _target_click(hex: int) -> void:
 	new_orders.append({"launcher": active_launcher, "missile": _missile_for(active_launcher), "target": hex})
 	var e: String = m.set_launch_orders(MatchState.PLAYER, new_orders)
 	if e != "":
-		hud.add_log("[color=salmon]%s[/color]" % e)
+		_rules_error(e)
 		return
 	orders = new_orders
 	active_launcher = _next_free_launcher()
@@ -456,7 +473,7 @@ func _cycle_missile(launcher_hex: int) -> void:
 		for o in orders:
 			if o["launcher"] == launcher_hex:
 				o["missile"] = cur
-		hud.add_log("[color=salmon]Not enough fuel for that.[/color]")
+		hud.show_notice(Hud.NOTICE_FUEL)
 	active_launcher = launcher_hex
 	_refresh()
 
@@ -567,7 +584,8 @@ func _update_ranges(st) -> void:
 		"anti_air":
 			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("anti_air")["radius"])), "color": Color(0.4, 1.0, 0.5, 0.6)}]
 		"radar":
-			own_board.range_rings = [{"hexes": g.within(b.hex, st.radar_range(b, data)), "color": Color(0.8, 0.5, 1.0, 0.7)}]
+			if not st.out_for_repair(b, data):
+				own_board.range_rings = [{"hexes": g.within(b.hex, st.radar_range(b, data)), "color": Color(0.8, 0.5, 1.0, 0.7)}]
 
 
 func _building_tooltip(type: String) -> String:
@@ -616,9 +634,11 @@ func _build_toolbar(st) -> void:
 				elif st.money < data.cost(type):
 					note = "Not enough money"
 				var t: String = type
+				var broke: bool = unlocked and not at_limit and st.money < data.cost(type)
+				var pick := func(): tool = t; selected = Vector2i(-1, -1); _refresh()
 				hud.add_piece_button(type, Pieces.display_name(type), str(data.cost(type)), note,
-					func(): tool = t; selected = Vector2i(-1, -1); _refresh(),
-					not unlocked or at_limit or st.money < data.cost(type), tool == type, _building_tooltip(type))
+					(func(): hud.show_notice(Hud.NOTICE_MONEY)) if broke else pick,
+					not unlocked or at_limit, tool == type, _building_tooltip(type), broke)
 			hud.add_label("Select a building to repair it. Select a lab, or click a beaker on the right, for research.", true)
 			hud.add_spacer()
 			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now")
@@ -633,7 +653,7 @@ func _build_toolbar(st) -> void:
 				var hx: int = b.hex
 				if not st.weapon_active(b):
 					hud.add_piece_button(b.type, name, "", "Under repair" if b.repairing else "Out of action",
-						func(): pass, true, false, "Repair it in the build and repair phase.")
+						func(): hud.show_notice(Hud.NOTICE_SILO), false, false, "Repair it in the build and repair phase.", true)
 					continue
 				var mt := _missile_for(b.hex)
 				var aimed := false
@@ -817,7 +837,7 @@ func _update_info() -> void:
 			else:
 				lines.append("HP %d / %d" % [b.hp, data.max_hp(b.type)])
 				if b.repairing:
-					lines.append("Under repair: back next round")
+					lines.append("[color=orange]Under repair: out of action this round, back next round[/color]")
 				elif b.disabled:
 					lines.append("[color=salmon]Out of action until repaired[/color]")
 				elif st.is_half_strength(b, data):
@@ -853,15 +873,12 @@ func _building_detail_lines(st, b) -> Array:
 	var out: Array = []
 	var produces: Dictionary = data.building(b.type).get("produces", {})
 	for res in produces:
-		var v := int(produces[res])
-		if st.is_half_strength(b, data):
-			v = st.half_income(v, data)
-		out.append("Makes %d %s a round" % [v, res])
+		out.append("Makes %d %s a round" % [st.output_of(b, int(produces[res]), data), res])
 	match data.role(b.type):
 		"anti_air":
 			out.append("Covers %d hexes around it, %d missiles a round" % [int(data.section("anti_air")["radius"]), st.anti_air_engagements(data)])
 		"radar":
-			out.append("Range %d hexes" % st.radar_range(b, data))
+			out.append("Off while under repair" if st.out_for_repair(b, data) else "Range %d hexes" % st.radar_range(b, data))
 		"launcher":
 			var names: Array = []
 			for mt in data.building(b.type)["missiles"]:
@@ -963,23 +980,17 @@ func _run_playout() -> void:
 	var launches := [events.filter(func(e): return e["type"] == "launch" and e["side"] == 0),
 		events.filter(func(e): return e["type"] == "launch" and e["side"] == 1)]
 
-	# Both sides launch.
+	# Our missiles launch. The enemy's launches are not shown: its missiles
+	# are only seen arriving, with the view staying on our island.
 	_focus(0)
 	await _wait(0.4)
 	for k in launches[0].size():
 		_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
 	await _wait(0.9 + launches[0].size() * 0.15)
-	if not launches[1].is_empty():
-		_focus(1)
-		hud.add_log("Enemy launches %d missile%s." % [launches[1].size(), "" if launches[1].size() == 1 else "s"])
-		var center: int = m.sides[1].island.grid.center_index()
-		for k in launches[1].size():
-			_rise(enemy_board, center, Color(1, 0.4, 0.4), k * 0.15, Vector2((k - launches[1].size() / 2.0) * 22.0, 0))
-		await _wait(0.9 + launches[1].size() * 0.15)
 
 	# Enemy strikes land on our island, then damage shows.
 	if not launches[1].is_empty():
-		_focus(0)
+		hud.add_log("%d enemy missile%s incoming." % [launches[1].size(), "" if launches[1].size() == 1 else "s"])
 		await _wait(0.3)
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
@@ -1082,6 +1093,15 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 		board.tiles[ih]["bombed"] = int(board.tiles[ih].get("bombed", 0)) + 1
 	board.queue_redraw()
 	for d in imp.get("damaged", []):
+		# Our own buildings switch to their damaged look as they are hit; the
+		# enemy's already show it through reveal_tiles.
+		if reveal_tiles.is_empty():
+			var hb = board.tiles[int(d["hex"])].get("building")
+			if hb != null:
+				if d.has("damage"):
+					hb["damaged"] = true
+				else:
+					hb["hits"] = float(hb.get("hits", 0.0)) + float(d["hits"])
 		var p: Vector2 = board.position + board.tile_center(int(d["hex"]))
 		if d.has("damage"):
 			effects.float_text(p, "-%d" % int(d["damage"]), Color(1, 0.8, 0.6))

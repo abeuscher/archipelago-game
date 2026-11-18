@@ -93,6 +93,11 @@ func _draw() -> void:
 		var f := _fit(side)
 		var s: float = f["scale"]
 		var origin: Vector2 = b.position * s + f["offset"]
+		for k in b.iso.frame.size():
+			var fp: PackedVector2Array = b.iso.frame_polygon(k)
+			for j in fp.size():
+				fp[j] = origin + fp[j] * s
+			draw_colored_polygon(fp, SEA)
 		for i in b.tiles.size():
 			var poly: PackedVector2Array = b.iso.top_polygon(i, 0, false)
 			for j in poly.size():

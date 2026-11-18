@@ -40,6 +40,9 @@ var _fuel_val: Label
 var _research_val: Label
 var _round: Label
 var _flash: VBoxContainer
+var _notice: PanelContainer
+var _notice_text: Label
+var _notice_tween: Tween
 var _info: RichTextLabel
 var _info_actions: VBoxContainer
 var _log_panel: PanelContainer
@@ -73,6 +76,11 @@ const MAP_BAR_H := 44         ## gap under the minimap and info box, holding the
 const STRIP_W := 64
 const FLASH_SECONDS := 4.0
 const FLASH_MAX := 4
+const NOTICE_SECONDS := 3.5
+## Player notices: why an action can't be done. Shown under the round title.
+const NOTICE_MONEY := "Out of money. Build more banks."
+const NOTICE_FUEL := "Out of fuel. Build more refineries."
+const NOTICE_SILO := "Missile silo damaged. Repair during build phase."
 
 
 func _ready() -> void:
@@ -164,6 +172,27 @@ func _ready() -> void:
 	_round.custom_minimum_size = Vector2(320, 0)
 	_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	topr.add_child(_round)
+	_notice = PanelContainer.new()
+	_notice.visible = false
+	_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_notice.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var nst := StyleBoxFlat.new()
+	nst.bg_color = Color(0.42, 0.06, 0.07, 0.96)
+	nst.border_color = Color(0.75, 0.2, 0.2)
+	nst.set_border_width_all(1)
+	nst.set_corner_radius_all(4)
+	nst.content_margin_left = 16
+	nst.content_margin_right = 16
+	nst.content_margin_top = 7
+	nst.content_margin_bottom = 7
+	_notice.add_theme_stylebox_override("panel", nst)
+	top.add_child(_notice)
+	_notice_text = Label.new()
+	_notice_text.add_theme_font_override("font", bold_font())
+	_notice_text.add_theme_font_size_override("font_size", 16)
+	_notice_text.add_theme_color_override("font_color", Color(1, 1, 1))
+	_notice_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_notice.add_child(_notice_text)
 	_flash = VBoxContainer.new()
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(_flash)
@@ -575,6 +604,26 @@ func earnings_visible() -> bool:
 	return _earn_panel.visible
 
 
+# --- Notices ---------------------------------------------------------------
+
+## A short warning under the round title: white on dark red, fading after a
+## few seconds. A new notice replaces the one showing.
+func show_notice(text: String) -> void:
+	if _notice_tween != null and _notice_tween.is_valid():
+		_notice_tween.kill()
+	_notice_text.text = text
+	_notice.modulate = Color.WHITE
+	_notice.visible = true
+	_notice_tween = _notice.create_tween()
+	_notice_tween.tween_interval(NOTICE_SECONDS)
+	_notice_tween.tween_property(_notice, "modulate:a", 0.0, 0.5)
+	_notice_tween.tween_callback(func(): _notice.visible = false)
+
+
+func notice_showing() -> String:
+	return _notice_text.text if _notice.visible else ""
+
+
 # --- Log -------------------------------------------------------------------
 
 ## Adds an event to the history and flashes it at the top of the screen.
@@ -652,9 +701,12 @@ func add_tool_button(text: String, action: Callable, disabled: bool = false, pre
 
 
 ## A button with a piece icon: piece_type may be "" for none.
+## dimmed: drawn greyed out but still clickable, so the action can explain
+## why it can't be done.
 func add_piece_button(piece_type: String, title: String, detail: String, note: String, action: Callable,
-		disabled: bool, pressed: bool, tooltip: String) -> void:
+		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false) -> void:
 	var b := ToolButton.new()
+	b.dimmed = dimmed
 	b.piece_type = piece_type
 	b.title = title
 	b.detail = detail

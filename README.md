@@ -41,6 +41,7 @@ The screen follows section 14 of the spec:
 - **Left toolbar.** Buildings during build and repair. During targeting: the fuel planner, your launchers, Undo and Attack. The timer is at the bottom.
 - **Right strip.** A beaker for each research project, then a button for each base showing its hits left. Click a beaker to open the research panel. Click a base to jump to it.
 - **Research.** Select a lab and press "Research...", or click a beaker.
+- **Notices.** When something can't be done (out of money, out of fuel, a damaged launcher), a red notice under the round title says why.
 - **Top right.** Money (with next round's income in brackets), fuel and research. "Next round" shows next round's projected income in full. "Log" opens the full game log; events also flash at the top as they happen.
 
 Settings and tip progress are saved to `user://settings.json`. On Windows that is `%APPDATA%\Godot\app_userdata\Archipelago\settings.json`. Delete the file to reset them.

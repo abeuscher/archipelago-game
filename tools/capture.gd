@@ -86,6 +86,8 @@ func _run() -> void:
 	main._refresh()
 	await _shot("08_earnings")
 	main.hud._earn_button.button_pressed = false
+	main.hud.show_notice(main.hud.NOTICE_MONEY)
+	await _shot("08b_notice")
 	main._rotate(1)
 	await _shot("09_rotated")
 	main._rotate(-1)
@@ -113,6 +115,16 @@ func _run() -> void:
 		main.tool = ""
 		main._click(0, int(hit[0]))
 		await _shot("16_hit_hex_selected")
+	# Capture only: damage two buildings to show the damaged sprites.
+	for h in [free[60], free[90]]:
+		var b = main.m.sides[0].building_at(h)
+		if b != null:
+			b.hp = 10
+			b.disabled = true
+	main.tool = ""
+	main.selected = Vector2i(-1, -1)
+	main._refresh()
+	await _shot("16b_damaged")
 	main._focus(1)
 	await create_timer(1.0).timeout
 	await _shot("17_fog")
