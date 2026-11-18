@@ -12,7 +12,7 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 | `tools/` | The headless batch runner, the screenshot tool, and `sprites/`, which renders the building sprite sheets. |
 | `assets/buildings/` | Building sprite sheets (six frames each, one per board rotation) and `sprites.json`. |
 | `tests/` | Rules tests and a small test runner. |
-| `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `announcer.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Tip wording is in `data/tips.json`; the characters who speak tips and announcements are in `data/characters.json`. |
+| `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `announcer.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Everything the characters say, and who says each line, is in `data/dialogue.json`; the characters themselves (name, portrait) are in `data/characters.json`. |
 
 ## Play
 

@@ -57,13 +57,17 @@ func test_tips_load_with_numbers_from_data() -> void:
 	check(tips.size() >= 2, "tips loaded")
 	eq(tips[0]["id"], "place_bases", "first tip, in setup")
 	eq(tips[0]["anchor"], "tool:base", "points at the base button")
-	eq(tips[1]["id"], "round_timer", "then the timer")
-	eq(tips[1]["anchor"], "timer", "points at the timer")
-	check(tips[1]["pause"], "holds the clock")
-	check(String(tips[1]["text"]).contains("{build_clock}"), "clock filled in when shown")
-	eq(tips[2]["id"], "build_launcher", "then the launcher")
-	eq(tips[2]["anchor"], "tool:basic_launcher", "points at the launcher button")
-	eq(tips[3]["id"], "build_anti_air", "then anti-air")
+	eq(tips[1]["id"], "setup_done", "then setup complete")
+	eq(tips[1]["anchor"], "button:Undo", "points at Undo")
+	eq(tips[2]["id"], "round_timer", "then the timer")
+	eq(tips[2]["anchor"], "timer", "points at the timer")
+	check(tips[2]["pause"], "blocks the screen")
+	check(String(tips[2]["text"]).contains("{build_clock}"), "clock filled in when shown")
+	eq(tips[3]["id"], "repair", "damage comes straight after, when there is any")
+	eq(tips[3]["character"], "mechanic", "the Mechanic reports damage")
+	eq(tips[4]["id"], "build_launcher", "then the launcher")
+	eq(tips[4]["anchor"], "tool:basic_launcher", "points at the launcher button")
+	eq(tips[5]["id"], "build_anti_air", "then anti-air")
 	for t in tips:
 		check(not String(t["text"]).replace("{build_clock}", "").contains("{"), "placeholders filled in " + t["id"])
 	var radar: Dictionary = tips.filter(func(t): return t["id"] == "research_radar")[0]
@@ -293,3 +297,24 @@ func test_characters_data() -> void:
 		var c: Dictionary = chars[id]
 		check(FileAccess.file_exists(String(c["portrait"])), "portrait file for " + id)
 		eq(c["circle"].size(), 3, "circle is [x, y, radius] for " + id)
+
+
+func test_every_line_has_a_known_speaker() -> void:
+	var chars: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/characters.json"))["characters"]
+	for t in Tips.load_tips(data()):
+		check(chars.has(t["character"]), "tip %s spoken by a known character" % t["id"])
+	var lines: Dictionary = Tips.load_lines()
+	for key in lines:
+		if key.begins_with("_"):
+			continue
+		check(chars.has(String(lines[key]["character"])), "line %s spoken by a known character" % key)
+	eq(Tips.load_tips(data())[0]["character"], "admiral", "the Admiral asks for careful base placement")
+
+
+func test_setup_done_tip_after_bases_and_decoys() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var r: Dictionary = Tips.update(tips, {"phase": "setup", "setup_complete": false}, ["place_bases"], null)
+	eq(r["current"], null, "nothing while still placing")
+	r = Tips.update(tips, {"phase": "setup", "setup_complete": true}, ["place_bases"], null)
+	eq(r["current"]["id"], "setup_done", "once everything is placed")
+	eq(r["current"]["character"], "ginger", "Ginger says it")

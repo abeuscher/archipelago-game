@@ -45,7 +45,7 @@ var prefs_path: String = UserSettings.PATH
 var tips: Array = []
 var current_tip = null
 var tips_snoozed: Array = []         ## hidden for the rest of this phase
-var lines: Dictionary = {}           ## the character's lines (tips.json "announcements")
+var lines: Dictionary = {}           ## the characters' lines (dialogue.json "announcements")
 
 var ui: int = Ui.SETUP
 var viewing: int = 0
@@ -182,19 +182,21 @@ func _start_round() -> void:
 	var events: Array = m.begin_round()
 	# The character announces the round (and its income); the log keeps the
 	# plain record without flashing it.
-	var said := String(lines.get("round_first", "Round {n}.")).format({"n": m.round_number})
+	var said := _line_text("round_first").format({"n": m.round_number})
+	var said_by := _line_character("round_first")
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
 		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
 			var inc: Dictionary = ev["income"]
-			said = String(lines.get("round", "Round {n}.")).format({"n": m.round_number,
+			said = _line_text("round").format({"n": m.round_number,
 				"money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]})
+			said_by = _line_character("round")
 			hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]], false)
 		else:
 			_log_event(ev)
 	if not prefs["tips_done"].has(ROUND_LINE_ID):
-		hud.announce(said, ROUND_LINE_ID)
+		hud.announce(said, ROUND_LINE_ID, 0.0, true, said_by)
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
@@ -866,8 +868,13 @@ func _tip_context() -> Dictionary:
 			var mt := _missile_for(b.hex)
 			if mt != "":
 				need_fuel += int(data.missile(mt)["fuel"])
+	var setup_complete := false
+	if ui == Ui.SETUP and setup_trial != null:
+		setup_complete = setup_trial.bases_alive(data) >= data.integer("bases", "per_side") \
+			and setup_trial.count_role(data, "decoy") >= int(m.settings["decoys_per_side"])
 	return {
 		"phase": phase,
+		"setup_complete": setup_complete,
 		"clock_on": clock_running,
 		"has_launcher": st.count_role(data, "launcher") > 0,
 		"has_anti_air": st.count_role(data, "anti_air") > 0,
@@ -894,12 +901,18 @@ func _update_tips() -> void:
 	hud.show_tip(shown)
 
 
-## The phase clock holds while the character is announcing something, and
-## while a tip marked "pause" is up (until it is dismissed).
+## The phase clock holds while a character is saying anything: any tip or
+## announcement, until it is dismissed.
 func _tip_holds_clock() -> bool:
-	if hud.announcing():
-		return true
-	return current_tip != null and bool(current_tip.get("pause", false)) and hud.tip_showing() == String(current_tip["id"])
+	return hud.announcing() or hud.tip_showing() != ""
+
+
+func _line_text(key: String) -> String:
+	return String(lines.get(key, {}).get("text", ""))
+
+
+func _line_character(key: String) -> String:
+	return String(lines.get(key, {}).get("character", ""))
 
 
 func _on_tip_dismissed(id: String, forever: bool) -> void:
@@ -1135,11 +1148,12 @@ func _run_playout() -> void:
 		# Warning first: the siren turns once, then the character warns of the
 		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
-		var incoming := String(lines.get("incoming_one" if n == 1 else "incoming_many", "{n} enemy missiles incoming!")).format({"n": n})
+		var key := "incoming_one" if n == 1 else "incoming_many"
+		var incoming := _line_text(key).format({"n": n})
 		hud.set_alarm(true)
 		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
 		await _wait(hud.alarm_seconds(ALARM_TURNS))
-		hud.announce(incoming, "", 0.0, false)
+		hud.announce(incoming, "", 0.0, false, _line_character(key))
 		while hud.announcing():
 			await get_tree().process_frame
 		await _wait(0.25)

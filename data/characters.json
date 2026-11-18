@@ -5,7 +5,38 @@
     "ginger": {
       "name": "Ginger",
       "portrait": "res://assets/characters/ginger.jpg",
-      "circle": [598, 448, 418]
+      "circle": [
+        598,
+        448,
+        418
+      ]
+    },
+    "admiral": {
+      "name": "Admiral",
+      "portrait": "res://assets/characters/admiral.jpg",
+      "circle": [
+        598,
+        448,
+        418
+      ]
+    },
+    "pilot": {
+      "name": "Pilot",
+      "portrait": "res://assets/characters/pilot.jpg",
+      "circle": [
+        598,
+        448,
+        418
+      ]
+    },
+    "mechanic": {
+      "name": "Mechanic",
+      "portrait": "res://assets/characters/mechanic.jpg",
+      "circle": [
+        598,
+        448,
+        418
+      ]
     }
   }
 }

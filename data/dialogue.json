@@ -1,0 +1,90 @@
+{
+  "_about": "Everything the characters say to the player, and who says it. character is an id from data/characters.json (ginger, admiral, pilot, mechanic). Edit the text freely; keep {placeholders} as they are.",
+  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control: timer, tool:<building> for a toolbar building button, or button:<label> for a toolbar button by its label. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
+  "tips": [
+    {
+      "id": "place_bases",
+      "character": "admiral",
+      "when": "setup",
+      "anchor": "tool:base",
+      "text": "General, place our bases carefully. If we lose all three, we lose the war. A decoy can help draw the enemy away from our real targets."
+    },
+    {
+      "id": "setup_done",
+      "character": "ginger",
+      "when": "setup_complete",
+      "anchor": "button:Undo",
+      "text": "Very strategic choices, General! Now that our bases are in place, we need to place our offensive and defensive buildings. If you want to reposition any bases or decoys, now's the time. Hit undo to back up."
+    },
+    {
+      "id": "round_timer",
+      "character": "ginger",
+      "when": "build_clock_running",
+      "anchor": "timer",
+      "pause": true,
+      "text": "General, you have {build_clock} seconds every round to place your buildings. Make sure we're producing fuel and money, and of course wreak as much havoc on the enemy as you can."
+    },
+    {
+      "id": "repair",
+      "character": "mechanic",
+      "when": "own_damaged",
+      "text": "Careful, General! We've got some damage on the ground. When a building is damaged it stops functioning. Select it during the build phase to repair it for half its original cost."
+    },
+    {
+      "id": "build_launcher",
+      "character": "pilot",
+      "when": "build_without_launcher",
+      "anchor": "tool:basic_launcher",
+      "text": "General, the missile launcher is our first offensive weapon. Build one early so we can start hitting back and find out where the enemy's bases are before it's too late."
+    },
+    {
+      "id": "build_anti_air",
+      "character": "pilot",
+      "when": "build_without_anti_air",
+      "text": "We need anti-air, General. Each one shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round."
+    },
+    {
+      "id": "research_radar",
+      "character": "ginger",
+      "when": "radar_not_started",
+      "text": "General, I'd research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to pick the research."
+    },
+    {
+      "id": "aim",
+      "character": "ginger",
+      "when": "targeting",
+      "text": "Pick a launcher on the left, General, then click a hex on the enemy's island to aim it. They're hidden in fog, so our missiles have to find the coast first. Undo costs nothing."
+    },
+    {
+      "id": "suspected_base",
+      "character": "ginger",
+      "when": "suspected_base_seen",
+      "text": "General, the number on a possible base counts the hits it's taken. A base falls at {base_hits} hits. A decoy falls at {decoy_hits}, and then we'll know it was a fake."
+    },
+    {
+      "id": "fuel",
+      "character": "ginger",
+      "when": "fuel_short",
+      "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
+    }
+  ],
+  "_announcements": "Said at moments in the game. {n}, {money}, {fuel}, {research} are filled in when said. Every one but the incoming warning has a Don't show this again box.",
+  "announcements": {
+    "round_first": {
+      "character": "pilot",
+      "text": "Round {n}, General. Let's get to work."
+    },
+    "round": {
+      "character": "pilot",
+      "text": "Round {n}, General. We took in {money} money, {fuel} fuel and {research} research."
+    },
+    "incoming_one": {
+      "character": "ginger",
+      "text": "General! An enemy missile is incoming!"
+    },
+    "incoming_many": {
+      "character": "ginger",
+      "text": "General! {n} enemy missiles incoming!"
+    }
+  }
+}

@@ -836,8 +836,8 @@ func show_tip(tip) -> void:
 
 ## A line from the character. It stays until OK unless `seconds` > 0.
 ## id/can_hide: see announcer.gd.
-func announce(text: String, id: String = "", seconds: float = 0.0, can_hide: bool = true) -> void:
-	announcer.announce(text, id, seconds, can_hide)
+func announce(text: String, id: String = "", seconds: float = 0.0, can_hide: bool = true, character: String = "") -> void:
+	announcer.announce(text, id, seconds, can_hide, character)
 
 
 ## How long the alarm light takes to turn `turns` times.
@@ -850,8 +850,15 @@ func announcing() -> bool:
 
 
 ## Where a tip's anchor is on screen: "timer" for the round timer,
-## "tool:<type>" for a toolbar button. Empty if it isn't shown.
+## "tool:<type>" for a toolbar building button, "button:<label>" for a
+## toolbar button by its label. Empty if it isn't shown.
 func _anchor_rect(anchor: String) -> Rect2:
+	if anchor.begins_with("button:"):
+		var label := anchor.substr(7)
+		for c in _tools.get_children():
+			if c is Button and not (c is ToolButton) and c.text == label and not c.is_queued_for_deletion():
+				return c.get_global_rect()
+		return Rect2()
 	if anchor == "timer":
 		return _timer.get_global_rect()
 	if anchor.begins_with("tool:"):

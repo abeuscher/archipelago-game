@@ -1,5 +1,6 @@
 ## Tips that introduce the game as the player goes (section 14). The list,
-## order and wording are in data/tips.json; the conditions are named here.
+## order, wording and speaker are in data/dialogue.json; the conditions are
+## named here.
 ## One tip shows at a time. A tip is done when the player dismisses it with
 ## "Don't show this again" ticked, or when its condition stops holding in the
 ## same phase it was shown in (for example, the anti-air tip once anti-air is
@@ -7,7 +8,7 @@
 ## the box unticked only hides the tip for the rest of that phase.
 extends RefCounted
 
-const PATH := "res://data/tips.json"
+const PATH := "res://data/dialogue.json"
 
 
 static func load_tips(data, path: String = PATH) -> Array:
@@ -18,11 +19,13 @@ static func load_tips(data, path: String = PATH) -> Array:
 	var fill := placeholders(data)
 	for t in parsed.get("tips", []):
 		out.append({"id": String(t["id"]), "when": String(t["when"]), "text": String(t["text"]).format(fill),
-			"anchor": String(t.get("anchor", "")), "pause": bool(t.get("pause", false))})
+			"anchor": String(t.get("anchor", "")), "pause": bool(t.get("pause", false)),
+			"character": String(t.get("character", ""))})
 	return out
 
 
-## The character's lines for game moments ("announcements" in tips.json).
+## The characters' lines for game moments ("announcements" in
+## dialogue.json): key -> {"character", "text"}.
 static func load_lines(path: String = PATH) -> Dictionary:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if parsed is Dictionary:
@@ -43,7 +46,7 @@ static func placeholders(data) -> Dictionary:
 	}
 
 
-## ctx keys: phase ("setup", "build", "targeting", ...), clock_on,
+## ctx keys: phase ("setup", "build", "targeting", ...), setup_complete, clock_on,
 ## has_launcher, has_anti_air, radar_started, suspected_base_seen,
 ## own_damaged, fuel_short.
 static func holds(when: String, ctx: Dictionary) -> bool:
@@ -51,6 +54,8 @@ static func holds(when: String, ctx: Dictionary) -> bool:
 	match when:
 		"setup":
 			return phase == "setup"
+		"setup_complete":
+			return phase == "setup" and ctx.get("setup_complete", false)
 		"build_clock_running":
 			return phase == "build" and ctx.get("clock_on", false)
 		"build_without_launcher":

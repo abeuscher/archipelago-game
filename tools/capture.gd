@@ -66,6 +66,9 @@ func _run() -> void:
 		main._setup_click(h)
 	main._refresh()
 	await _shot("02_setup_placed")
+	main.hud.announcer._ok.pressed.emit()   # the Admiral's tip
+	await create_timer(0.4).timeout
+	await _shot("02b_setup_done_tip")
 	main._start_setup_game()
 	await create_timer(1.1).timeout   # camera flight
 	await _shot("03a_round_announced")
