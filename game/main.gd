@@ -864,6 +864,12 @@ func _tip_context() -> Dictionary:
 		if st.needs_repair(b, data):
 			damaged = true
 			break
+	# A launcher out of action that the enemy has hit more than once: they
+	# are keeping it down, and a new one out of sight is the answer.
+	var targeted := false
+	for b in st.of_role(data, "launcher"):
+		if b.disabled and int(m.bombed[0].get(b.hex, {}).get("count", 0)) >= 2:
+			targeted = true
 	var need_fuel := 0
 	for b in st.of_role(data, "launcher"):
 		if st.weapon_active(b):
@@ -883,6 +889,7 @@ func _tip_context() -> Dictionary:
 		"radar_started": st.is_unlocked("radar") or st.project_for_item("radar") != null,
 		"suspected_base_seen": seen,
 		"own_damaged": damaged,
+		"launcher_targeted": targeted,
 		"fuel_short": need_fuel > st.fuel,
 	}
 

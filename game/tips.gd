@@ -49,7 +49,7 @@ static func placeholders(data) -> Dictionary:
 
 ## ctx keys: phase ("setup", "build", "targeting", ...), setup_complete, clock_on,
 ## has_launcher, has_anti_air, radar_started, suspected_base_seen,
-## own_damaged, fuel_short.
+## own_damaged, launcher_targeted, fuel_short.
 static func holds(when: String, ctx: Dictionary) -> bool:
 	var phase := String(ctx.get("phase", ""))
 	match when:
@@ -69,6 +69,8 @@ static func holds(when: String, ctx: Dictionary) -> bool:
 			return phase == "targeting"
 		"suspected_base_seen":
 			return phase in ["build", "targeting"] and ctx.get("suspected_base_seen", false)
+		"launcher_targeted":
+			return phase == "build" and ctx.get("launcher_targeted", false)
 		"own_damaged":
 			return phase == "build" and ctx.get("own_damaged", false)
 		"fuel_short":

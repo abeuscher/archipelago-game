@@ -2,6 +2,8 @@
 
 ## Waiting on a spec
 
+- **To discuss: selling unused fuel.** Raised as a counter to a launcher being kept out of action (a side that can't fire could sell its fuel for money). Parked: it may be an unwelcome complication in a simple game. Notes: it should be a manual choice in the build phase (stockpiling fuel is a real strategy); the price must stay well under 5 money per fuel (around 2) or refineries become better banks; it helps most with a stockpile and little in the first rounds; the AI would need to learn it.
+
 - **More characters.** The announcer space takes any character listed in `data/characters.json`; tips and announcements can name who speaks. Ginger is the only one so far.
 - **Fog look and feel.** Edges are clean for now (no soft spill onto revealed ground); revisit the style later.
 

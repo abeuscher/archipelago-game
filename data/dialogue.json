@@ -31,6 +31,13 @@
       "text": "Careful, General! We've got some damage on the ground. Damaged buildings can be repaired for {repair_pct}% of their original cost."
     },
     {
+      "id": "rebuild_launcher",
+      "character": "mechanic",
+      "when": "launcher_targeted",
+      "anchor": "tool:basic_launcher",
+      "text": "General, they keep hitting the same launcher. Repairs won't hold while they're aiming at it. Build a new one somewhere they haven't seen."
+    },
+    {
       "id": "build_launcher",
       "character": "pilot",
       "when": "build_without_launcher",
@@ -53,7 +60,7 @@
       "id": "aim",
       "character": "pilot",
       "when": "targeting",
-      "text": "Pick a launcher on the left, General, then click a hex on the enemy's island to aim it. They're hidden in fog, so our missiles have to find the coast first. Undo costs nothing."
+      "text": "Pick a weapon on the left, then click on the map to aim it. Expect to miss a few times as we clear the fog of war and learn the layout of their island."
     },
     {
       "id": "suspected_base",

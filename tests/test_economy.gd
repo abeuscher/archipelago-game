@@ -17,9 +17,9 @@ func test_baseline_and_building_income() -> void:
 	put(m, 0, "refinery", 2, 1)
 	play_round(m)
 	m.begin_round()
-	eq(m.sides[0].money, m.data.integer("economy", "start_money") + 20 + 15, "money round 2")
+	eq(m.sides[0].money, m.data.integer("economy", "start_money") + m.data.integer("economy", "baseline_money") + 15, "money round 2")
 	eq(m.sides[0].fuel, 3 + 3 + 3, "fuel round 2")
-	eq(m.sides[1].money, m.data.integer("economy", "start_money") + 20, "other side baseline")
+	eq(m.sides[1].money, m.data.integer("economy", "start_money") + m.data.integer("economy", "baseline_money"), "other side baseline")
 
 
 func test_damaged_buildings_half_income_rounded_up() -> void:
@@ -29,7 +29,7 @@ func test_damaged_buildings_half_income_rounded_up() -> void:
 	bank.hp = 10
 	ref.hp = 39
 	var inc: Dictionary = m.sides[0].compute_income(m.data)
-	eq(inc["money"], 20 + 8, "half bank")
+	eq(inc["money"], m.data.integer("economy", "baseline_money") + 8, "half bank")
 	eq(inc["fuel"], 3 + 2, "half refinery")
 
 
@@ -39,7 +39,7 @@ func test_half_strength_flag_off() -> void:
 	var m = flat_match(d)
 	var bank = put(m, 0, "bank", 1, 1)
 	bank.hp = 10
-	eq(m.sides[0].compute_income(d)["money"], 35, "damaged bank at full strength when flag off")
+	eq(m.sides[0].compute_income(d)["money"], m.data.integer("economy", "baseline_money") + 15, "damaged bank at full strength when flag off")
 
 
 func test_build_costs_and_checks() -> void:

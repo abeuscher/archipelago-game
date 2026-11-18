@@ -65,9 +65,10 @@ func test_tips_load_with_numbers_from_data() -> void:
 	check(String(tips[2]["text"]).contains("{build_clock}"), "clock filled in when shown")
 	eq(tips[3]["id"], "repair", "damage comes straight after, when there is any")
 	eq(tips[3]["character"], "mechanic", "the Mechanic reports damage")
-	eq(tips[4]["id"], "build_launcher", "then the launcher")
-	eq(tips[4]["anchor"], "tool:basic_launcher", "points at the launcher button")
-	eq(tips[5]["id"], "build_anti_air", "then anti-air")
+	eq(tips[4]["id"], "rebuild_launcher", "then a launcher kept down")
+	eq(tips[5]["id"], "build_launcher", "then the launcher")
+	eq(tips[5]["anchor"], "tool:basic_launcher", "points at the launcher button")
+	eq(tips[6]["id"], "build_anti_air", "then anti-air")
 	for t in tips:
 		check(not String(t["text"]).replace("{build_clock}", "").contains("{"), "placeholders filled in " + t["id"])
 	var radar: Dictionary = tips.filter(func(t): return t["id"] == "research_radar")[0]
@@ -112,7 +113,7 @@ func test_earnings_projection_matches_next_round() -> void:
 	var money_before: int = m.sides[0].money
 	var p: Dictionary = Earnings.project(m.sides[0], m.data, m.round_number)
 	eq(p["round"], 2, "projects round 2")
-	eq(p["income"]["money"], 20 + 15 + 8, "baseline + bank + half bank")
+	eq(p["income"]["money"], m.data.integer("economy", "baseline_money") + 15 + 8, "baseline + bank + half bank")
 	eq(p["income"]["fuel"], 3 + 3, "baseline + refinery")
 	eq(p["income"]["research"], 2, "one lab")
 	eq(m.sides[0].money, money_before, "projection leaves the state alone")
@@ -132,7 +133,7 @@ func test_earnings_counts_repair_round_as_out() -> void:
 	m.begin_round()
 	ok(m.sides[0].repair(bank.hex, m.data), "repair")
 	var p: Dictionary = Earnings.project(m.sides[0], m.data, m.round_number)
-	eq(p["income"]["money"], 20, "bank under repair makes nothing this round")
+	eq(p["income"]["money"], m.data.integer("economy", "baseline_money"), "bank under repair makes nothing this round")
 	check(String(p["lines"][0]).contains("under repair"), "breakdown says why")
 
 
@@ -341,3 +342,15 @@ func test_damage_tip_cost_from_data() -> void:
 	var t: Array = Tips.load_tips(data()).filter(func(x): return x["id"] == "repair")
 	check(String(t[0]["text"]).contains("30% of their original cost"), "repair cost filled in")
 	eq(t[0]["character"], "mechanic", "said by the Mechanic")
+
+
+func test_rebuild_tip_when_a_launcher_is_kept_down() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var done: Array = ["place_bases", "setup_done", "round_timer", "repair"]
+	var ctx := {"phase": "build", "has_launcher": true, "has_anti_air": true, "radar_started": true, "own_damaged": true}
+	var r: Dictionary = Tips.update(tips, ctx, done, null)
+	check(r["current"] == null or r["current"]["id"] != "rebuild_launcher", "not without repeated hits")
+	ctx["launcher_targeted"] = true
+	r = Tips.update(tips, ctx, done, null)
+	eq(r["current"]["id"], "rebuild_launcher", "shown when a launcher is kept down")
+	eq(r["current"]["character"], "mechanic", "the Mechanic says it")
