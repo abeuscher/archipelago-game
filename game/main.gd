@@ -884,6 +884,8 @@ func _tip_context() -> Dictionary:
 			and setup_trial.count_role(data, "decoy") >= int(m.settings["decoys_per_side"])
 	return {
 		"phase": phase,
+		"round": m.round_number,
+		"has_lab": st.count_role(data, "lab") > 0,
 		"setup_complete": setup_complete,
 		"clock_on": clock_running,
 		"has_launcher": st.count_role(data, "launcher") > 0,

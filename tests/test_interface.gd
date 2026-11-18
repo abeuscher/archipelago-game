@@ -79,7 +79,7 @@ func test_tips_load_with_numbers_from_data() -> void:
 
 func test_tips_order_and_completion() -> void:
 	var tips: Array = Tips.load_tips(data())
-	var ctx := {"phase": "build", "has_launcher": true, "has_anti_air": false, "radar_started": false}
+	var ctx := {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, ctx, [], null)
 	eq(r["current"]["id"], "build_anti_air", "anti-air first")
 	ctx["has_anti_air"] = true
@@ -93,7 +93,7 @@ func test_tips_order_and_completion() -> void:
 	# Dismissed tips stay gone.
 	var done: Array = r["done"].duplicate()
 	done.append("research_radar")
-	r = Tips.update(tips, {"phase": "build", "has_launcher": true, "has_anti_air": true, "radar_started": false}, done, null)
+	r = Tips.update(tips, {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": true, "radar_started": false}, done, null)
 	eq(r["current"], null, "nothing left for this phase")
 	r = Tips.update(tips, {"phase": "targeting"}, done, null)
 	eq(r["current"]["id"], "aim", "targeting tip")
@@ -182,7 +182,7 @@ func test_base_button_colours() -> void:
 
 func test_tips_phase_change_and_snooze() -> void:
 	var tips: Array = Tips.load_tips(data())
-	var build := {"phase": "build", "has_launcher": true, "has_anti_air": false, "radar_started": false}
+	var build := {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, build, [], null)
 	eq(r["current"]["id"], "build_anti_air", "shown in build")
 	# Leaving the phase hides the tip without marking it done.
@@ -275,7 +275,7 @@ func test_next_round_money_matches_projection() -> void:
 
 func test_first_build_tips_timer_then_launcher() -> void:
 	var tips: Array = Tips.load_tips(data())
-	var ctx := {"phase": "build", "clock_on": true, "has_launcher": false, "has_anti_air": false, "radar_started": false}
+	var ctx := {"phase": "build", "round": 2, "has_lab": true, "clock_on": true, "has_launcher": false, "has_anti_air": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, ctx, [], null)
 	eq(r["current"]["id"], "round_timer", "timer tip first while the clock runs")
 	var done: Array = ["round_timer"]
@@ -347,10 +347,35 @@ func test_damage_tip_cost_from_data() -> void:
 func test_rebuild_tip_when_a_launcher_is_kept_down() -> void:
 	var tips: Array = Tips.load_tips(data())
 	var done: Array = ["place_bases", "setup_done", "round_timer", "repair"]
-	var ctx := {"phase": "build", "has_launcher": true, "has_anti_air": true, "radar_started": true, "own_damaged": true}
+	var ctx := {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": true, "radar_started": true, "own_damaged": true}
 	var r: Dictionary = Tips.update(tips, ctx, done, null)
 	check(r["current"] == null or r["current"]["id"] != "rebuild_launcher", "not without repeated hits")
 	ctx["launcher_targeted"] = true
 	r = Tips.update(tips, ctx, done, null)
 	eq(r["current"]["id"], "rebuild_launcher", "shown when a launcher is kept down")
 	eq(r["current"]["character"], "mechanic", "the Mechanic says it")
+
+
+func test_anti_air_tip_from_round_two() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var done: Array = ["place_bases", "setup_done", "round_timer"]
+	var ctx := {"phase": "build", "round": 1, "has_launcher": true, "has_anti_air": false, "has_lab": false}
+	var r: Dictionary = Tips.update(tips, ctx, done, null)
+	check(r["current"] == null or r["current"]["id"] != "build_anti_air", "not in round 1")
+	ctx["round"] = 2
+	r = Tips.update(tips, ctx, done, null)
+	eq(r["current"]["id"], "build_anti_air", "round 2 with no anti-air")
+	ctx["has_anti_air"] = true
+	r = Tips.update(tips, ctx, done, null)
+	check(r["current"] == null or r["current"]["id"] != "build_anti_air", "not once anti-air is built")
+
+
+func test_radar_tip_after_first_lab() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var done: Array = ["place_bases", "setup_done", "round_timer", "build_anti_air"]
+	var ctx := {"phase": "build", "round": 2, "has_launcher": true, "has_anti_air": true, "has_lab": false, "radar_started": false}
+	var r: Dictionary = Tips.update(tips, ctx, done, null)
+	check(r["current"] == null or r["current"]["id"] != "research_radar", "not without a lab")
+	ctx["has_lab"] = true
+	r = Tips.update(tips, ctx, done, null)
+	eq(r["current"]["id"], "research_radar", "once there is a lab")

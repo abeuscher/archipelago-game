@@ -20,7 +20,7 @@ static func load_tips(data, path: String = PATH) -> Array:
 	for t in parsed.get("tips", []):
 		out.append({"id": String(t["id"]), "when": String(t["when"]), "text": String(t["text"]).format(fill),
 			"anchor": String(t.get("anchor", "")), "pause": bool(t.get("pause", false)),
-			"character": String(t.get("character", ""))})
+			"character": String(t.get("character", "")), "from_round": int(t.get("from_round", 0))})
 	return out
 
 
@@ -47,7 +47,8 @@ static func placeholders(data) -> Dictionary:
 	}
 
 
-## ctx keys: phase ("setup", "build", "targeting", ...), setup_complete, clock_on,
+## ctx keys: phase ("setup", "build", "targeting", ...), round, setup_complete, clock_on,
+## has_lab,
 ## has_launcher, has_anti_air, radar_started, suspected_base_seen,
 ## own_damaged, launcher_targeted, fuel_short.
 static func holds(when: String, ctx: Dictionary) -> bool:
@@ -64,7 +65,8 @@ static func holds(when: String, ctx: Dictionary) -> bool:
 		"build_without_anti_air":
 			return phase == "build" and not ctx.get("has_anti_air", false)
 		"radar_not_started":
-			return phase == "build" and not ctx.get("radar_started", false)
+			# Once there is a lab to research with.
+			return phase == "build" and ctx.get("has_lab", false) and not ctx.get("radar_started", false)
 		"targeting":
 			return phase == "targeting"
 		"suspected_base_seen":
@@ -88,6 +90,8 @@ static func update(tips: Array, ctx: Dictionary, done: Array, current, skip: Arr
 		new_done.append(current["id"])
 	for t in tips:
 		if new_done.has(t["id"]) or skip.has(t["id"]):
+			continue
+		if int(ctx.get("round", 0)) < int(t.get("from_round", 0)):
 			continue
 		if holds(String(t["when"]), ctx):
 			var shown: Dictionary = t.duplicate()
