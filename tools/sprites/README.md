@@ -6,7 +6,7 @@ Renders every Archipelago installation from six map rotations into transparent P
 
 ```
 pip install numpy pillow
-python tools/sprites/render_buildings.py --out assets/buildings
+python tools/sprites/render_buildings.py --out assets/buildings --hex-width 103.923 --reverse
 ```
 
 Output per run:
@@ -26,15 +26,18 @@ Output per run:
 | `--no-outline` | off | Drop the 1px dark outline. |
 | `--frames` | off | Also write one PNG per frame. |
 | `--only a b` | all | Render just the named buildings. |
+| `--no-fire`, `--no-smoke` | off | Damaged sheets without flames or smoke. |
 
 ## Buildings
 
 `missile_launcher`, `missile_launcher_empty`, `ballistic_launcher`, `ballistic_launcher_empty`, `anti_air`, `radar`, `bank`, `refinery`, `lab`, `base`, `decoy`, `repair` (shared scaffolding), `rubble` (shared destroyed state).
 
+Every building except the shared states also has a `<name>_damaged` sheet (hit, needs repair): the main feature is broken or knocked over, with soot, scorch marks, debris, a small fire and smoke. Damaged launchers have no missile, so there is no separate empty variant. `--no-fire` and `--no-smoke` drop those effects if you would rather do them as particles in-game.
+
 `decoy` is the base with a grey flag so the owner can tell them apart. Draw enemy decoys with the `base` sheet.
 
 ## Adding or changing a building
 
-Write a function that returns `pad() + ...` using `prism`, `tube`, `box` and `beam`, then register it in `BUILDINGS`. Units: 1.0 is the hex centre-to-vertex distance before `BUILDING_SCALE`; weapons face +x; z is up.
+Write a function that returns `pad() + ...` using `prism`, `tube`, `box` and `beam`, then register it in `BUILDINGS`. For the damaged version, add a `damaged` branch that breaks the main feature and returns `wreck(parts, hit_point, seed)`. Units: 1.0 is the hex centre-to-vertex distance before `BUILDING_SCALE`; weapons face +x; z is up.
 
 Colour rule: the pad rim stays black. Red, yellow and orange are reserved for hex outlines, so keep them off the base of a structure. They are fine higher up.

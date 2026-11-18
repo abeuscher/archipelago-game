@@ -119,18 +119,87 @@ def beam(p, q, thick, color):
     return box((length, thick, thick), color, mid, pitch=pitch, yaw=yaw)
 
 
+def rail(length, width, thick, color, pivot, pitch=0, yaw=0):
+    """Flat bar that starts at pivot and extends along its pitched/yawed +x."""
+    return box((length, width, thick), color, _xf((length / 2, 0, 0), pitch, yaw, pivot),
+               pitch=pitch, yaw=yaw)
+
+
+def blob(r, color, pos, rot=0):
+    """Low-poly ball."""
+    x, y, z = pos
+    return (prism(7, .001, r, z - r, z - .35 * r, color, at=(x, y), rot=rot)
+            + prism(7, r, r, z - .35 * r, z + .35 * r, color, at=(x, y), rot=rot)
+            + prism(7, r, .001, z + .35 * r, z + r, color, at=(x, y), rot=rot))
+
+
+def _mix(a, b, t):
+    ca, cb = _rgb(a), _rgb(b)
+    return "#%02x%02x%02x" % tuple(int(round(v)) for v in ca + (cb - ca) * t)
+
+
+DAMAGE_FIRE = True       # small flame at the hit point
+DAMAGE_SMOKE = True      # smoke puffs rising from the hit point
+
+
+def wreck(parts, hot, seed):
+    """Generic damage pass: soot near the hit point, scorch marks and debris on
+    the pad, plus optional fire and smoke. hot = (x, y, z) of the main hit."""
+    rng = random.Random(seed)
+    spots = [(hot, .5)]
+    for _ in range(2):
+        r, a = rng.uniform(.15, .45), rng.uniform(0, 2 * math.pi)
+        spots.append(((r * math.cos(a), r * math.sin(a), rng.uniform(.15, .5)), .32))
+    out = []
+    for face, col in parts:
+        if max(p[2] for p in face) > .06:
+            c = [sum(p[i] for p in face) / len(face) for i in range(3)]
+            amt = max(max(0.0, 1 - math.dist(c, sp) / rad) for sp, rad in spots)
+            amt = max(amt, .12)
+            col = _mix(col, "#24211f", min(.85, amt * 1.1))
+        out.append((face, col))
+    for sp, rad in spots:
+        d = math.hypot(sp[0], sp[1])
+        k = min(1, .45 / d) if d > 0 else 1
+        out += prism(7, rad * .7, rad * .7, .121, .124, "#35322f",
+                     at=(sp[0] * k, sp[1] * k), rot=rng.uniform(0, 50))
+    greys = ["#5a5853", "#45433f", "#77756e", "#2f2e2b"]
+    for _ in range(6):
+        r, a = rng.uniform(.45, .66), rng.uniform(0, 2 * math.pi)
+        sz = (rng.uniform(.07, .16), rng.uniform(.06, .13), rng.uniform(.04, .1))
+        out += box(sz, rng.choice(greys), (r * math.cos(a), r * math.sin(a), .12 + sz[2] / 2),
+                   pitch=rng.uniform(-15, 15), yaw=rng.uniform(0, 180))
+    hx, hy, hz = hot
+    if DAMAGE_FIRE:
+        out += prism(6, .1, .001, hz, hz + .3, FLAME, at=(hx, hy))
+        out += prism(5, .06, .001, hz, hz + .18, "#f2c230", at=(hx + .1, hy - .06))
+        out += prism(5, .06, .001, hz, hz + .16, FLAME, at=(hx - .08, hy + .09))
+    if DAMAGE_SMOKE:
+        for i, g in enumerate(["#3f3f42", "#55555a", "#6c6c72"]):
+            out += blob(.13 + .04 * i, g, (hx - .07 * i, hy + .05 * i, hz + .42 + .29 * i),
+                        rot=rng.uniform(0, 50))
+    return out
+
+
 def pad():
     return (prism(6, .84, .84, 0, .05, PAD_RIM, rot=90)
             + prism(6, .78, .78, .05, .12, PAD_TOP, rot=90))
 
 
 # ---------------------------------------------------------------- models --
-def missile_launcher(loaded=True):
+def missile_launcher(loaded=True, damaged=False):
     pivot = (-.3, 0, .25)
     m = pad()
     m += prism(12, .42, .42, .12, .2, STEEL, at=(-.05, 0))
+    if damaged:
+        m += box((.1, .22, .16), STEEL_LT, (.16, 0, .28))
+        m += rail(1.1, .16, .06, "#474b52", pivot, pitch=7, yaw=24)
+        m += box((.42, .62, .06), STEEL_DK, (-.6, .05, .16), pitch=6, yaw=12)
+        m += box((.4, .26, .22), CONCRETE, (-.1, .5, .23))
+        m += box((.44, .3, .04), RED, (-.02, .56, .36), pitch=14, yaw=25)
+        return wreck(m, (.12, 0, .26), 1)
     m += box((.1, .22, .42), STEEL_LT, (.16, 0, .41))
-    m += box((1.1, .16, .06), "#474b52", (.121, 0, .604), pitch=40)
+    m += rail(1.1, .16, .06, "#474b52", pivot, pitch=40)
     if loaded:
         m += tube(4, .15, .085, .16, "#8d9197", pivot, pitch=40, x0=.04, lift=.13, off=45)
         m += tube(10, .085, .085, .82, WHITE, pivot, pitch=40, x0=.1, lift=.13)
@@ -141,9 +210,16 @@ def missile_launcher(loaded=True):
     return m
 
 
-def ballistic_launcher(loaded=True):
+def ballistic_launcher(loaded=True, damaged=False):
     m = pad()
     m += prism(8, .5, .45, .12, .22, STEEL)
+    if damaged:
+        m += box((.52, .04, .12), GUNMETAL, (.08, 0, .28))
+        m += prism(12, .14, .12, .22, .42, WHITE, at=(.08, 0))
+        m += tube(4, .113, .113, 1.15, "#59677a", (-.42, 0, .22), pitch=58, yaw=-22, off=45)
+        m += box((.34, .26, .2), CONCRETE, (.1, -.52, .22))
+        m += box((.38, .3, .04), RED_DK, (.16, -.5, .34), pitch=-12, yaw=18)
+        return wreck(m, (.08, 0, .42), 2)
     if loaded:
         m += box((.52, .04, .2), GUNMETAL, (.08, 0, .32))
         m += box((.52, .04, .2), GUNMETAL, (.08, 0, .32), yaw=90)
@@ -159,10 +235,17 @@ def ballistic_launcher(loaded=True):
     return m
 
 
-def anti_air():
+def anti_air(damaged=False):
     m = pad()
     m += prism(12, .5, .45, .12, .24, STEEL)
     m += prism(8, .3, .26, .24, .48, GREEN)
+    if damaged:
+        m += box((.3, .52, .18), "#4a4f55", (.02, 0, .54), pitch=8, yaw=20)
+        m += tube(8, .05, .05, .78, GUNMETAL, (0, -.15, .54), pitch=4, yaw=-28, x0=.05)
+        m += tube(8, .07, .07, .12, "#16181b", (0, -.15, .54), pitch=4, yaw=-28, x0=.78)
+        m += tube(8, .05, .05, .36, GUNMETAL, (0, .15, .54), pitch=50, yaw=20, x0=.05)
+        m += box((.22, .2, .14), GREEN, (-.38, .3, .19))
+        return wreck(m, (.05, .1, .6), 3)
     m += box((.3, .52, .18), "#4a4f55", (.02, 0, .54))
     for y in (-.15, .15):
         m += tube(8, .05, .05, .78, GUNMETAL, (0, y, .54), pitch=50, x0=.05)
@@ -172,11 +255,17 @@ def anti_air():
     return m
 
 
-def radar():
+def radar(damaged=False):
     hub = (0, 0, .72)
     m = pad()
     m += prism(8, .4, .34, .12, .3, STEEL)
     m += prism(8, .385, .365, .18, .25, PURPLE)
+    if damaged:
+        m += prism(8, .09, .09, .3, .5, STEEL_LT)
+        m += tube(16, .07, .56, .2, WHITE, (.12, .1, .5), pitch=-38, yaw=50, x0=.06,
+                  caps=(True, False))
+        m += box((.26, .22, .16), CONCRETE, (-.42, -.28, .2))
+        return wreck(m, (-.05, -.05, .5), 4)
     m += prism(8, .09, .09, .3, .66, STEEL_LT)
     m += box((.16, .16, .14), STEEL_DK, hub)
     m += tube(16, .07, .56, .2, WHITE, hub, pitch=35, x0=.06, caps=(True, False))
@@ -186,10 +275,20 @@ def radar():
     return m
 
 
-def bank():
+def bank(damaged=False):
     m = pad()
     m += box((1.0, .84, .06), "#c9c5b8", (0, 0, .15))
     m += box((.74, .6, .36), "#e3dfd2", (-.06, 0, .36))
+    if damaged:
+        for y in (-.27, .09):
+            m += prism(8, .04, .04, .18, .54, WHITE, at=(.4, y))
+        m += prism(8, .04, .04, .18, .3, WHITE, at=(.4, .27))
+        m += beam((.3, -.2, .2), (.47, .12, .2), .07, WHITE)
+        m += box((.6, .78, .04), "#c9c5b8", (-.18, 0, .56))
+        m += box((.3, .4, .04), "#c9c5b8", (.3, -.19, .56))
+        m += tube(3, 1, 1, .52, GOLD, (-.48, 0, 0), lift=.655, off=90, sy=.45, sz=.15)
+        m += box((.04, .14, .22), GUNMETAL, (.315, 0, .29))
+        return wreck(m, (.22, .12, .56), 5)
     for y in (-.27, -.09, .09, .27):
         m += prism(8, .04, .04, .18, .54, WHITE, at=(.4, y))
     m += box((.96, .78, .04), "#c9c5b8", (0, 0, .56))
@@ -198,8 +297,17 @@ def bank():
     return m
 
 
-def refinery():
+def refinery(damaged=False):
     m = pad()
+    if damaged:
+        m += prism(12, .26, .26, .12, .5, "#c8c4b8", at=(-.3, .3))
+        m += prism(12, .22, .22, .5, .505, "#1d1b1a", at=(-.3, .3))
+        m += prism(12, .2, .2, .12, .4, "#c8c4b8", at=(-.36, -.3))
+        m += prism(12, .2, .06, .4, .48, "#b4b0a4", at=(-.36, -.3))
+        m += tube(8, .11, .11, .66, RUST, (.22, .38, .2), pitch=22, yaw=250)
+        m += prism(8, .09, .075, .12, .55, STEEL_LT, at=(.36, -.12))
+        m += beam((-.36, -.3, .26), (.36, -.12, .26), .05, "#8a5a32")
+        return wreck(m, (-.3, .3, .5), 6)
     m += prism(12, .26, .26, .12, .5, "#c8c4b8", at=(-.3, .3))
     m += prism(12, .26, .08, .5, .6, "#b4b0a4", at=(-.3, .3))
     m += prism(12, .2, .2, .12, .4, "#c8c4b8", at=(-.36, -.3))
@@ -215,7 +323,7 @@ def refinery():
     return m
 
 
-def lab():
+def lab(damaged=False):
     c = (.12, .1)
     m = pad()
     m += box((.5, .4, .24), CONCRETE_LT, (-.34, -.3, .24))
@@ -223,6 +331,10 @@ def lab():
     m += prism(10, .5, .5, .12, .2, CONCRETE_LT, at=c)
     m += prism(10, .48, .44, .2, .36, BLUE, at=c)
     m += prism(10, .44, .32, .36, .52, BLUE, at=c)
+    if damaged:
+        m += prism(10, .3, .3, .52, .525, "#16202b", at=c)
+        m += tube(4, .018, .018, .56, GUNMETAL, (-.48, -.36, .39), pitch=35, yaw=140)
+        return wreck(m, (c[0], c[1], .5), 7)
     m += prism(10, .32, .14, .52, .62, BLUE, at=c)
     m += prism(10, .14, .001, .62, .66, WHITE, at=c)
     m += prism(4, .018, .018, .39, .95, GUNMETAL, at=(-.48, -.36))
@@ -230,11 +342,18 @@ def lab():
     return m
 
 
-def base(flag=WHITE):
+def base(flag=WHITE, damaged=False):
     m = pad()
     m += prism(6, .66, .56, .12, .42, CONCRETE_LT, rot=90)
     m += prism(6, .4, .34, .42, .66, "#efede6", rot=90)
     m += prism(6, .39, .375, .5, .56, "#2a3340", rot=90)
+    if damaged:
+        m += prism(6, .3, .3, .66, .665, "#1d1b1a", rot=90)
+        m += box((.06, .22, .2), GUNMETAL, (.53, 0, .22))
+        m += tube(4, .02, .02, .5, GUNMETAL, (.1, .1, .66), pitch=28, yaw=35)
+        m += box((.3, .025, .17), flag, _xf((.34, 0, -.1), 28, 35, (.1, .1, .66)), pitch=28, yaw=35)
+        m += box((.3, .26, .05), "#4a4f55", (-.3, -.25, .46), pitch=20, yaw=40)
+        return wreck(m, (-.05, -.05, .66), 8)
     m += prism(6, .37, .37, .66, .7, "#4a4f55", rot=90)
     m += box((.06, .22, .2), GUNMETAL, (.53, 0, .22))
     m += prism(4, .02, .02, .7, 1.2, GUNMETAL)
@@ -242,8 +361,8 @@ def base(flag=WHITE):
     return m
 
 
-def decoy():
-    return base(flag="#6c7076")
+def decoy(damaged=False):
+    return base(flag="#6c7076", damaged=damaged)
 
 
 def repair():
@@ -290,6 +409,15 @@ BUILDINGS = {
     "lab": lab,
     "base": base,
     "decoy": decoy,
+    "missile_launcher_damaged": lambda: missile_launcher(damaged=True),
+    "ballistic_launcher_damaged": lambda: ballistic_launcher(damaged=True),
+    "anti_air_damaged": lambda: anti_air(damaged=True),
+    "radar_damaged": lambda: radar(damaged=True),
+    "bank_damaged": lambda: bank(damaged=True),
+    "refinery_damaged": lambda: refinery(damaged=True),
+    "lab_damaged": lambda: lab(damaged=True),
+    "base_damaged": lambda: base(damaged=True),
+    "decoy_damaged": lambda: decoy(damaged=True),
     "repair": repair,
     "rubble": rubble,
 }
@@ -402,9 +530,13 @@ def main():
     ap.add_argument("--no-outline", action="store_true")
     ap.add_argument("--frames", action="store_true", help="also write one PNG per frame")
     ap.add_argument("--only", nargs="*", help="building names to render")
+    ap.add_argument("--no-fire", action="store_true", help="damaged sheets without flames")
+    ap.add_argument("--no-smoke", action="store_true", help="damaged sheets without smoke")
     ap.add_argument("--preview-zoom", type=int, default=3)
     args = ap.parse_args()
 
+    global DAMAGE_FIRE, DAMAGE_SMOKE
+    DAMAGE_FIRE, DAMAGE_SMOKE = not args.no_fire, not args.no_smoke
     names = args.only or list(BUILDINGS)
     unknown = [n for n in names if n not in BUILDINGS]
     if unknown:

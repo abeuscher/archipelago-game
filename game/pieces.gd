@@ -64,6 +64,9 @@ const SHEET_FOR := {
 }
 ## Sheets with a separate frame set for a launcher that has fired.
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
+## Sheets with a <name>_damaged version: hit and not yet repaired.
+const DAMAGED_SHEETS := ["missile_launcher", "ballistic_launcher", "anti_air", "radar", "bank",
+	"refinery", "lab", "base", "decoy"]
 
 static var _sheets: Dictionary = {}
 static var _meta = null
@@ -94,14 +97,21 @@ static func sheet(name: String) -> Texture2D:
 
 
 ## Sheet name for a building as drawn: scaffolding while under repair, the
-## empty launcher once it has fired this round.
+## damaged version once hit (HP lost, out of action, or a hit on a base or
+## decoy), otherwise the empty launcher once it has fired this round.
 static func sheet_name(b: Dictionary) -> String:
 	if b.get("repairing", false):
 		return "repair"
 	var n: String = SHEET_FOR.get(String(b["type"]), "")
+	if n in DAMAGED_SHEETS and is_hit(b):
+		return n + "_damaged"
 	if n in EMPTY_SHEETS and b.get("empty", false):
 		n += "_empty"
 	return n
+
+
+static func is_hit(b: Dictionary) -> bool:
+	return bool(b.get("damaged", false)) or bool(b.get("disabled", false)) or float(b.get("hits", 0.0)) > 0.0
 
 
 ## Draws one frame of a sheet with its anchor on `c` (the centre of the hex
@@ -131,23 +141,22 @@ static func draw_piece(ci: CanvasItem, font: Font, c: Vector2, b: Dictionary, vi
 	var w := 22.0
 	var h := 26.0
 	var base_y := c.y + 4.0
-	var tint := Color(0.5, 0.5, 0.55) if b.get("disabled", false) and not b.get("repairing", false) else Color.WHITE
-	var drawn := draw_sheet(ci, sheet_name(b), c, view, scale, tint)
-	if drawn and b.get("repairing", false):
+	# The sprite shows damage and repair itself; the marks below are for the
+	# placeholder only.
+	if draw_sheet(ci, sheet_name(b), c, view, scale):
 		return
-	if not drawn:
-		var col: Color = COLORS.get(type, Color.WHITE)
-		if b.get("disabled", false):
-			col = col.darkened(0.55)
-		ci.draw_colored_polygon(_ellipse(Vector2(c.x, base_y), 13, 5), Color(0, 0, 0, 0.35))
-		var body := Rect2(c.x - w / 2.0, base_y - h, w, h)
-		ci.draw_rect(body, col)
-		ci.draw_rect(Rect2(body.position, Vector2(w, 5)), col.lightened(0.3))
-		ci.draw_rect(body, col.darkened(0.5), false, 1.0)
-		ci.draw_string(font, Vector2(body.position.x - 6, body.position.y + 19), SHORT.get(type, "?"),
-			HORIZONTAL_ALIGNMENT_CENTER, w + 12, 11 if SHORT.get(type, "?").length() > 2 else 14, Color(0.08, 0.08, 0.1))
-		if type == "decoy":
-			ci.draw_circle(Vector2(body.end.x - 4, body.position.y + 9), 2.0, Color(0.2, 0.2, 0.2))
+	var col: Color = COLORS.get(type, Color.WHITE)
+	if b.get("disabled", false):
+		col = col.darkened(0.55)
+	ci.draw_colored_polygon(_ellipse(Vector2(c.x, base_y), 13, 5), Color(0, 0, 0, 0.35))
+	var body := Rect2(c.x - w / 2.0, base_y - h, w, h)
+	ci.draw_rect(body, col)
+	ci.draw_rect(Rect2(body.position, Vector2(w, 5)), col.lightened(0.3))
+	ci.draw_rect(body, col.darkened(0.5), false, 1.0)
+	ci.draw_string(font, Vector2(body.position.x - 6, body.position.y + 19), SHORT.get(type, "?"),
+		HORIZONTAL_ALIGNMENT_CENTER, w + 12, 11 if SHORT.get(type, "?").length() > 2 else 14, Color(0.08, 0.08, 0.1))
+	if type == "decoy":
+		ci.draw_circle(Vector2(body.end.x - 4, body.position.y + 9), 2.0, Color(0.2, 0.2, 0.2))
 	var top := Vector2(c.x, base_y - h)
 	if b.get("damaged", false) and not b.get("repairing", false):
 		ci.draw_line(top + Vector2(-8, 6), top + Vector2(-2, 14), Color(0.15, 0.1, 0.05), 2.0)

@@ -23,6 +23,15 @@
     "lab": "lab.png",
     "base": "base.png",
     "decoy": "decoy.png",
+    "missile_launcher_damaged": "missile_launcher_damaged.png",
+    "ballistic_launcher_damaged": "ballistic_launcher_damaged.png",
+    "anti_air_damaged": "anti_air_damaged.png",
+    "radar_damaged": "radar_damaged.png",
+    "bank_damaged": "bank_damaged.png",
+    "refinery_damaged": "refinery_damaged.png",
+    "lab_damaged": "lab_damaged.png",
+    "base_damaged": "base_damaged.png",
+    "decoy_damaged": "decoy_damaged.png",
     "repair": "repair.png",
     "rubble": "rubble.png"
   }
