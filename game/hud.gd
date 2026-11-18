@@ -1,13 +1,15 @@
 ## Screen interface, laid out per spec section 14.
 ##   Left toolbar: phase tools, with the scoreboard timer at its foot.
-##   Top middle: rotate buttons, round indicator, and log events flashing
-##   as they happen.
-##   Top right: resources, the next-round earnings button and the log
-##   history button.
+##   Top middle: round indicator, and log events flashing as they happen.
+##   Top right: resources (money with next round's income in brackets),
+##   the next-round earnings button and the log history button.
 ##   Right side, toward the middle: the strip of research beakers and base
 ##   buttons, all the same size.
-##   Bottom: info box, then the minimap at the right.
-## Plus the research panel, tips, the Esc menu and the end-of-game overlay.
+##   Bottom: info box, then the minimap at the right, both raised
+##   MAP_BAR_H off the bottom; the rotate and zoom buttons sit beneath the
+##   minimap.
+## Plus the research panel, tips, the Esc menu, the end-of-game overlay and
+## the debug panel (the ` key).
 extends CanvasLayer
 
 const Minimap = preload("res://game/minimap.gd")
@@ -15,12 +17,16 @@ const SevenSeg = preload("res://game/seven_seg.gd")
 const StripButton = preload("res://game/strip_button.gd")
 const ToolButton = preload("res://game/tool_button.gd")
 const FuelPlanner = preload("res://game/fuel_planner.gd")
+const IconButton = preload("res://game/icon_button.gd")
 const ResearchPanel = preload("res://game/research_panel.gd")
 const EscMenu = preload("res://game/esc_menu.gd")
 
 signal rotate_requested(dir: int)
+signal zoom_requested(dir: int)
 signal tip_dismissed(id: String, forever: bool)
 signal earnings_requested
+signal debug_add_money
+signal debug_toggle_fog(on: bool)
 
 var minimap
 var research_panel
@@ -28,7 +34,10 @@ var esc_menu
 var _tool_title: Label
 var _tools: VBoxContainer
 var _timer
-var _resources: Label
+var _money_val: Label
+var _money_next: Label
+var _fuel_val: Label
+var _research_val: Label
 var _round: Label
 var _flash: VBoxContainer
 var _info: RichTextLabel
@@ -52,11 +61,15 @@ var _hover_text: Label
 var _overlay: PanelContainer
 var _overlay_text: Label
 var _overlay_buttons: HBoxContainer
+var _debug: PanelContainer
+var _debug_money: Button
+var _debug_fog: CheckBox
 
 const TOOLBAR_W := 260
 const INFO_W := 420
-const MINIMAP_W := 300
+const MINIMAP_W := 380
 const BOTTOM_H := 170
+const MAP_BAR_H := 44         ## gap under the minimap and info box, holding the map controls
 const STRIP_W := 64
 const FLASH_SECONDS := 4.0
 const FLASH_MAX := 4
@@ -97,16 +110,17 @@ func _ready() -> void:
 	tr.anchor_left = 1.0
 	tr.anchor_right = 1.0
 	tr.offset_left = -520
-	tr.offset_right = -16
+	tr.offset_right = -12
 	tr.offset_top = 8
 	tr.alignment = BoxContainer.ALIGNMENT_BEGIN
+	tr.add_theme_constant_override("separation", 6)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(tr)
-	_resources = Label.new()
-	_resources.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_resources.add_theme_font_size_override("font_size", 20)
-	tr.add_child(_resources)
+	tr.add_child(_build_resources())
 	var trb := HBoxContainer.new()
 	trb.alignment = BoxContainer.ALIGNMENT_END
+	trb.add_theme_constant_override("separation", 6)
+	trb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tr.add_child(trb)
 	_earn_button = Button.new()
 	_earn_button.text = "Next round"
@@ -114,6 +128,7 @@ func _ready() -> void:
 	_earn_button.focus_mode = Control.FOCUS_NONE
 	_earn_button.tooltip_text = "Show what next round's income will be"
 	_earn_button.toggled.connect(_toggle_earnings)
+	_small_button(_earn_button)
 	trb.add_child(_earn_button)
 	_log_button = Button.new()
 	_log_button.text = "Log"
@@ -121,16 +136,18 @@ func _ready() -> void:
 	_log_button.focus_mode = Control.FOCUS_NONE
 	_log_button.tooltip_text = "Read back the game log"
 	_log_button.toggled.connect(_toggle_log)
+	_small_button(_log_button)
 	trb.add_child(_log_button)
 	_earn_panel = PanelContainer.new()
 	_earn_panel.visible = false
+	_earn_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
 	tr.add_child(_earn_panel)
 	_earn_text = Label.new()
 	_earn_text.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_earn_text.custom_minimum_size = Vector2(480, 0)
 	_earn_panel.add_child(_earn_text)
 
-	# Top middle: rotate buttons around the round indicator, flashes below.
+	# Top middle: the round indicator, flashes below.
 	var top := VBoxContainer.new()
 	top.anchor_left = 0.5
 	top.anchor_right = 0.5
@@ -142,23 +159,11 @@ func _ready() -> void:
 	var topr := HBoxContainer.new()
 	topr.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.add_child(topr)
-	var rl := Button.new()
-	rl.text = "⟲"
-	rl.focus_mode = Control.FOCUS_NONE
-	rl.tooltip_text = "Rotate the board 60° (Q)"
-	rl.pressed.connect(func(): rotate_requested.emit(-1))
-	topr.add_child(rl)
 	_round = Label.new()
 	_round.add_theme_font_size_override("font_size", 20)
 	_round.custom_minimum_size = Vector2(320, 0)
 	_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	topr.add_child(_round)
-	var rr := Button.new()
-	rr.text = "⟳"
-	rr.focus_mode = Control.FOCUS_NONE
-	rr.tooltip_text = "Rotate the board 60° (E)"
-	rr.pressed.connect(func(): rotate_requested.emit(1))
-	topr.add_child(rr)
 	_flash = VBoxContainer.new()
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(_flash)
@@ -171,7 +176,7 @@ func _ready() -> void:
 	_log_panel.offset_left = -STRIP_W - 24 - 400
 	_log_panel.offset_right = -STRIP_W - 24
 	_log_panel.offset_top = 80
-	_log_panel.offset_bottom = -BOTTOM_H - 16
+	_log_panel.offset_bottom = -BOTTOM_H - MAP_BAR_H - 8
 	_log_panel.visible = false
 	root.add_child(_log_panel)
 	_log = RichTextLabel.new()
@@ -208,8 +213,8 @@ func _ready() -> void:
 	info_panel.anchor_bottom = 1.0
 	info_panel.offset_left = -MINIMAP_W - INFO_W - 24
 	info_panel.offset_right = -MINIMAP_W - 16
-	info_panel.offset_top = -BOTTOM_H - 8
-	info_panel.offset_bottom = -8
+	info_panel.offset_top = -BOTTOM_H - MAP_BAR_H
+	info_panel.offset_bottom = -MAP_BAR_H
 	root.add_child(info_panel)
 	var ih := HBoxContainer.new()
 	info_panel.add_child(ih)
@@ -233,10 +238,32 @@ func _ready() -> void:
 	minimap.anchor_bottom = 1.0
 	minimap.offset_left = -MINIMAP_W - 8
 	minimap.offset_right = -8
-	minimap.offset_top = -BOTTOM_H - 8
-	minimap.offset_bottom = -8
-	minimap.tooltip_text = "Click to move the view. This is how you look at the other island."
+	minimap.offset_top = -BOTTOM_H - MAP_BAR_H
+	minimap.offset_bottom = -MAP_BAR_H
+	minimap.tooltip_text = "Click or drag to move the view. This is how you look at the other island."
 	root.add_child(minimap)
+
+	# Map controls beneath the minimap: rotate, then zoom.
+	var bar := HBoxContainer.new()
+	bar.anchor_left = 1.0
+	bar.anchor_right = 1.0
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.offset_left = -MINIMAP_W - 8
+	bar.offset_right = -8
+	bar.offset_top = -MAP_BAR_H + 4
+	bar.offset_bottom = -4
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_constant_override("separation", 6)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bar)
+	_map_button(bar, "rotate_left", "Rotate left (Q)", func(): rotate_requested.emit(-1))
+	_map_button(bar, "rotate_right", "Rotate right (E)", func(): rotate_requested.emit(1))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(14, 0)
+	bar.add_child(gap)
+	_map_button(bar, "zoom_out", "Zoom out", func(): zoom_requested.emit(-1))
+	_map_button(bar, "zoom_in", "Zoom in", func(): zoom_requested.emit(1))
 
 	# Tip callout, top left of the board area.
 	_tip = PanelContainer.new()
@@ -319,6 +346,28 @@ func _ready() -> void:
 	_overlay_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	ov.add_child(_overlay_buttons)
 
+	# Debug panel, top left of the board area. Toggled with the ` key.
+	_debug = PanelContainer.new()
+	_debug.visible = false
+	_debug.position = Vector2(TOOLBAR_W + 16, 16)
+	root.add_child(_debug)
+	var dv := VBoxContainer.new()
+	dv.add_theme_constant_override("separation", 6)
+	_debug.add_child(dv)
+	var dt := Label.new()
+	dt.text = "Debug  ( ` to close )"
+	dt.add_theme_color_override("font_color", Color(1.0, 0.7, 0.4))
+	dv.add_child(dt)
+	_debug_money = Button.new()
+	_debug_money.focus_mode = Control.FOCUS_NONE
+	_debug_money.pressed.connect(func(): debug_add_money.emit())
+	dv.add_child(_debug_money)
+	_debug_fog = CheckBox.new()
+	_debug_fog.text = "Clear fog of war"
+	_debug_fog.focus_mode = Control.FOCUS_NONE
+	_debug_fog.toggled.connect(func(on: bool): debug_toggle_fog.emit(on))
+	dv.add_child(_debug_fog)
+
 	# Esc menu on top of everything; it keeps running while paused.
 	esc_menu = EscMenu.new()
 	root.add_child(esc_menu)
@@ -380,8 +429,136 @@ func set_timer(seconds: float) -> void:
 	_timer.set_time(seconds)
 
 
-func set_resources(money: int, fuel: int, research: int) -> void:
-	_resources.text = "Money %d    Fuel %d    Research +%d" % [money, fuel, research]
+## money_next: next round's money income, or -1 when there is none to show
+## (setup, before round 1).
+func set_resources(money: int, fuel: int, research: int, money_next: int = -1) -> void:
+	_money_val.text = str(money)
+	_money_next.visible = money_next >= 0
+	_money_next.text = "(+%d)" % maxi(money_next, 0)
+	_money_next.tooltip_text = "Next round: %d" % (money + maxi(money_next, 0))
+	_fuel_val.text = str(fuel)
+	_research_val.text = "+%d" % research
+
+
+func _map_button(parent: Control, kind: String, tip: String, action: Callable) -> void:
+	var ib := IconButton.new(kind, tip)
+	ib.pressed.connect(action)
+	parent.add_child(ib)
+
+
+# --- Resource panel --------------------------------------------------------
+
+const RES_CAPTION := Color(0.62, 0.68, 0.76)
+const RES_VALUE := Color(0.97, 0.98, 1.0)
+const RES_NEXT := Color(0.55, 0.85, 0.55)
+const RES_ACCENT := {"money": Color(0.95, 0.78, 0.30), "fuel": Color(0.95, 0.55, 0.25), "research": Color(0.40, 0.80, 0.95)}
+
+
+## A compact strip: three stats, each a small-caps caption over a bold
+## value with a thin colour key, split by dividers.
+func _build_resources() -> Control:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.07, 0.09, 0.12, 0.9)
+	st.border_color = Color(0.22, 0.26, 0.31)
+	st.set_border_width_all(1)
+	st.set_corner_radius_all(6)
+	st.content_margin_left = 14
+	st.content_margin_right = 14
+	st.content_margin_top = 5
+	st.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", st)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	panel.add_child(row)
+	var money := _stat(row, "Money", "money", "Money to build and repair with. Next round's income is in brackets.")
+	_money_val = money[0]
+	_money_next = Label.new()
+	_money_next.add_theme_font_size_override("font_size", 13)
+	_money_next.add_theme_color_override("font_color", RES_NEXT)
+	_money_next.size_flags_vertical = Control.SIZE_SHRINK_END
+	_money_next.mouse_filter = Control.MOUSE_FILTER_PASS
+	money[1].add_child(_money_next)
+	row.add_child(_divider())
+	_fuel_val = _stat(row, "Fuel", "fuel", "Fuel launches missiles.")[0]
+	row.add_child(_divider())
+	_research_val = _stat(row, "Research", "research", "Research points your labs make each round.")[0]
+	return panel
+
+
+## Adds one stat block; returns [value label, value row].
+func _stat(parent: Control, caption: String, key: String, tip: String) -> Array:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	box.tooltip_text = tip
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	parent.add_child(box)
+	var cap := RichTextLabel.new()
+	cap.bbcode_enabled = true
+	cap.fit_content = true
+	cap.scroll_active = false
+	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
+	cap.mouse_filter = Control.MOUSE_FILTER_PASS
+	cap.add_theme_color_override("default_color", RES_CAPTION)
+	cap.add_theme_font_override("normal_font", tracked_font(1))
+	cap.text = small_caps(caption, 12, 9)
+	box.add_child(cap)
+	var vrow := HBoxContainer.new()
+	vrow.add_theme_constant_override("separation", 5)
+	vrow.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.add_child(vrow)
+	var key_bar := ColorRect.new()
+	key_bar.color = RES_ACCENT[key]
+	key_bar.custom_minimum_size = Vector2(3, 16)
+	key_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	key_bar.mouse_filter = Control.MOUSE_FILTER_PASS
+	vrow.add_child(key_bar)
+	var val := Label.new()
+	val.add_theme_font_override("font", bold_font())
+	val.add_theme_font_size_override("font_size", 19)
+	val.add_theme_color_override("font_color", RES_VALUE)
+	val.mouse_filter = Control.MOUSE_FILTER_PASS
+	vrow.add_child(val)
+	return [val, vrow]
+
+
+static func _divider() -> Control:
+	var d := ColorRect.new()
+	d.color = Color(0.25, 0.29, 0.34)
+	d.custom_minimum_size = Vector2(1, 30)
+	d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return d
+
+
+## Small caps from the default font, which has no small-caps glyphs: the
+## first letter of each word at full size, the rest upper case and smaller.
+static func small_caps(text: String, big: int, small: int) -> String:
+	var words: Array = []
+	for w in text.split(" ", false):
+		words.append("[font_size=%d]%s[/font_size][font_size=%d]%s[/font_size]" % [big, w.left(1).to_upper(), small, w.substr(1).to_upper()])
+	return " ".join(words)
+
+
+static func bold_font() -> Font:
+	var f := FontVariation.new()
+	f.base_font = ThemeDB.fallback_font
+	f.variation_embolden = 0.6
+	return f
+
+
+static func tracked_font(spacing: int) -> Font:
+	var f := FontVariation.new()
+	f.base_font = ThemeDB.fallback_font
+	f.spacing_glyph = spacing
+	return f
+
+
+## Smaller text and height for the buttons under the resources.
+static func _small_button(b: Button) -> void:
+	b.add_theme_font_size_override("font_size", 13)
+	b.custom_minimum_size = Vector2(0, 28)
 
 
 func set_earnings(lines: Array, next_round: int) -> void:
@@ -616,6 +793,18 @@ func show_overlay(text: String, buttons: Array) -> void:
 			action.call())
 		_overlay_buttons.add_child(b)
 	_overlay.visible = true
+
+
+# --- Debug panel -----------------------------------------------------------
+
+func toggle_debug(money_amount: int, fog_cleared: bool) -> void:
+	_debug.visible = not _debug.visible
+	_debug_money.text = "Add %d money" % money_amount
+	_debug_fog.set_pressed_no_signal(fog_cleared)
+
+
+func debug_visible() -> bool:
+	return _debug.visible
 
 
 func overlay_visible() -> bool:

@@ -1,6 +1,8 @@
 # Work queue
 
-## Session 005 (play-test notes, 2026-11-18)
+## Session 005 (play-test notes, 2026-11-18): done
+
+All six items are built; ASSUMPTIONS.md D54 to D58 and P2 record the details.
 
 1. **Minimap**: draw real hexes so it matches the board. Raise the minimap and the box beside it 44 px off the bottom of the screen.
 2. **Map controls**: move the rotate buttons under the minimap. Add zoom + and zoom - buttons with a magnifying-glass icon, and put "Zoom in" and "Zoom out" in their hover titles.

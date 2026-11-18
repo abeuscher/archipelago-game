@@ -116,4 +116,13 @@ func _run() -> void:
 	main._focus(1)
 	await create_timer(1.0).timeout
 	await _shot("17_fog")
+	main.hud.toggle_debug(int(main.data.settings["debug_money"]), false)
+	main._debug_toggle_fog(true)
+	await _shot("18_debug_no_fog")
+	main.hud.toggle_debug(0, true)
+	main._debug_toggle_fog(false)
+	main._focus(0)
+	main.hud.zoom_requested.emit(1)
+	main.hud.zoom_requested.emit(1)
+	await _shot("19_zoomed")
 	quit()

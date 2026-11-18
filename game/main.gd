@@ -20,6 +20,7 @@ const BOARD_GAP := 320.0
 const ZOOM_MIN := 0.3
 const ZOOM_MAX := 3.0
 const PAN_SPEED := 700.0
+const ZOOM_STEP := 1.25        ## per press of a zoom button
 
 enum Ui { SETUP, BUILD, TARGETING, PLAYOUT, COIN, OVER }
 
@@ -55,6 +56,7 @@ var hovered: Vector2i = Vector2i(-1, -1)
 var _drag_from: Vector2
 var _dragging: bool = false
 var _drag_moved: float = 0.0
+var debug_no_fog: bool = false       ## debug tool: show the enemy island as it really is
 
 
 func _ready() -> void:
@@ -85,8 +87,12 @@ func _ready() -> void:
 
 	hud = Hud.new()
 	add_child(hud)
+	hud.minimap.setup(own_board, enemy_board, camera)
 	hud.minimap.view_requested.connect(_on_minimap)
 	hud.rotate_requested.connect(_rotate)
+	hud.zoom_requested.connect(func(dir: int): _zoom_at(ZOOM_STEP if dir > 0 else 1.0 / ZOOM_STEP, get_viewport_rect().size / 2.0))
+	hud.debug_add_money.connect(_debug_add_money)
+	hud.debug_toggle_fog.connect(_debug_toggle_fog)
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
@@ -292,10 +298,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_Q: _rotate(-1)
 			KEY_E: _rotate(1)
+			KEY_QUOTELEFT: hud.toggle_debug(int(data.settings["debug_money"]), debug_no_fog)
 
 
 func _zoom_at(factor: float, screen_pos: Vector2) -> void:
-	var before := get_global_mouse_position()
+	var before := get_canvas_transform().affine_inverse() * screen_pos
 	var z := clampf(camera.zoom.x * factor, ZOOM_MIN, ZOOM_MAX)
 	camera.zoom = Vector2(z, z)
 	camera.force_update_scroll()
@@ -328,10 +335,8 @@ func _focus(side: int) -> void:
 	hud.minimap.queue_redraw()
 
 
-func _on_minimap(side: int, fraction: Vector2) -> void:
-	var board = own_board if side == 0 else enemy_board
-	var r: Rect2 = board.bounds()
-	camera.position = board.position + r.position + r.size * fraction
+func _on_minimap(world_pos: Vector2) -> void:
+	camera.position = world_pos
 	_update_viewing()
 
 
@@ -483,7 +488,7 @@ func _refresh() -> void:
 	var own_state = _own_state()
 	if ui != Ui.PLAYOUT:
 		own_board.set_tiles(BoardView.own_tiles(own_state, data, m.knowledge[1], m.bombed[0]))
-		enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
+		enemy_board.set_tiles(_enemy_tiles())
 	own_board.selected = selected.y if selected.x == 0 else -1
 	enemy_board.selected = selected.y if selected.x == 1 else -1
 	if ui == Ui.TARGETING and active_launcher >= 0:
@@ -493,8 +498,11 @@ func _refresh() -> void:
 		enemy_board.markers[o["target"]] = Color(1, 0.25, 0.2)
 	_update_placement_hints(own_state)
 	_update_ranges(own_state)
-	hud.minimap.set_data(m.sides[0].island.grid, own_board.tiles, enemy_board.tiles)
-	hud.set_resources(own_state.money, own_state.fuel, own_state.compute_income(data)["research"] if own_state.count_role(data, "lab") > 0 else 0)
+	hud.minimap.queue_redraw()
+	var next_income: Dictionary = Earnings.project(own_state, data, m.round_number)["income"]
+	hud.set_resources(own_state.money, own_state.fuel,
+		own_state.compute_income(data)["research"] if own_state.count_role(data, "lab") > 0 else 0,
+		int(next_income["money"]) if next_income.has("money") else -1)
 	_build_toolbar(own_state)
 	_build_strip(own_state)
 	if hud.earnings_visible():
@@ -505,6 +513,33 @@ func _refresh() -> void:
 	_update_info()
 	own_board.queue_redraw()
 	enemy_board.queue_redraw()
+
+
+## The opposing space as we know it, or as it really is with the debug
+## fog tool on.
+func _enemy_tiles() -> Array:
+	if debug_no_fog:
+		return BoardView.own_tiles(m.sides[1], data)
+	return BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
+
+
+# --- Debug tools (the ` key) -----------------------------------------------
+
+func _debug_add_money() -> void:
+	var amount := int(data.settings["debug_money"])
+	m.sides[0].money += amount
+	if setup_trial != null:
+		setup_trial.money += amount
+	hud.add_log("[color=gray]Debug: +%d money.[/color]" % amount)
+	_refresh()
+
+
+func _debug_toggle_fog(on: bool) -> void:
+	debug_no_fog = on
+	hud.add_log("[color=gray]Debug: fog of war %s.[/color]" % ("cleared" if on else "restored"))
+	if ui == Ui.PLAYOUT:
+		enemy_board.set_tiles(_enemy_tiles())
+	_refresh()
 
 
 func _update_placement_hints(st) -> void:
@@ -912,13 +947,13 @@ static func _fmt(v: float) -> String:
 
 func _run_playout() -> void:
 	var pre_own: Array = BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0])
-	var pre_enemy: Array = BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
+	var pre_enemy: Array = _enemy_tiles()
 	own_board.set_tiles(pre_own)
 	enemy_board.set_tiles(pre_enemy)
 	enemy_board.markers = {}
 	var events: Array = m.resolve_playout()
 	# What our strikes will have revealed, applied hex by hex as they land.
-	var post_enemy: Array = BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
+	var post_enemy: Array = _enemy_tiles()
 	var by_id := {}
 	for ev in events:
 		if ev.has("id"):
@@ -950,6 +985,7 @@ func _run_playout() -> void:
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
 		await _wait(1.4 + launches[1].size() * 0.35)
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
+	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
 			_log_event(ev)
@@ -961,7 +997,7 @@ func _run_playout() -> void:
 		for k in launches[0].size():
 			_strike(enemy_board, null, by_id[launches[0][k]["id"]], int(launches[0][k]["target"]), Color(1, 0.9, 0.5), k * 0.35, post_enemy)
 		await _wait(1.4 + launches[0].size() * 0.35)
-	enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
+	enemy_board.set_tiles(_enemy_tiles())
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
 			_log_event(ev)
@@ -973,12 +1009,24 @@ func _run_playout() -> void:
 	_after_playout()
 
 
+## Launchers that fired this round show their empty sprite until the next
+## round rebuilds the tiles.
+func _mark_fired(hexes: Array) -> void:
+	for h in hexes:
+		var b = own_board.tiles[h].get("building")
+		if b != null:
+			b["empty"] = true
+	own_board.queue_redraw()
+
+
 func _wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds, false).timeout
 
 
 func _rise(board, hex: int, color: Color, delay: float, offset: Vector2 = Vector2.ZERO) -> void:
 	await _wait(delay)
+	if board == own_board:
+		_mark_fired([hex])
 	var ms = effects.add_missile(board.position + board.tile_center(hex) + offset, 0.0, color)
 	var t := create_tween()
 	t.tween_property(ms, "alt", 700.0, 0.8).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)

@@ -149,6 +149,9 @@ func test_base_button_colours() -> void:
 	eq(StripButton.base_color(1.0), StripButton.RED, "1 left")
 	eq(StripButton.base_color(0.5), StripButton.RED, "half a hit left")
 	eq(StripButton.base_color(0.0), StripButton.DEAD, "destroyed")
+	eq(StripButton.base_color(2.0, 2.0), StripButton.GREEN, "2 of 2 left")
+	eq(StripButton.base_color(1.5, 2.0), StripButton.YELLOW, "1.5 of 2 left")
+	eq(StripButton.base_color(1.0, 2.0), StripButton.RED, "last hit left")
 
 
 func test_tips_phase_change_and_snooze() -> void:
@@ -189,3 +192,49 @@ func test_hit_outline_colours() -> void:
 	eq(BoardView.bombed_color(5), BoardView.bombed_color(3), "red from 3 on")
 	check(BoardView.bombed_color(1).g > BoardView.bombed_color(2).g and BoardView.bombed_color(2).g > BoardView.bombed_color(3).g, "yellow, orange, red")
 	check(BoardView.SELECTED != BoardView.bombed_color(1), "selection never looks like a hit")
+
+
+func test_sprite_sheet_choice() -> void:
+	const Pieces = preload("res://game/pieces.gd")
+	eq(Pieces.sheet_name({"type": "suspected_base"}), "base", "enemy sees a base")
+	eq(Pieces.sheet_name({"type": "decoy"}), "decoy", "owner sees the decoy flag")
+	eq(Pieces.sheet_name({"type": "basic_launcher"}), "missile_launcher", "loaded launcher")
+	eq(Pieces.sheet_name({"type": "basic_launcher", "empty": true}), "missile_launcher_empty", "fired launcher")
+	eq(Pieces.sheet_name({"type": "ballistic_launcher", "empty": true}), "ballistic_launcher_empty", "fired ballistic launcher")
+	eq(Pieces.sheet_name({"type": "bank", "empty": true}), "bank", "only launchers empty")
+	eq(Pieces.sheet_name({"type": "radar", "repairing": true}), "repair", "scaffolding while repairing")
+
+
+func test_every_building_has_a_sprite_sheet() -> void:
+	const Pieces = preload("res://game/pieces.gd")
+	var meta: Dictionary = Pieces.sprite_meta()
+	check(not meta.is_empty(), "sprites.json read")
+	eq(int(meta["frames_per_sheet"]), 6, "one frame per rotation")
+	var names: Array = Pieces.SHEET_FOR.values() + ["repair", "rubble", "missile_launcher_empty", "ballistic_launcher_empty"]
+	for n in names:
+		var tex: Texture2D = Pieces.sheet(n)
+		check(tex != null, "sheet loads: " + n)
+		if tex != null:
+			eq(tex.get_width(), int(meta["frame_width"]) * 6, "six frames wide: " + n)
+	for type in data().section("buildings"):
+		check(Pieces.SHEET_FOR.has(type), "sheet for building " + type)
+
+
+func test_small_caps_caption() -> void:
+	const Hud = preload("res://game/hud.gd")
+	eq(Hud.small_caps("Money", 12, 9), "[font_size=12]M[/font_size][font_size=9]ONEY[/font_size]", "first letter large")
+	check(Hud.small_caps("Next round", 12, 9).contains("[font_size=12]R[/font_size]"), "each word")
+
+
+func test_next_round_money_matches_projection() -> void:
+	var m = flat_match()
+	put(m, 0, "bank", 1, 1)
+	m.begin_round()
+	var before: int = m.sides[0].money
+	var shown := int(Earnings.project(m.sides[0], m.data, m.round_number)["income"]["money"])
+	m.end_build_phase()
+	ok(m.set_launch_orders(0, []))
+	ok(m.set_launch_orders(1, []))
+	m.resolve_playout()
+	m.begin_round()
+	eq(m.sides[0].money, before + shown, "bracketed income is what arrives")

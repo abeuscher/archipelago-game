@@ -9,7 +9,8 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 | `data/` | Every number: `rules.json`, `settings.json`, `ai.json`. Also `required_assets.txt`, which lists the media the game needs. |
 | `rules/` | The rules engine: plain GDScript classes with no scenes or rendering. |
 | `ai/` | The enemy AIs. Each sees only a `SideView`. `strong_ai.gd` is the section 12 AI the game uses; `simple_ai.gd` is the step 3 baseline. |
-| `tools/` | The headless batch runner. |
+| `tools/` | The headless batch runner, the screenshot tool, and `sprites/`, which renders the building sprite sheets. |
+| `assets/buildings/` | Building sprite sheets (six frames each, one per board rotation) and `sprites.json`. |
 | `tests/` | Rules tests and a small test runner. |
 | `game/` | Scenes and presentation (step 4 onward). Interface pieces: `hud.gd`, `research_panel.gd`, `esc_menu.gd`, `tips.gd`, `earnings.gd`. Tip wording is in `data/tips.json`. |
 
@@ -28,18 +29,19 @@ Controls:
 | --- | --- |
 | Select or place | Left click |
 | Pan | Right-drag or middle-drag, or the arrow keys |
-| Zoom | Mouse wheel |
-| Rotate the board 60° | Q / E, or the arrow buttons at the top |
-| Look at the other island | Click its half of the minimap |
+| Zoom | Mouse wheel, or the magnifier buttons under the minimap |
+| Rotate the board 60° | Q / E, or the rotate buttons under the minimap |
+| Look at the other island | Click or drag in its half of the minimap |
 | Cancel a tool or selection | Right click |
 | Pause, options, quit | Esc |
+| Debug panel: add money, clear the fog of war | \` (the key left of 1) |
 
 The screen follows section 14 of the spec:
 
 - **Left toolbar.** Buildings during build and repair. During targeting: the fuel planner, your launchers, Undo and Attack. The timer is at the bottom.
 - **Right strip.** A beaker for each research project, then a button for each base showing its hits left. Click a beaker to open the research panel. Click a base to jump to it.
 - **Research.** Select a lab and press "Research...", or click a beaker.
-- **Top right.** "Next round" shows next round's projected income. "Log" opens the full game log; events also flash at the top as they happen.
+- **Top right.** Money (with next round's income in brackets), fuel and research. "Next round" shows next round's projected income in full. "Log" opens the full game log; events also flash at the top as they happen.
 
 Settings and tip progress are saved to `user://settings.json`. On Windows that is `%APPDATA%\Godot\app_userdata\Archipelago\settings.json`. Delete the file to reset them.
 
@@ -72,6 +74,14 @@ Batch runner (AI against AI, headless):
 `--ai0` and `--ai1` pick the AI for each side: `simple`, `strong`, or `strong:<handicap>` with a preset from `data/ai.json` (`none`, `medium`, `easy`). Both default to `strong`, which is the AI the game uses. `--swap` alternates sides match by match and reports wins by AI.
 
 `--set` overrides a data value for that run only. It never edits the data files. The defaults for match count, seed and the round cap are in `data/ai.json` under `batch`. A match that reaches the round cap is reported as a timeout.
+
+Building sprites (needs Python with numpy and Pillow). The sheets are committed; rerun this only after changing a model in `render_buildings.py`:
+
+```powershell
+python tools/sprites/render_buildings.py --out assets/buildings --hex-width 103.923 --reverse
+```
+
+Delete the two `_contact_sheet` previews it writes; they are not used by the game.
 
 Screenshots (development aid: drives the real scene through setup, a build with research, targeting, the Esc menu and one playout, in a window; it uses its own settings file):
 
