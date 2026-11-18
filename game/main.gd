@@ -269,7 +269,7 @@ func _set_clock(seconds: int) -> void:
 
 
 func _process(delta: float) -> void:
-	if clock_running and not hud.overlay_visible():
+	if clock_running and not hud.overlay_visible() and not _tip_holds_clock():
 		clock_left -= delta
 		hud.set_timer(maxf(clock_left, 0.0))
 		if clock_left <= 0.0:
@@ -870,7 +870,17 @@ func _update_tips() -> void:
 	if r["done"].size() != prefs["tips_done"].size():
 		prefs["tips_done"] = r["done"]
 		_save_prefs()
-	hud.show_tip(current_tip)
+	var shown = current_tip
+	if shown != null:
+		shown = shown.duplicate()
+		shown["text"] = String(shown["text"]).format({"build_clock": int(prefs["build_clock_seconds"])})
+	hud.show_tip(shown)
+
+
+## A tip marked "pause" holds the phase clock (and the board) until it is
+## dismissed.
+func _tip_holds_clock() -> bool:
+	return current_tip != null and bool(current_tip.get("pause", false)) and hud.tip_showing() == String(current_tip["id"])
 
 
 func _on_tip_dismissed(id: String, forever: bool) -> void:
@@ -1087,11 +1097,10 @@ func _run_playout() -> void:
 
 	# Enemy strikes land on our island, then damage shows.
 	if not launches[1].is_empty():
-		# The enemy attack is announced: the alarm light starts with it.
-		var incoming := "%d enemy missile%s incoming!" % [launches[1].size(), "" if launches[1].size() == 1 else "s"]
+		# The enemy attack is announced in the log, and the alarm light
+		# starts with it.
 		hud.set_alarm(true)
-		hud.show_notice(incoming)
-		hud.add_log(incoming)
+		hud.add_log("%d enemy missile%s incoming!" % [launches[1].size(), "" if launches[1].size() == 1 else "s"])
 		await _wait(0.3)
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)

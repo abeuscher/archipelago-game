@@ -156,35 +156,40 @@ func test_ballistic_blast_seven_hexes_same_level() -> void:
 
 
 func test_base_hits_and_decoy_reveal() -> void:
-	# Counts come from data: a base falls at base_hits, a decoy is exposed
-	# when it reaches base_hits and falls one hit later.
+	# Counts come from data: a base falls at base_hits, a decoy at decoy_hits
+	# (fewer: it is the easier target, and falling gives it away).
 	var m = flat_match()
 	var base_hits := int(m.data.building("base")["hits_to_destroy"])
-	eq(int(m.data.building("decoy")["reveals_as_decoy_at_hits"]), base_hits, "decoy exposed when a base would fall")
-	eq(int(m.data.building("decoy")["hits_to_destroy"]), base_hits + 1, "decoy takes one more hit")
+	var decoy_hits := int(m.data.building("decoy")["hits_to_destroy"])
+	check(decoy_hits < base_hits, "decoy easier to kill than a base")
 	var base = put(m, 1, "base", 7, 7)
 	var decoy = put(m, 1, "decoy", 3, 3)
 	var l = put(m, 0, "basic_launcher", 0, 0)
 	var l2 = put(m, 0, "basic_launcher", 1, 0)
 	var bl = put(m, 0, "ballistic_launcher", 2, 0)
+	# Half a hit from a ballistic missile leaves a one-hit decoy standing,
+	# still looking like a base.
+	m.sides[0].fuel = 8
+	play_round(m, [_shot(bl, decoy.hex, "ballistic")])
+	if decoy_hits == 1:
+		check(m.sides[1].building_at(decoy.hex) != null, "half a hit: decoy stands")
+		eq(m.knowledge[0][decoy.hex]["building"]["type"], "suspected_base", "still looks like a base")
 	for r in base_hits - 1:
 		m.sides[0].fuel = 6
 		play_round(m, [_shot(l, base.hex), _shot(l2, decoy.hex)])
+	check(m.sides[1].building_at(decoy.hex) == null, "decoy destroyed")
+	eq(m.knowledge[0][decoy.hex]["destroyed"], "decoy", "attacker learns it was a decoy")
 	eq(base.hits, float(base_hits - 1), "basic hits counted")
-	eq(m.knowledge[0][base.hex]["building"]["type"], "suspected_base", "still looks like a base")
-	eq(m.knowledge[0][base.hex]["building"]["hits"], float(base_hits - 1), "hits shown")
+	eq(m.knowledge[0][base.hex]["building"]["type"], "suspected_base", "base still looks like a base")
 	m.sides[0].fuel = 8
-	var ev := play_round(m, [_shot(bl, base.hex, "ballistic"), _shot(l2, decoy.hex)])
+	play_round(m, [_shot(bl, base.hex, "ballistic")])
 	eq(base.hits, base_hits - 0.5, "ballistic counts half a hit")
 	check(m.sides[1].building_at(base.hex) != null, "half a hit short: base stands")
-	eq(events_of(ev, "decoy_revealed").size(), 1, "decoy gives itself away when a base would fall")
-	eq(m.knowledge[0][decoy.hex]["building"]["type"], "decoy", "attacker now sees a decoy")
 	m.sides[0].fuel = 6
-	ev = play_round(m, [_shot(l, base.hex), _shot(l2, decoy.hex)])
+	play_round(m, [_shot(l, base.hex)])
 	check(m.sides[1].building_at(base.hex) == null, "base destroyed")
-	check(m.sides[1].building_at(decoy.hex) == null, "decoy destroyed one hit later")
 	eq(m.knowledge[0][base.hex]["destroyed"], "base", "attacker sees destroyed base")
-	eq(m.view_for(0).enemy_bases_destroyed.size(), 1, "view counts destroyed bases")
+	eq(m.view_for(0).enemy_bases_destroyed.size(), 1, "view counts destroyed bases, not decoys")
 
 
 func test_scouting_reveals_without_damage() -> void:

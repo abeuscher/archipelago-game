@@ -12,17 +12,17 @@ const StripButton = preload("res://game/strip_button.gd")
 func test_settings_defaults_and_clamping() -> void:
 	var d = data()
 	var s: Dictionary = UserSettings.sanitize({}, d.settings)
-	eq(s["build_clock_seconds"], 30, "default build clock")
+	eq(s["build_clock_seconds"], 45, "default build clock")
 	eq(s["targeting_clock_seconds"], 60, "default targeting clock")
 	eq(s["decoys_per_side"], 1, "default decoys")
 	eq(s["show_tips"], true, "tips on by default")
 	eq(s["show_grid"], false, "grid off by default")
-	s = UserSettings.sanitize({"settings_version": 2, "decoys_per_side": 9, "build_clock_seconds": 7, "targeting_clock_seconds": 5000, "junk": 1}, d.settings)
+	s = UserSettings.sanitize({"settings_version": 3, "decoys_per_side": 9, "build_clock_seconds": 7, "targeting_clock_seconds": 5000, "junk": 1}, d.settings)
 	eq(s["decoys_per_side"], 3, "decoys clamped to max")
-	eq(s["build_clock_seconds"], 10, "clock rounded to the step")
+	eq(s["build_clock_seconds"], 5, "clock rounded to the step")
 	eq(s["targeting_clock_seconds"], 600, "clock clamped to max")
 	check(not s.has("junk"), "unknown keys dropped")
-	s = UserSettings.sanitize({"settings_version": 2, "build_clock_seconds": 0, "decoys_per_side": 0}, d.settings)
+	s = UserSettings.sanitize({"settings_version": 3, "build_clock_seconds": 0, "decoys_per_side": 0}, d.settings)
 	eq(s["build_clock_seconds"], 0, "0 means off")
 	eq(s["decoys_per_side"], 1, "decoys clamped to min")
 	eq(UserSettings.match_overrides(s), {"decoys_per_side": 1}, "only rules settings go to the match")
@@ -31,35 +31,41 @@ func test_settings_defaults_and_clamping() -> void:
 func test_settings_round_trip() -> void:
 	var d = data()
 	var path := "user://test_settings_round_trip.json"
-	var s: Dictionary = UserSettings.sanitize({"settings_version": 2, "build_clock_seconds": 90, "decoys_per_side": 2, "show_tips": false,
+	var s: Dictionary = UserSettings.sanitize({"settings_version": 3, "build_clock_seconds": 90, "decoys_per_side": 2, "show_tips": false,
 		"tips_done": ["aim"]}, d.settings)
 	UserSettings.save_settings(s, path)
 	var back: Dictionary = UserSettings.load_settings(d.settings, path)
 	eq(back, s, "loaded settings")
 	DirAccess.remove_absolute(path)
-	eq(UserSettings.load_settings(d.settings, path)["build_clock_seconds"], 30, "missing file gives defaults")
+	eq(UserSettings.load_settings(d.settings, path)["build_clock_seconds"], 45, "missing file gives defaults")
 
 
 func test_old_settings_take_the_new_default_clocks() -> void:
 	var d = data()
 	var s: Dictionary = UserSettings.sanitize({"build_clock_seconds": 120, "targeting_clock_seconds": 90, "decoys_per_side": 2}, d.settings)
-	eq(s["build_clock_seconds"], 30, "old saved clock replaced by the new default")
+	eq(s["build_clock_seconds"], 45, "old saved clock replaced by the new default")
 	eq(s["targeting_clock_seconds"], int(d.settings["targeting_clock_seconds"]), "both clocks")
 	eq(s["decoys_per_side"], 2, "other choices kept")
-	eq(s["settings_version"], 2, "now current")
+	eq(s["settings_version"], 3, "now current")
+	s = UserSettings.sanitize({"settings_version": 2, "build_clock_seconds": 30}, d.settings)
+	eq(s["build_clock_seconds"], 45, "the 30-second default from version 2 moves to 45")
 
 
 func test_tips_load_with_numbers_from_data() -> void:
 	var d = data()
 	var tips: Array = Tips.load_tips(d)
 	check(tips.size() >= 2, "tips loaded")
-	eq(tips[0]["id"], "round_timer", "first tip")
-	eq(tips[0]["anchor"], "timer", "points at the timer")
-	eq(tips[1]["id"], "build_launcher", "second tip")
-	eq(tips[1]["anchor"], "tool:basic_launcher", "points at the launcher button")
-	eq(tips[2]["id"], "build_anti_air", "then anti-air")
+	eq(tips[0]["id"], "place_bases", "first tip, in setup")
+	eq(tips[0]["anchor"], "tool:base", "points at the base button")
+	eq(tips[1]["id"], "round_timer", "then the timer")
+	eq(tips[1]["anchor"], "timer", "points at the timer")
+	check(tips[1]["pause"], "holds the clock")
+	check(String(tips[1]["text"]).contains("{build_clock}"), "clock filled in when shown")
+	eq(tips[2]["id"], "build_launcher", "then the launcher")
+	eq(tips[2]["anchor"], "tool:basic_launcher", "points at the launcher button")
+	eq(tips[3]["id"], "build_anti_air", "then anti-air")
 	for t in tips:
-		check(not String(t["text"]).contains("{"), "placeholders filled in " + t["id"])
+		check(not String(t["text"]).replace("{build_clock}", "").contains("{"), "placeholders filled in " + t["id"])
 	var radar: Dictionary = tips.filter(func(t): return t["id"] == "research_radar")[0]
 	check(String(radar["text"]).contains("90%"), "radar accuracy from data")
 	d.set_path("rules.anti_air.accuracy_with_radar", 0.8)
@@ -87,7 +93,7 @@ func test_tips_order_and_completion() -> void:
 	r = Tips.update(tips, {"phase": "targeting"}, done, null)
 	eq(r["current"]["id"], "aim", "targeting tip")
 	r = Tips.update(tips, {"phase": "setup"}, [], null)
-	eq(r["current"], null, "no tip during setup")
+	eq(r["current"]["id"], "place_bases", "base tip during setup")
 
 
 func test_earnings_projection_matches_next_round() -> void:

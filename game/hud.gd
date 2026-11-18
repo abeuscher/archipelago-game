@@ -39,6 +39,7 @@ var _timer_label: RichTextLabel
 var _beacon
 var _tip_anchor: String = ""
 var _tip_arrow: Polygon2D
+var _tip_blocker: ColorRect
 var _money_val: Label
 var _money_next: Label
 var _fuel_val: Label
@@ -318,6 +319,13 @@ func _ready() -> void:
 	_map_button(bar, "zoom_in", "Zoom in", func(): zoom_requested.emit(1))
 
 	# Tip callout, top left of the board area.
+	# Behind a pausing tip: dims and blocks the screen until it is dismissed.
+	_tip_blocker = ColorRect.new()
+	_tip_blocker.color = Color(0, 0, 0, 0.35)
+	_tip_blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_tip_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	_tip_blocker.visible = false
+	root.add_child(_tip_blocker)
 	_tip_arrow = Polygon2D.new()
 	_tip_arrow.color = Color(0.45, 0.75, 0.95)
 	_tip_arrow.visible = false
@@ -858,12 +866,14 @@ func show_tip(tip) -> void:
 	if tip == null:
 		_tip.visible = false
 		_tip_arrow.visible = false
+		_tip_blocker.visible = false
 		_tip_id = ""
 		return
 	if String(tip["id"]) != _tip_id:
 		_tip_forever.button_pressed = true
 	_tip_id = String(tip["id"])
 	_tip_anchor = String(tip.get("anchor", ""))
+	_tip_blocker.visible = bool(tip.get("pause", false))
 	_tip_text.text = String(tip["text"])
 	_tip.visible = true
 	_place_tip.call_deferred()

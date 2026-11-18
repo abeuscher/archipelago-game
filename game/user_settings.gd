@@ -7,7 +7,7 @@ const PATH := "user://settings.json"
 const KEYS := ["settings_version", "build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "show_grid", "tips_done"]
 ## Settings saved before this version drop their clock values, so a change
 ## to the default clocks reaches players who already have a settings file.
-const CLOCK_RESET_BEFORE := 2
+const CLOCK_RESET_BEFORE := 3
 
 
 ## Defaults from data, overlaid with whatever the player saved, then clamped.

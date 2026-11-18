@@ -1,8 +1,10 @@
 {
-  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
+  "_note": "Tips introduce the game as the player goes (spec section 14). They show in this order, one at a time, while their condition holds. An optional anchor (timer, or tool:<building> for a toolbar button) places the tip beside that control with an arrow to it. pause: true holds the phase clock while the tip is up. {build_clock} is filled with the player's build clock when shown. Conditions are named in game/tips.gd. {placeholders} are filled from rules.json.",
   "tips": [
-    { "id": "round_timer", "when": "build_clock_running", "anchor": "timer",
-      "text": "You have a limited time to choose how to fortify your territory before the enemy begins its attack. Use it wisely. When this timer hits zero, the battle begins." },
+    { "id": "place_bases", "when": "setup", "anchor": "tool:base",
+      "text": "Place your bases carefully. If you lose all three you lose the game. Your decoy can help to distract the enemy from your real targets." },
+    { "id": "round_timer", "when": "build_clock_running", "anchor": "timer", "pause": true,
+      "text": "You have {build_clock} seconds every round to place your buildings. Make sure to produce fuel, money, and of course to wreak havoc upon the enemy as best you can." },
     { "id": "build_launcher", "when": "build_without_launcher", "anchor": "tool:basic_launcher",
       "text": "The missile launcher is your first offensive weapon. Make sure to build one early on so you can begin attacking and discover where your enemies' bases lie before it's too late." },
     { "id": "build_anti_air", "when": "build_without_anti_air",
@@ -12,7 +14,7 @@
     { "id": "aim", "when": "targeting",
       "text": "Pick a launcher on the left, then click a hex on the enemy space to aim it. The enemy island is under fog: missiles have to find its coast first. Undo is free." },
     { "id": "suspected_base", "when": "suspected_base_seen",
-      "text": "The number on a potential base counts its hits. A base falls at {base_hits} hits. A decoy is exposed when it reaches {decoy_reveal_hits} hits." },
+      "text": "The number on a potential base counts its hits. A base falls at {base_hits} hits. A decoy falls at {decoy_hits}, and then you know it was a decoy." },
     { "id": "repair", "when": "own_damaged",
       "text": "Something of yours is damaged. Select it and press Repair. A damaged weapon stays out of action until it is repaired. A repair takes the building out of action for the round, and it is back to full next round." },
     { "id": "fuel", "when": "fuel_short",

@@ -24,7 +24,7 @@ const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile"
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
 	"base": "Lose all three and you lose the island.",
-	"decoy": "Looks exactly like a base to the enemy, and takes one more hit to destroy.",
+	"decoy": "Looks exactly like a base to the enemy, but falls to a single hit.",
 	"bank": "Produces money every round.",
 	"refinery": "Produces fuel every round. Fuel launches missiles.",
 	"lab": "Produces research points. Each lab works on one research item.",
