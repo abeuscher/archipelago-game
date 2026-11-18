@@ -21,12 +21,14 @@ func _init() -> void:
 	focus_mode = Control.FOCUS_NONE
 
 
-static func base_color(left: float) -> Color:
+## Green at full strength, red on the last hit, yellow in between. With
+## 3 hits this is the spec's green 3, yellow 2, red 1.
+static func base_color(left: float, max_hits: float = 3.0) -> Color:
 	if left <= 0.0:
 		return DEAD
-	if left >= 3.0:
+	if left >= max_hits:
 		return GREEN
-	if left >= 2.0:
+	if left > 1.0:
 		return YELLOW
 	return RED
 
@@ -58,7 +60,7 @@ func _draw_beaker(c: Vector2) -> void:
 
 
 func _draw_base(c: Vector2) -> void:
-	var col := base_color(hits_left)
+	var col := base_color(hits_left, hits_max)
 	var shield := PackedVector2Array([
 		Vector2(c.x - 18, c.y - 20), Vector2(c.x + 18, c.y - 20), Vector2(c.x + 18, c.y + 2),
 		Vector2(c.x, c.y + 22), Vector2(c.x - 18, c.y + 2)])

@@ -26,8 +26,8 @@
   },
 
   "buildings": {
-    "base":               { "role": "base",     "cost": 0,  "hits_to_destroy": 3, "buildable": false, "repairable": false },
-    "decoy":              { "role": "decoy",    "cost": 20, "hits_to_destroy": 4, "reveals_as_decoy_at_hits": 3, "repairable": false },
+    "base":               { "role": "base",     "cost": 0,  "hits_to_destroy": 2, "buildable": false, "repairable": false },
+    "decoy":              { "role": "decoy",    "cost": 20, "hits_to_destroy": 3, "reveals_as_decoy_at_hits": 2, "repairable": false },
     "bank":               { "role": "economy",  "cost": 50, "hp": 40, "produces": { "money": 15 } },
     "refinery":           { "role": "economy",  "cost": 50, "hp": 40, "produces": { "fuel": 3 } },
     "lab":                { "role": "lab",      "cost": 60, "hp": 40, "produces": { "research": 2 } },
