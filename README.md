@@ -85,6 +85,8 @@ python tools/sprites/render_buildings.py --out assets/buildings --hex-width 103.
 
 Delete the two `_contact_sheet` previews it writes; they are not used by the game.
 
+Exporting: in the export preset (Project > Export), set "Filters to export non-resource files/folders" to `*.txt, *.json`, so the rules text and data files go into the build. Pictures are loaded through Godot's import system, which exports correctly; open the project in the editor (or run `--import`) once before exporting so the imported copies exist. `export_presets.cfg` is not committed.
+
 Screenshots (development aid: drives the real scene through setup, a build with research, targeting, the Esc menu and one playout, in a window; it uses its own settings file):
 
 ```powershell

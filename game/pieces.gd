@@ -2,6 +2,8 @@
 ## placeholder blocks as the fallback when a sheet is missing.
 extends RefCounted
 
+const Textures = preload("res://game/textures.gd")
+
 const NAMES := {
 	"base": "Base", "decoy": "Decoy", "suspected_base": "Potential base",
 	"bank": "Bank", "refinery": "Refinery", "lab": "Lab",
@@ -52,8 +54,7 @@ static func research_name(item: String) -> String:
 ## Building sprites: six-frame sheets rendered by tools/sprites (one frame
 ## per board rotation), described by assets/buildings/sprites.json. Drawn
 ## at the board's hex size; the art is rendered larger so it stays sharp
-## when zoomed in. Images are read straight from the files, so the game runs
-## from a fresh checkout without an editor import step.
+## when zoomed in. Loaded through textures.gd, which works in exports too.
 const SPRITE_DIR := "res://assets/buildings/"
 const BOARD_HEX_WIDTH := 30.0 * 1.7320508   ## Iso.HEX_SIZE * sqrt(3)
 const SHEET_FOR := {
@@ -85,14 +86,7 @@ static func sprite_meta() -> Dictionary:
 
 static func sheet(name: String) -> Texture2D:
 	if not _sheets.has(name):
-		var tex: Texture2D = null
-		var path: String = SPRITE_DIR + name + ".png"
-		if FileAccess.file_exists(path):
-			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
-			if img != null and not img.is_empty():
-				img.generate_mipmaps()
-				tex = ImageTexture.create_from_image(img)
-		_sheets[name] = tex
+		_sheets[name] = Textures.load_texture(SPRITE_DIR + name + ".png")
 	return _sheets[name]
 
 

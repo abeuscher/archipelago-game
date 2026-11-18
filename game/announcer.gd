@@ -15,6 +15,7 @@
 extends Control
 
 const PATH := "res://data/characters.json"
+const Textures = preload("res://game/textures.gd")
 const ANNOUNCE_SECONDS := 0.0   ## 0: stays until OK
 const POP_SECONDS := 0.12
 const BUBBLE_POP_SECONDS := 0.08
@@ -327,14 +328,8 @@ static func draw_polygon_on(ci: CanvasItem, pts: PackedVector2Array, uvs: Packed
 
 func _portrait(who: String) -> Texture2D:
 	if not _portraits.has(who):
-		var tex: Texture2D = null
 		var path := String(characters.get(who, {}).get("portrait", ""))
-		if path != "" and FileAccess.file_exists(path):
-			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
-			if img != null and not img.is_empty():
-				img.generate_mipmaps()
-				tex = ImageTexture.create_from_image(img)
-		_portraits[who] = tex
+		_portraits[who] = Textures.load_texture(path) if path != "" else null
 	return _portraits[who]
 
 
