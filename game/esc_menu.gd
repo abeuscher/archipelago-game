@@ -21,6 +21,9 @@ var _decoys: SpinBox
 var _tips: CheckBox
 var _grid: CheckBox
 var _reset_note: Label
+var _rules_box: VBoxContainer
+var _rules_label: RichTextLabel
+var rules_text: String = ""      ## the Game Rules page, set by the game (rules_text.gd)
 
 
 func _ready() -> void:
@@ -76,6 +79,7 @@ func _ready() -> void:
 	tips_row.add_child(_tips)
 	var reset := _button("Reset tips", _reset_tips)
 	reset.tooltip_text = "Show every tip again from the beginning"
+	reset.custom_minimum_size = Vector2(130, 38)
 	tips_row.add_child(reset)
 	_grid = _check("Show grid")
 	_grid.tooltip_text = "Outline every hex. Off, only coasts and changes of height are outlined."
@@ -91,10 +95,42 @@ func _ready() -> void:
 	note.add_theme_font_size_override("font_size", 13)
 	_opts_box.add_child(note)
 	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_END
 	_opts_box.add_child(row)
+	var rules_link := LinkButton.new()
+	rules_link.text = "Game Rules"
+	rules_link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
+	rules_link.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
+	rules_link.add_theme_color_override("font_hover_color", Color(0.75, 0.93, 1.0))
+	rules_link.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rules_link.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rules_link.tooltip_text = "How the game works, in detail"
+	rules_link.pressed.connect(_show_rules)
+	row.add_child(rules_link)
 	row.add_child(_button("Cancel", _show_main))
 	row.add_child(_button("Apply", _apply))
+
+	# Game Rules: the full description, scrolling, with a way back.
+	_rules_box = VBoxContainer.new()
+	_rules_box.add_theme_constant_override("separation", 8)
+	_rules_box.visible = false
+	stack.add_child(_rules_box)
+	_rules_box.add_child(_heading("Game Rules"))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(680, 520)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_rules_box.add_child(scroll)
+	_rules_label = RichTextLabel.new()
+	_rules_label.bbcode_enabled = true
+	_rules_label.fit_content = true
+	_rules_label.scroll_active = false
+	_rules_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rules_label.add_theme_font_size_override("normal_font_size", 15)
+	_rules_label.add_theme_font_size_override("bold_font_size", 15)
+	scroll.add_child(_rules_label)
+	var rrow := HBoxContainer.new()
+	rrow.alignment = BoxContainer.ALIGNMENT_END
+	_rules_box.add_child(rrow)
+	rrow.add_child(_button("Back", _show_options))
 
 
 func setup(defaults_in: Dictionary, settings_in: Dictionary) -> void:
@@ -127,6 +163,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if not visible:
 			open_menu()
+		elif _rules_box.visible:
+			_show_options()
 		elif _opts_box.visible:
 			_show_main()
 		else:
@@ -137,6 +175,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func _show_main() -> void:
 	_main_box.visible = true
 	_opts_box.visible = false
+	_rules_box.visible = false
+
+
+func _show_rules() -> void:
+	_rules_label.text = rules_text
+	_main_box.visible = false
+	_opts_box.visible = false
+	_rules_box.visible = true
 
 
 func _show_options() -> void:
@@ -149,6 +195,7 @@ func _show_options() -> void:
 	_tips.button_pressed = bool(settings["show_tips"])
 	_grid.button_pressed = bool(settings["show_grid"])
 	_reset_note.text = ""
+	_rules_box.visible = false
 	_main_box.visible = false
 	_opts_box.visible = true
 

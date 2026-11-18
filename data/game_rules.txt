@@ -1,0 +1,33 @@
+[font_size=20][b]The goal[/b][/font_size]
+Two islands face each other across the sea. Each side has {bases} bases. Destroy all of the enemy's bases before they destroy yours. If both sides lose their last base in the same round, the side with more money wins; with equal money, a coin decides.
+
+[font_size=20][b]Setup[/b][/font_size]
+Place your {bases} bases on your island. Bases and decoys may not touch each other. You may also buy decoys for {decoy_cost} money each: to the enemy a decoy looks exactly like a base. You start with {start_money} money and {start_fuel} fuel.
+
+[font_size=20][b]Each round[/b][/font_size]
+[b]1. Build and repair[/b] ({build_clock}). From round {income_from} on, income arrives first: {baseline_money} money and {baseline_fuel} fuel, plus what your buildings make. Build, repair, and choose research.
+[b]2. Targeting[/b] ({targeting_clock}). Pick a launcher, then click a hex on the enemy island to aim it. Each launcher fires one missile a round, if you have the fuel.
+[b]3. Playout.[/b] Both sides' missiles fly at once and anti-air shoots some of them down. All damage is applied at the end of the round, so a building destroyed this round still fires this round.
+
+[font_size=20][b]Buildings[/b][/font_size]
+{building_list}
+
+[font_size=20][b]Missiles[/b][/font_size]
+{missile_list}
+A missile reveals the hexes around where it lands, out to its view radius. Impacts don't reveal higher ground, and a blast doesn't cross a step in height.
+
+[font_size=20][b]Bases and decoys[/b][/font_size]
+A base falls at {base_hits} hits and a decoy at {decoy_hits}. A basic missile counts as one hit and a ballistic missile as half a hit. On the enemy island, potential bases show the hits they have taken; when a decoy falls, you learn it was a decoy.
+
+[font_size=20][b]Anti-air and radar[/b][/font_size]
+Anti-air shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round ({aa_engagements_up} with research). It hits {acc}% of the time, or {acc_radar}% inside a radar's range. Radar reaches {radar_ranges} hexes from the base, middle and top level.
+
+[font_size=20][b]Damage and repair[/b][/font_size]
+Buildings have hit points, and missile damage is rolled. A damaged weapon is out of action until it is repaired; other buildings work at half strength while damaged. A repair costs {repair_pct}% of the building's price and takes the building out of action for that round; it is back to full the round after. Bases and decoys can't be repaired.
+
+[font_size=20][b]Research[/b][/font_size]
+Each lab makes {lab_points} research points a round toward its own project. Starting a project costs money; a lab without a project helps the oldest one. A project whose lab is destroyed keeps its progress.
+{research_list}
+
+[font_size=20][b]Fog of war[/b][/font_size]
+The enemy island is hidden until your missiles reveal it, and what you saw may have changed since. The enemy sees your island the same way; the hexes it has seen are drawn lighter.

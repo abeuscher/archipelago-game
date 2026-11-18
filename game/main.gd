@@ -16,6 +16,7 @@ const Hud = preload("res://game/hud.gd")
 const UserSettings = preload("res://game/user_settings.gd")
 const Tips = preload("res://game/tips.gd")
 const Earnings = preload("res://game/earnings.gd")
+const RulesText = preload("res://game/rules_text.gd")
 
 const REPAIR_SOUND := "assets/audio/repair_work_crew.ogg"
 const CHANNEL_ROWS := 4        ## rows of open sea between the two islands
@@ -112,6 +113,7 @@ func _ready() -> void:
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
 	hud.esc_menu.setup(data.settings, prefs)
+	_update_rules_text()
 	hud.esc_menu.settings_changed.connect(_on_settings_changed)
 	hud.esc_menu.quit_requested.connect(func(): get_tree().quit())
 
@@ -930,8 +932,14 @@ func _on_settings_changed(s: Dictionary) -> void:
 	prefs = s
 	_save_prefs()
 	_apply_grid()
+	_update_rules_text()
 	current_tip = null
 	_refresh()
+
+
+## The Game Rules page, with the player's clocks.
+func _update_rules_text() -> void:
+	hud.esc_menu.rules_text = RulesText.build(data, int(prefs["build_clock_seconds"]), int(prefs["targeting_clock_seconds"]))
 
 
 ## The "Show grid" option: every hex outlined, or only coasts and height

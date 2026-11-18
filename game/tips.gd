@@ -43,6 +43,7 @@ static func placeholders(data) -> Dictionary:
 		"base_hits": int(data.building("base")["hits_to_destroy"]),
 		"decoy_hits": int(data.building("decoy")["hits_to_destroy"]),
 		"refinery_fuel": int(data.building("refinery")["produces"]["fuel"]),
+		"repair_pct": roundi(data.num("damage", "repair_cost_fraction") * 100.0),
 	}
 
 

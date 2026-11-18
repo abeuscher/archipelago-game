@@ -28,7 +28,7 @@
       "id": "repair",
       "character": "mechanic",
       "when": "own_damaged",
-      "text": "Careful, General! We've got some damage on the ground. When a building is damaged it stops functioning. Select it during the build phase to repair it for half its original cost."
+      "text": "Careful, General! We've got some damage on the ground. Damaged buildings can be repaired for {repair_pct}% of their original cost."
     },
     {
       "id": "build_launcher",

@@ -119,6 +119,8 @@ func _run() -> void:
 	await _shot("12_esc_menu")
 	main.hud.esc_menu._show_options()
 	await _shot("13_options")
+	main.hud.esc_menu._show_rules()
+	await _shot("13b_game_rules")
 	main.hud.esc_menu.close_menu()
 	main._attack()
 	await create_timer(2.2).timeout

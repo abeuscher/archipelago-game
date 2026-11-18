@@ -318,3 +318,26 @@ func test_setup_done_tip_after_bases_and_decoys() -> void:
 	r = Tips.update(tips, {"phase": "setup", "setup_complete": true}, ["place_bases"], null)
 	eq(r["current"]["id"], "setup_done", "once everything is placed")
 	eq(r["current"]["character"], "ginger", "Ginger says it")
+
+
+func test_game_rules_page_filled_from_data() -> void:
+	const RulesText = preload("res://game/rules_text.gd")
+	var d = data()
+	var text: String = RulesText.build(d, 45, 0)
+	check(text.length() > 500, "rules text built")
+	var plain := text
+	for tag in ["[b]", "[/b]", "[/font_size]", "[font_size=20]"]:
+		plain = plain.replace(tag, "")
+	check(not plain.contains("{"), "every placeholder filled")
+	check(text.contains("45 seconds"), "player's build clock")
+	check(text.contains("no time limit"), "clock off")
+	check(text.contains("30%"), "repair cost from data")
+	check(text.contains("Missile launcher"), "building list")
+	d.set_path("rules.damage.repair_cost_fraction", 0.5)
+	check(RulesText.build(d, 45, 60).contains("50%"), "follows the data")
+
+
+func test_damage_tip_cost_from_data() -> void:
+	var t: Array = Tips.load_tips(data()).filter(func(x): return x["id"] == "repair")
+	check(String(t[0]["text"]).contains("30% of their original cost"), "repair cost filled in")
+	eq(t[0]["character"], "mechanic", "said by the Mechanic")
