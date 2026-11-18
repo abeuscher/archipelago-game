@@ -29,8 +29,20 @@ func _draw() -> void:
 			draw_rect(Rect2(6, 4, 36, size.y - 8), Color(0.1, 0.11, 0.13, 0.6))
 		x = 46.0
 	var y := size.y / 2.0 + (1.0 if note == "" else -5.0)
-	draw_string(font, Vector2(x, y + 5), title, HORIZONTAL_ALIGNMENT_LEFT, size.x - x - 60, 15, col)
+	draw_string(_bold(), Vector2(x, y + 5), title, HORIZONTAL_ALIGNMENT_LEFT, size.x - x - 60, 15, col)
 	if note != "":
 		draw_string(font, Vector2(x, y + 20), note, HORIZONTAL_ALIGNMENT_LEFT, size.x - x - 10, 11, Color(0.7, 0.72, 0.75))
 	if detail != "":
-		draw_string(font, Vector2(size.x - 64, size.y / 2.0 + 6), detail, HORIZONTAL_ALIGNMENT_RIGHT, 56, 15, col)
+		draw_string(_bold(), Vector2(size.x - 64, size.y / 2.0 + 6), detail, HORIZONTAL_ALIGNMENT_RIGHT, 56, 15, col)
+
+
+static var _bold_font: Font
+
+
+static func _bold() -> Font:
+	if _bold_font == null:
+		var f := FontVariation.new()
+		f.base_font = ThemeDB.fallback_font
+		f.variation_embolden = 0.6
+		_bold_font = f
+	return _bold_font

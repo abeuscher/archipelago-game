@@ -6,9 +6,7 @@
 extends Node2D
 
 const Iso = preload("res://game/iso.gd")
-
-const SEA := Color(0.16, 0.30, 0.45)
-const SEA_EDGE := Color(0.12, 0.24, 0.37)
+const Palette = preload("res://game/palette.gd")
 const MARGIN_HEXES := 2       ## open sea beyond the outermost island hex
 
 var cells: Array = []         ## screen centres of the sea hexes
@@ -57,7 +55,8 @@ func world_rect() -> Rect2:
 func _draw() -> void:
 	for c in cells:
 		var poly := Iso.hex_at(c)
-		draw_colored_polygon(poly, SEA)
+		draw_colored_polygon(poly, Palette.SEA)
 		var closed := poly.duplicate()
 		closed.append(poly[0])
-		draw_polyline(closed, SEA_EDGE, 1.0)
+		draw_polyline(closed, Palette.SEA_LINE, 1.0)
+		Palette.draw_wave(self, c, Palette.hash_v(c))

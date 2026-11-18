@@ -5,6 +5,7 @@ extends Node2D
 
 const Iso = preload("res://game/iso.gd")
 const Pieces = preload("res://game/pieces.gd")
+const Palette = preload("res://game/palette.gd")
 
 ## One tile per hex:
 ## {"known": bool, "land": bool, "level": int, "stale": bool,
@@ -24,10 +25,12 @@ var _since_redraw: float = 0.0
 var _has_fog: bool = false
 var _edge: Dictionary = {}        ## hexes on the border of the space
 
-const SEA := Color(0.16, 0.30, 0.45)
-const SEA_EDGE := Color(0.12, 0.24, 0.37)
-const LAND_TOP := [Color(0.42, 0.56, 0.32), Color(0.55, 0.58, 0.36), Color(0.62, 0.55, 0.42)]
-const WALL := [Color(0.30, 0.36, 0.22), Color(0.38, 0.36, 0.24), Color(0.42, 0.35, 0.27)]
+const SEA := Palette.SEA
+const LAND_TOP := Palette.LAND_TOP
+const WALL := Palette.WALL
+## Surf around known land: the hex footprint at sea level, scaled up, drawn
+## under the land so it shows only where the land meets the sea.
+const SURF_SCALE := [[1.24, Palette.SURF_OUTER], [1.13, Palette.SURF]]
 ## Fog: near-black, feathered over its edges, with faint blotches that stay
 ## put (so panning is visible) and a few slow drifting wisps and swirls.
 const FOG := Color(0.045, 0.05, 0.065)
@@ -117,35 +120,46 @@ func _draw() -> void:
 			if not rings_at.has(h):
 				rings_at[h] = []
 			rings_at[h].append(ring["color"])
+	# Pass 1: everything flat at sea level (sea and fog), so it can never
+	# hide land. Pass 2: surf around the land. Pass 3: land, back to front,
+	# with the buildings on it.
 	for i in _order:
 		var t: Dictionary = tiles[i]
-		var lvl := _lvl(t)
-		var land := _land(t)
-		var top := iso.top_polygon(i, lvl, land)
+		if _land(t):
+			continue
+		var top := iso.top_polygon(i, 0, false)
 		if not t.get("known", false):
 			_draw_fog(i, top)
-		elif not land:
-			draw_colored_polygon(top, SEA)
-			draw_polyline(_closed(top), SEA_EDGE, 1.0)
 		else:
-			_draw_walls(i, top, lvl)
-			draw_colored_polygon(top, LAND_TOP[clampi(lvl, 0, 2)])
-			draw_polyline(_closed(top), WALL[clampi(lvl, 0, 2)].darkened(0.2), 1.0)
+			draw_colored_polygon(top, Palette.SEA_SHALLOW if _near_land(i) else SEA)
+			draw_polyline(_closed(top), Palette.SEA_LINE, 1.0)
+			Palette.draw_wave(self, iso.top_center(i, 0, false), Palette.hash_i(i))
 			if t.get("stale", false):
 				draw_colored_polygon(top, STALE_TINT)
-		if t.get("enemy_seen", false):
-			draw_colored_polygon(top, ENEMY_SEEN_TINT)
-		if placement_ok.has(i):
-			draw_colored_polygon(top, Color(1, 1, 1, 0.10))
-		var c := iso.top_center(i, lvl, land)
-		_draw_outlines(i, c, top, rings_at.get(i, []))
-		var b = t.get("building")
-		if b != null:
-			Pieces.draw_piece(self, font, c, b, iso.rotation_step)
-			if show_hits and String(b["type"]) in ["suspected_base", "decoy"] and float(b["hits"]) > 0.0:
-				_draw_yard_number(font, c, b)
-		elif String(t.get("destroyed", "")) != "":
-			Pieces.draw_rubble(self, c, String(t["destroyed"]), iso.rotation_step)
+		_draw_tile_extras(i, t, top, rings_at, font)
+	for i in _order:
+		if not _land(tiles[i]):
+			continue
+		var c0 := iso.top_center(i, 0, false)
+		var foot := iso.top_polygon(i, 0, false)
+		for layer in SURF_SCALE:
+			var poly := PackedVector2Array()
+			for v in foot:
+				poly.append(c0 + (v - c0) * float(layer[0]))
+			draw_colored_polygon(poly, layer[1])
+	for i in _order:
+		var t: Dictionary = tiles[i]
+		if not _land(t):
+			continue
+		var lvl := _lvl(t)
+		var top := iso.top_polygon(i, lvl, true)
+		_draw_walls(i, top, lvl)
+		draw_colored_polygon(top, LAND_TOP[clampi(lvl, 0, 2)])
+		Palette.draw_ground_marks(self, iso.top_center(i, lvl, true), lvl, Palette.hash_i(i))
+		draw_polyline(_closed(top), Palette.INK, 1.3, true)
+		if t.get("stale", false):
+			draw_colored_polygon(top, STALE_TINT)
+		_draw_tile_extras(i, t, top, rings_at, font)
 
 	if _has_fog:
 		_draw_fog_overlay()
@@ -156,6 +170,33 @@ func _draw() -> void:
 		draw_arc(mc, 11.0, 0, TAU, 20, col, 2.0)
 		draw_line(mc + Vector2(-15, 0), mc + Vector2(15, 0), col, 2.0)
 		draw_line(mc + Vector2(0, -9), mc + Vector2(0, 9), col, 2.0)
+
+
+## A known sea hex next to known land is drawn as shallow water.
+func _near_land(i: int) -> bool:
+	for n in iso.grid.neighbors(i):
+		if n < tiles.size() and _land(tiles[n]):
+			return true
+	return false
+
+
+## Tints, outlines and the building for one hex, after its ground.
+func _draw_tile_extras(i: int, t: Dictionary, top: PackedVector2Array, rings_at: Dictionary, font: Font) -> void:
+	var lvl := _lvl(t)
+	var land := _land(t)
+	if t.get("enemy_seen", false):
+		draw_colored_polygon(top, ENEMY_SEEN_TINT)
+	if placement_ok.has(i):
+		draw_colored_polygon(top, Color(1, 1, 1, 0.10))
+	var c := iso.top_center(i, lvl, land)
+	_draw_outlines(i, c, top, rings_at.get(i, []))
+	var b = t.get("building")
+	if b != null:
+		Pieces.draw_piece(self, font, c, b, iso.rotation_step)
+		if show_hits and String(b["type"]) in ["suspected_base", "decoy"] and float(b["hits"]) > 0.0:
+			_draw_yard_number(font, c, b)
+	elif String(t.get("destroyed", "")) != "":
+		Pieces.draw_rubble(self, c, String(t["destroyed"]), iso.rotation_step)
 
 
 ## Range rings, hit outline, hover and selection for one hex, in that
@@ -193,6 +234,8 @@ func _draw_walls(i: int, top: PackedVector2Array, lvl: int) -> void:
 		if (b - a).x * (b - a).y < 0.0:
 			shade = shade.darkened(0.15)
 		draw_colored_polygon(wall, shade)
+		draw_line(a + Vector2(0, drop), b + Vector2(0, drop), Palette.INK, 1.3, true)
+		draw_line(a, a + Vector2(0, drop), Color(Palette.INK, 0.5), 1.0, true)
 
 
 ## Fog has a fixed speckle pattern in board space, so it visibly moves when

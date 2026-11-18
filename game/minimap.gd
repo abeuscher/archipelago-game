@@ -5,13 +5,14 @@
 extends Control
 
 const Iso = preload("res://game/iso.gd")
+const Palette = preload("res://game/palette.gd")
 
 signal view_requested(world_pos: Vector2)
 
 const BG := Color(0.05, 0.06, 0.08, 0.92)
 const UNKNOWN := Color(0.10, 0.11, 0.13)
-const SEA := Color(0.16, 0.30, 0.45)
-const LAND := [Color(0.42, 0.56, 0.32), Color(0.55, 0.58, 0.36), Color(0.62, 0.55, 0.42)]
+const SEA := Palette.SEA
+const LAND := Palette.LAND_TOP
 const BASE_MARK := Color(0.96, 0.96, 0.96)
 const BUILDING_MARK := Color(0.92, 0.32, 0.30)
 const BORDER := Color(1.0, 0.85, 0.2)

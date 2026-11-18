@@ -1,10 +1,12 @@
-## The phase timer (section 14): a seven-segment readout like a digital
-## watch or an old scoreboard counter. When the clock is not running it is
+## The phase timer (section 14): an amber seven-segment readout with a soft
+## glow, like an old scoreboard counter. When the clock is not running it is
 ## a plain black box.
 extends Control
 
-const LIT := Color(1.0, 0.22, 0.12)
-const UNLIT := Color(0.09, 0.025, 0.02)
+const LIT := Color(1.0, 0.66, 0.18)
+const UNLIT := Color(0.12, 0.075, 0.03)
+const GLOW := Color(1.0, 0.55, 0.1, 0.30)
+const BEZEL := Color(0.30, 0.27, 0.22)
 const URGENT_SECONDS := 10
 
 ## Segments a..g: top, top-right, bottom-right, bottom, bottom-left,
@@ -44,8 +46,9 @@ static func text_for(secs: int) -> String:
 
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0))
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.18, 0.18, 0.2), false, 2.0)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.018, 0.015))
+	draw_rect(Rect2(Vector2.ZERO, size), BEZEL, false, 3.0)
+	draw_rect(Rect2(Vector2(3, 3), size - Vector2(6, 6)), Color(0, 0, 0, 0.6), false, 1.0)
 	if not running:
 		return
 	var txt := text_for(seconds)
@@ -85,12 +88,17 @@ func _digit(o: Vector2, w: float, h: float, ch: String, lit: Color) -> void:
 	}
 	for k in segs:
 		var s: Array = segs[k]
+		if on.contains(k):
+			_segment(s[0], s[1], t, Color(GLOW, GLOW.a * lit.a), 2.2)
+	for k in segs:
+		var s: Array = segs[k]
 		_segment(s[0], s[1], t, lit if on.contains(k) else UNLIT)
 
 
-## A segment with pointed ends, from p to q, thickness t.
-func _segment(p: Vector2, q: Vector2, t: float, col: Color) -> void:
+## A segment with pointed ends, from p to q, thickness t (times `wide`
+## across, for the glow behind a lit segment).
+func _segment(p: Vector2, q: Vector2, t: float, col: Color, wide: float = 1.0) -> void:
 	var d := (q - p).normalized()
-	var n := Vector2(-d.y, d.x) * t / 2.0
+	var n := Vector2(-d.y, d.x) * t * wide / 2.0
 	var e := d * t / 2.0
 	draw_colored_polygon(PackedVector2Array([p, p + e + n, q - e + n, q, q - e - n, p + e - n]), col)
