@@ -106,9 +106,10 @@ func show_state(st, data, editable: bool) -> void:
 	# Left: the lab itself.
 	_add(_left, "Lab %d" % (lab_index + 1), 20)
 	_add(_left, "HP %d / %d" % [lab.hp, data.max_hp(lab.type)], 14)
-	var pts := int(data.building(lab.type)["produces"].get("research", 0))
-	if st.is_half_strength(lab, data):
-		pts = st.half_income(pts, data)
+	var pts: int = st.output_of(lab, int(data.building(lab.type)["produces"].get("research", 0)), data)
+	if st.out_for_repair(lab, data):
+		_add(_left, "Under repair: out this round", 14, Color(1.0, 0.75, 0.4))
+	elif st.is_half_strength(lab, data):
 		_add(_left, "Under repair" if lab.repairing else "Damaged: half strength", 14, Color(1.0, 0.75, 0.4))
 	_add(_left, "%d research point%s a round" % [pts, "" if pts == 1 else "s"], 14)
 

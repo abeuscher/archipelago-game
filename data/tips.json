@@ -10,7 +10,7 @@
     { "id": "suspected_base", "when": "suspected_base_seen",
       "text": "The number on a potential base counts its hits. A base falls at {base_hits} hits. A decoy is exposed when it reaches {decoy_reveal_hits} hits." },
     { "id": "repair", "when": "own_damaged",
-      "text": "Something of yours is damaged. Select it and press Repair. A damaged weapon stays out of action until it is repaired." },
+      "text": "Something of yours is damaged. Select it and press Repair. A damaged weapon stays out of action until it is repaired. A repair takes the building out of action for the round, and it is back to full next round." },
     { "id": "fuel", "when": "fuel_short",
       "text": "You don't have the fuel to fire every launcher. Each refinery adds {refinery_fuel} fuel a round." }
   ]

@@ -15,8 +15,6 @@ static func project(st, data, current_round: int) -> Dictionary:
 	if res["income"].is_empty():
 		out["lines"].append("No income until round %d." % data.integer("economy", "income_from_round"))
 		return out
-	# `future` now has last round's repairs finished, so its buildings are in
-	# the state income was paid from.
 	var eco: Dictionary = data.section("economy")
 	var rows := {}
 	for res_name in ["money", "fuel", "research"]:
@@ -24,21 +22,23 @@ static func project(st, data, current_round: int) -> Dictionary:
 		var base := int(eco["baseline_" + res_name])
 		if base != 0:
 			rows[res_name].append("%d baseline" % base)
+	# Income is paid from the buildings as they stood over this round: with
+	# repairs taking buildings out, that is before the repairs finish.
+	var basis = st.duplicate_state() if data.flag("damage", "repair_takes_building_out") else future
 	var groups := {}
-	for b in future.buildings_sorted():
+	for b in basis.buildings_sorted():
 		var produces: Dictionary = data.building(b.type).get("produces", {})
 		for res_name in produces:
-			var v := int(produces[res_name])
-			var half: bool = future.is_half_strength(b, data)
-			if half:
-				v = future.half_income(v, data)
-			var key := "%s|%s|%d|%s" % [res_name, b.type, v, half]
+			var v: int = basis.output_of(b, int(produces[res_name]), data)
+			var state := "out" if basis.out_for_repair(b, data) else ("half" if basis.is_half_strength(b, data) else "")
+			var key := "%s|%s|%d|%s" % [res_name, b.type, v, state]
 			if not groups.has(key):
-				groups[key] = {"res": res_name, "type": b.type, "each": v, "half": half, "n": 0}
+				groups[key] = {"res": res_name, "type": b.type, "each": v, "state": state, "n": 0}
 			groups[key]["n"] += 1
+	var notes := {"out": " (under repair)", "half": " (half strength)", "": ""}
 	for key in groups:
 		var g: Dictionary = groups[key]
-		rows[g["res"]].append("%d × %d %s%s" % [g["n"], g["each"], String(g["type"]).replace("_", " "), " (half strength)" if g["half"] else ""])
+		rows[g["res"]].append("%d × %d %s%s" % [g["n"], g["each"], String(g["type"]).replace("_", " "), notes[g["state"]]])
 	var inc: Dictionary = res["income"]
 	var labels := {"money": "Money", "fuel": "Fuel", "research": "Research"}
 	for res_name in ["money", "fuel", "research"]:

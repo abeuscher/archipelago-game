@@ -88,8 +88,28 @@ func is_half_strength(b, data) -> bool:
 	if data.is_weapon(b.type) or data.is_base_like(b.type):
 		return false
 	if b.repairing:
-		return true
+		return not out_for_repair(b, data)
 	return data.flag("damage", "half_strength_when_damaged") and b.hp < data.max_hp(b.type)
+
+
+## A building under repair is out of action for the round of the repair:
+## weapons don't fire or defend, and nothing else produces or covers. With
+## damage.repair_takes_building_out off, non-weapons work at half strength
+## instead (the spec's section 9 rule).
+func out_for_repair(b, data) -> bool:
+	if not b.repairing or data.is_base_like(b.type):
+		return false
+	return data.is_weapon(b.type) or data.flag("damage", "repair_takes_building_out")
+
+
+## What a building adds of one resource this round: nothing while out for
+## repair, half while at half strength, otherwise the full amount.
+func output_of(b, value: int, data) -> int:
+	if out_for_repair(b, data):
+		return 0
+	if is_half_strength(b, data):
+		return half_income(value, data)
+	return value
 
 
 ## A weapon that can fire or defend this round.
@@ -107,6 +127,8 @@ func radar_range(b, data) -> int:
 	var ranges: Array = data.section("radar")["range_by_level"]
 	var lvl: int = clampi(island.level[b.hex], 0, ranges.size() - 1)
 	var r := int(ranges[lvl])
+	if out_for_repair(b, data):
+		return 0
 	if is_half_strength(b, data):
 		r = maxi(int(data.section("damage")["radar_half_range_min"]), r / 2)
 	return r
@@ -154,10 +176,7 @@ func compute_income(data) -> Dictionary:
 	for b in buildings_sorted():
 		var produces: Dictionary = data.building(b.type).get("produces", {})
 		for res in produces:
-			var v := int(produces[res])
-			if is_half_strength(b, data):
-				v = half_income(v, data)
-			inc[res] += v
+			inc[res] += output_of(b, int(produces[res]), data)
 	return inc
 
 
@@ -274,8 +293,8 @@ func can_repair(hex: int, data) -> String:
 	return ""
 
 
-## Repair restores full HP now. A weapon stays out for this round; anything
-## else works at half strength this round. Both return fully next round.
+## Repair restores full HP now. The building is out for this round (see
+## out_for_repair) and returns fully next round.
 func repair(hex: int, data) -> String:
 	var e := can_repair(hex, data)
 	if e != "":
@@ -366,9 +385,7 @@ func _accrue_research(data, points_baseline: int) -> Array:
 	if oldest != null:
 		oldest["progress"] = int(oldest["progress"]) + points_baseline
 	for lab in of_role(data, "lab"):
-		var pts := int(data.building(lab.type)["produces"].get("research", 0))
-		if is_half_strength(lab, data):
-			pts = half_income(pts, data)
+		var pts := output_of(lab, int(data.building(lab.type)["produces"].get("research", 0)), data)
 		var target = project_for_lab(lab.id)
 		if target == null:
 			target = oldest_project()
@@ -384,13 +401,22 @@ func _accrue_research(data, points_baseline: int) -> Array:
 
 # --- Round flow ------------------------------------------------------------
 
-## Finish last round's repairs, then pay income if this round earns it.
-## Returns {"income": Dictionary or {}, "research_completed": Array}.
-func begin_round(round_number: int, data) -> Dictionary:
+func _finish_repairs() -> void:
 	for b in buildings.values():
 		if b.repairing:
 			b.repairing = false
 			b.disabled = false
+
+
+## Pay income if this round earns it and finish last round's repairs.
+## Income is what the side made over the last round, so a building that
+## spent it out for repair adds nothing; with repair_takes_building_out off,
+## repairs finish first and pay in full as before.
+## Returns {"income": Dictionary or {}, "research_completed": Array}.
+func begin_round(round_number: int, data) -> Dictionary:
+	var out_first: bool = data.flag("damage", "repair_takes_building_out")
+	if not out_first:
+		_finish_repairs()
 	var result := {"income": {}, "research_completed": []}
 	if round_number >= data.integer("economy", "income_from_round"):
 		var inc := compute_income(data)
@@ -398,6 +424,8 @@ func begin_round(round_number: int, data) -> Dictionary:
 		fuel += int(inc["fuel"])
 		result["income"] = inc
 		result["research_completed"] = _accrue_research(data, data.integer("economy", "baseline_research"))
+	if out_first:
+		_finish_repairs()
 	return result
 
 

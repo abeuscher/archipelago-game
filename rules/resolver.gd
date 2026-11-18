@@ -66,6 +66,8 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 			continue
 		var covered := false
 		for r in radars:
+			if def.out_for_repair(r, data):
+				continue
 			if grid.distance(b.hex, r.hex) <= def.radar_range(r, data):
 				covered = true
 				break

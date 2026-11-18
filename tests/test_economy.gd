@@ -113,15 +113,45 @@ func test_weapon_repair_out_one_round() -> void:
 	ok(m.set_launch_orders(0, [{"launcher": l.hex, "missile": "basic", "target": tgt}]))
 
 
-func test_non_weapon_half_strength_while_repairing() -> void:
+func test_repair_takes_any_building_out_for_a_round() -> void:
 	var m = flat_match()
 	var radar = put(m, 0, "radar", 1, 1)
+	var bank = put(m, 0, "bank", 2, 1)
 	radar.hp = 10
+	bank.hp = 10
 	eq(m.sides[0].radar_range(radar, m.data), 1, "damaged radar at base level: 2 / 2 = 1")
 	m.begin_round()
 	ok(m.build_action(0, {"action": "repair", "hex": radar.hex}))
-	eq(m.sides[0].radar_range(radar, m.data), 1, "still half while repairing")
+	ok(m.build_action(0, {"action": "repair", "hex": bank.hex}))
+	eq(m.sides[0].radar_range(radar, m.data), 0, "radar off while repairing")
 	m.end_build_phase()
+	ok(m.set_launch_orders(0, []))
+	ok(m.set_launch_orders(1, []))
+	m.resolve_playout()
+	var money_before: int = m.sides[0].money
+	m.begin_round()
+	eq(m.sides[0].money - money_before, int(m.data.section("economy")["baseline_money"]), "bank made nothing in its repair round")
+	eq(m.sides[0].radar_range(radar, m.data), 2, "full range after repair")
+	m.end_build_phase()
+	ok(m.set_launch_orders(0, []))
+	ok(m.set_launch_orders(1, []))
+	m.resolve_playout()
+	money_before = m.sides[0].money
+	m.begin_round()
+	eq(m.sides[0].money - money_before, int(m.data.section("economy")["baseline_money"]) + 15, "bank pays in full after")
+
+
+func test_half_strength_while_repairing_when_switched_off() -> void:
+	var m = flat_match()
+	m.data.set_path("rules.damage.repair_takes_building_out", false)
+	var radar = put(m, 0, "radar", 1, 1)
+	radar.hp = 10
+	m.begin_round()
+	ok(m.build_action(0, {"action": "repair", "hex": radar.hex}))
+	eq(m.sides[0].radar_range(radar, m.data), 1, "spec rule: still half while repairing")
+	m.end_build_phase()
+	ok(m.set_launch_orders(0, []))
+	ok(m.set_launch_orders(1, []))
 	m.resolve_playout()
 	m.begin_round()
 	eq(m.sides[0].radar_range(radar, m.data), 2, "full range after repair")
