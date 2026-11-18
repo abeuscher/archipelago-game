@@ -37,8 +37,9 @@ var _speaker: String = ""
 
 var _spot: Control
 var _face: Control
+var _box: Control               ## the bubble: outline shape plus its content, popped as one
 var _bubble: PanelContainer
-var _tail: Control
+var _tail: Control                ## draws the bubble's outline, tail included, as one shape
 var _name: Label
 var _text: Label
 var _forever: CheckBox
@@ -63,19 +64,22 @@ func _ready() -> void:
 	_face.draw.connect(_draw_face)
 	add_child(_face)
 
+	_box = Control.new()
+	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_box.visible = false
+	add_child(_box)
+	_tail = Control.new()
+	_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tail.draw.connect(_draw_tail)
+	_box.add_child(_tail)
 	_bubble = PanelContainer.new()
-	_bubble.visible = false
-	var st := StyleBoxFlat.new()
-	st.bg_color = CREAM
-	st.border_color = INK
-	st.set_border_width_all(3)
-	st.set_corner_radius_all(14)
+	var st := StyleBoxEmpty.new()
 	st.content_margin_left = 16
 	st.content_margin_right = 16
 	st.content_margin_top = 10
 	st.content_margin_bottom = 10
 	_bubble.add_theme_stylebox_override("panel", st)
-	add_child(_bubble)
+	_box.add_child(_bubble)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	_bubble.add_child(v)
@@ -111,14 +115,6 @@ func _ready() -> void:
 	_ok.custom_minimum_size = Vector2(64, 0)
 	_ok.pressed.connect(_on_ok)
 	row.add_child(_ok)
-
-	# The tail goes over the bubble so it can cover the bubble's border where
-	# they join, making one shape.
-	_tail = Control.new()
-	_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tail.visible = false
-	_tail.draw.connect(_draw_tail)
-	add_child(_tail)
 
 
 func _load_characters() -> void:
@@ -187,12 +183,10 @@ func _on_ok() -> void:
 		var id := String(_msg["tip"]["id"])
 		var forever := _forever.button_pressed
 		_tip = null
-		_msg = null
-		tip_dismissed.emit(id, forever)
+		tip_dismissed.emit(id, forever)   # may set the next tip
 		_refresh()
 	else:
 		_queue.pop_front()
-		_msg = null
 		_refresh()
 
 
@@ -230,8 +224,7 @@ func _show_msg() -> void:
 	if pop_face:
 		_face.visible = true
 		_face.scale = Vector2(0.05, 0.05)
-		_bubble.visible = false
-		_tail.visible = false
+		_box.visible = false
 		var t := _face.create_tween()
 		t.tween_property(_face, "scale", Vector2.ONE, POP_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		t.tween_callback(_pop_bubble)
@@ -241,18 +234,16 @@ func _show_msg() -> void:
 
 func _pop_bubble() -> void:
 	_layout()
-	_bubble.visible = true
-	_tail.visible = true
-	_bubble.scale = Vector2(0.7, 0.7)
-	_bubble.modulate.a = 0.0
-	var t := _bubble.create_tween().set_parallel(true)
-	t.tween_property(_bubble, "scale", Vector2.ONE, BUBBLE_POP_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_property(_bubble, "modulate:a", 1.0, BUBBLE_POP_SECONDS)
+	_box.visible = true
+	_box.scale = Vector2(0.7, 0.7)
+	_box.modulate.a = 0.0
+	var t := _box.create_tween().set_parallel(true)
+	t.tween_property(_box, "scale", Vector2.ONE, BUBBLE_POP_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(_box, "modulate:a", 1.0, BUBBLE_POP_SECONDS)
 
 
 func _hide_all() -> void:
-	_bubble.visible = false
-	_tail.visible = false
+	_box.visible = false
 	_spot.visible = false
 	if _face.visible:
 		var t := _face.create_tween()
@@ -277,11 +268,13 @@ func _layout() -> void:
 	var bx := _face.position.x + d * 0.72
 	var bottom := _face.position.y + d * 0.30
 	var by := maxf(8.0, bottom - bs.y)
-	_bubble.position = Vector2(bx, by)
+	_box.position = Vector2(bx, by)
+	_box.size = bs
+	_box.pivot_offset = Vector2(34, bs.y)
+	_bubble.position = Vector2.ZERO
 	_bubble.size = bs
-	_bubble.pivot_offset = Vector2(24, bs.y)
 	_tail.position = Vector2.ZERO
-	_tail.size = get_viewport_rect().size
+	_tail.size = bs
 	_tail.queue_redraw()
 
 
@@ -328,24 +321,35 @@ func _portrait(who: String) -> Texture2D:
 	return _portraits[who]
 
 
-## The bubble's tail: from its lower-left edge down to the face.
+## The bubble's outline as one closed shape: a rounded box with the tail
+## built into its bottom edge, pointing down at the face. Filled cream, then
+## inked once all the way round, so the join is seamless.
 func _draw_tail() -> void:
-	if not _bubble.visible:
-		return
-	var b := Rect2(_bubble.position, _bubble.size)
-	# The base sits just inside the bubble, above its 3 px border, so the
-	# cream fill hides the border there; only the two sides are inked, from
-	# the border's outer edge down to the tip.
-	var inside := b.end.y - 5.0
-	var edge := b.end.y
-	var x0 := b.position.x + 20.0
-	var x1 := b.position.x + 48.0
-	var tip := _face.position + Vector2(_face.size.x * 0.80, _face.size.y * 0.42)
-	_tail.draw_colored_polygon(PackedVector2Array([Vector2(x0, inside), Vector2(x1, inside), tip]), CREAM)
-	var a := Vector2(x0 + (tip.x - x0) * (edge - inside) / maxf(tip.y - inside, 1.0), edge)
-	var c := Vector2(x1 + (tip.x - x1) * (edge - inside) / maxf(tip.y - inside, 1.0), edge)
-	_tail.draw_line(a, tip, INK, 3.0, true)
-	_tail.draw_line(tip, c, INK, 3.0, true)
+	var w := _bubble.size.x
+	var h := _bubble.size.y
+	var r := 14.0
+	var tip := _face.position + Vector2(_face.size.x * 0.80, _face.size.y * 0.42) - _box.position
+	var x0 := 20.0      # tail base, left
+	var x1 := 48.0      # tail base, right
+	var pts := PackedVector2Array()
+	_arc(pts, Vector2(r, r), r, PI, 1.5 * PI)                 # top left
+	_arc(pts, Vector2(w - r, r), r, 1.5 * PI, TAU)            # top right
+	_arc(pts, Vector2(w - r, h - r), r, 0.0, 0.5 * PI)        # bottom right
+	pts.append(Vector2(x1, h))
+	pts.append(tip)
+	pts.append(Vector2(x0, h))
+	_arc(pts, Vector2(r, h - r), r, 0.5 * PI, PI)             # bottom left
+	_tail.draw_colored_polygon(pts, CREAM)
+	var closed := pts.duplicate()
+	closed.append(pts[0])
+	closed.append(pts[1])   # overlap the start so the first corner joins cleanly
+	_tail.draw_polyline(closed, INK, 3.0, true)
+
+
+static func _arc(pts: PackedVector2Array, c: Vector2, r: float, a0: float, a1: float) -> void:
+	for k in 7:
+		var a := lerpf(a0, a1, k / 6.0)
+		pts.append(c + Vector2(cos(a), sin(a)) * r)
 
 
 ## Dims everything but the anchor of the tip on screen, which gets a bright

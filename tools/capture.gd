@@ -66,8 +66,8 @@ func _run() -> void:
 	await _shot("03a_round_announced")
 	await create_timer(3.8).timeout   # the announcement closes itself
 	await _shot("03_build_tip")
-	main._on_tip_dismissed("round_timer", true)
-	main._refresh()
+	main.hud.announcer._ok.pressed.emit()   # the real OK button
+	await create_timer(0.3).timeout
 	await _shot("03b_launcher_tip")
 	main.tool = "anti_air"
 	main._refresh()
@@ -114,6 +114,9 @@ func _run() -> void:
 	main._attack()
 	await create_timer(2.6).timeout
 	await _shot("14_playout")
+	main.hud.announcer._ok.pressed.emit()
+	await create_timer(0.3).timeout
+	await _shot("14b_announcement_closed")
 	while main.ui == main.Ui.PLAYOUT:
 		await process_frame
 	main.hud._log_button.button_pressed = true
