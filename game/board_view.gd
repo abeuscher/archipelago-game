@@ -39,6 +39,13 @@ const STALE_TINT := Color(0.2, 0.2, 0.25, 0.22)
 const ENEMY_SEEN_TINT := Color(1, 1, 1, 0.15)
 ## Selection is cyan so it never reads as a hit outline (yellow to red).
 const SELECTED := Color(0.35, 0.9, 1.0)
+## Outline widths. Outlines are drawn with their hex, after its ground and
+## before its building, so buildings sit on top of them; each is pulled just
+## inside its hex so neighbours drawn later don't cover it.
+const RING_WIDTH := 1.2
+const BOMBED_WIDTH := 1.5
+const HOVER_WIDTH := 1.5
+const SELECTED_WIDTH := 2.0
 
 
 func setup(grid) -> void:
@@ -100,6 +107,12 @@ func _draw() -> void:
 	if iso == null or tiles.is_empty():
 		return
 	var font := ThemeDB.fallback_font
+	var rings_at := {}
+	for ring in range_rings:
+		for h in ring["hexes"]:
+			if not rings_at.has(h):
+				rings_at[h] = []
+			rings_at[h].append(ring["color"])
 	for i in _order:
 		var t: Dictionary = tiles[i]
 		var lvl := _lvl(t)
@@ -121,6 +134,7 @@ func _draw() -> void:
 		if placement_ok.has(i):
 			draw_colored_polygon(top, Color(1, 1, 1, 0.10))
 		var c := iso.top_center(i, lvl, land)
+		_draw_outlines(i, c, top, rings_at.get(i, []))
 		var b = t.get("building")
 		if b != null:
 			Pieces.draw_piece(self, font, c, b, iso.rotation_step)
@@ -131,15 +145,6 @@ func _draw() -> void:
 
 	if _has_fog:
 		_draw_fog_overlay()
-	for i in tiles.size():
-		var n := int(tiles[i].get("bombed", 0))
-		if n > 0:
-			var tb: Dictionary = tiles[i]
-			draw_polyline(_closed(iso.top_polygon(i, _lvl(tb), _land(tb))), bombed_color(n), 2.0)
-	for ring in range_rings:
-		for h in ring["hexes"]:
-			var t2: Dictionary = tiles[h]
-			draw_polyline(_closed(iso.top_polygon(h, _lvl(t2), _land(t2))), ring["color"], 1.5)
 	for h in markers:
 		var t3: Dictionary = tiles[h]
 		var mc := iso.top_center(h, _lvl(t3), _land(t3))
@@ -147,12 +152,28 @@ func _draw() -> void:
 		draw_arc(mc, 11.0, 0, TAU, 20, col, 2.0)
 		draw_line(mc + Vector2(-15, 0), mc + Vector2(15, 0), col, 2.0)
 		draw_line(mc + Vector2(0, -9), mc + Vector2(0, 9), col, 2.0)
-	if hover >= 0:
-		var th: Dictionary = tiles[hover]
-		draw_polyline(_closed(iso.top_polygon(hover, _lvl(th), _land(th))), Color(1, 1, 1, 0.9), 2.0)
-	if selected >= 0:
-		var ts: Dictionary = tiles[selected]
-		draw_polyline(_closed(iso.top_polygon(selected, _lvl(ts), _land(ts))), SELECTED, 2.5)
+
+
+## Range rings, hit outline, hover and selection for one hex, in that
+## order, each inset by half its width so it stays inside the hex.
+func _draw_outlines(i: int, c: Vector2, top: PackedVector2Array, ring_colors: Array) -> void:
+	for col in ring_colors:
+		_inset_outline(c, top, col, RING_WIDTH)
+	var n := int(tiles[i].get("bombed", 0))
+	if n > 0:
+		_inset_outline(c, top, bombed_color(n), BOMBED_WIDTH)
+	if i == hover:
+		_inset_outline(c, top, Color(1, 1, 1, 0.9), HOVER_WIDTH)
+	if i == selected:
+		_inset_outline(c, top, SELECTED, SELECTED_WIDTH)
+
+
+func _inset_outline(c: Vector2, top: PackedVector2Array, col: Color, width: float) -> void:
+	var k := 1.0 - (width * 0.5 + 0.5) / Iso.HEX_SIZE
+	var poly := PackedVector2Array()
+	for v in top:
+		poly.append(c + (v - c) * k)
+	draw_polyline(_closed(poly), col, width, true)
 
 
 func _draw_walls(i: int, top: PackedVector2Array, lvl: int) -> void:
