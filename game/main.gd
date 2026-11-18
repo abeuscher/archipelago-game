@@ -201,9 +201,6 @@ func _end_build() -> void:
 	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
 		m.set_launch_orders(MatchState.ENEMY, [])
-	# The battle begins: the alarm light starts.
-	hud.set_alarm(true)
-	hud.show_notice(Hud.NOTICE_BATTLE)
 	if _next_free_launcher() < 0:
 		# Nothing to fire: our attack turn is skipped.
 		hud.show_notice(Hud.NOTICE_NO_WEAPONS)
@@ -1090,7 +1087,11 @@ func _run_playout() -> void:
 
 	# Enemy strikes land on our island, then damage shows.
 	if not launches[1].is_empty():
-		hud.add_log("%d enemy missile%s incoming." % [launches[1].size(), "" if launches[1].size() == 1 else "s"])
+		# The enemy attack is announced: the alarm light starts with it.
+		var incoming := "%d enemy missile%s incoming!" % [launches[1].size(), "" if launches[1].size() == 1 else "s"]
+		hud.set_alarm(true)
+		hud.show_notice(incoming)
+		hud.add_log(incoming)
 		await _wait(0.3)
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)

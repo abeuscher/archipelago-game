@@ -35,12 +35,12 @@ const SURF_SCALE := [[1.24, Palette.SURF_OUTER], [1.13, Palette.SURF]]
 ## Grid directions by angle in the board plane (y down): 0, 60, ... 300 degrees.
 const DIRS_BY_ANGLE := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, -1)]
 const GRID_INK := Color(0.17, 0.12, 0.07, 0.35)
-## Fog: near-black, feathered over its edges, with faint blotches that stay
-## put (so panning is visible) and a few slow drifting wisps and swirls.
+## Fog: near-black with a clean edge at revealed ground, faint blotches that
+## stay put (so panning is visible) and a few slow drifting wisps and swirls
+## away from the edge.
 const FOG := Color(0.045, 0.05, 0.065)
 const FOG_BLOTCH := Color(0.16, 0.17, 0.20, 0.10)
 const FOG_WISP := Color(0.42, 0.45, 0.50)
-const FOG_FEATHER := [[1.18, 0.55], [1.38, 0.28], [1.6, 0.12]]   ## [scale, alpha]
 const FOG_FPS := 30.0
 const STALE_TINT := Color(0.2, 0.2, 0.25, 0.22)
 ## Own hexes the enemy has revealed are lightened slightly.
@@ -276,8 +276,17 @@ func _draw_fog(i: int, top: PackedVector2Array) -> void:
 		var ox := float(h % 1000) / 1000.0 - 0.5
 		h = _next(h)
 		var oy := float(h % 1000) / 1000.0 - 0.5
-		var p := c + Vector2(ox * Iso.HEX_SIZE, oy * Iso.HEX_SIZE * Iso.SQUASH)
-		_soft_ellipse(p, 9.0 + float(h % 7), FOG_BLOTCH, 3)
+		var p := c + Vector2(ox * Iso.HEX_SIZE * 0.5, oy * Iso.HEX_SIZE * Iso.SQUASH * 0.4)
+		_soft_ellipse(p, 6.0 + float(h % 5), FOG_BLOTCH, 3)
+
+
+## A fog hex next to revealed ground gets no wisps or swirls, so nothing
+## blurs the edge of what has been seen.
+func _touches_known(i: int) -> bool:
+	for n in iso.grid.neighbors(i):
+		if n < tiles.size() and tiles[n].get("known", false):
+			return true
+	return false
 
 
 ## Drawn after every tile: feathered edges that spill softly over the
@@ -286,17 +295,7 @@ func _draw_fog(i: int, top: PackedVector2Array) -> void:
 ## island's edge and never spills onto the open sea around it.
 func _draw_fog_overlay() -> void:
 	for i in tiles.size():
-		if tiles[i].get("known", false) or _edge.has(i):
-			continue
-		var c := iso.top_center(i, 0, false)
-		var top := iso.top_polygon(i, 0, false)
-		for f in FOG_FEATHER:
-			var poly := PackedVector2Array()
-			for v in top:
-				poly.append(c + (v - c) * float(f[0]))
-			draw_colored_polygon(poly, Color(FOG, float(f[1]) * 0.5))
-	for i in tiles.size():
-		if tiles[i].get("known", false) or _edge.has(i):
+		if tiles[i].get("known", false) or _edge.has(i) or _touches_known(i):
 			continue
 		var h := _hash(i)
 		var c := iso.top_center(i, 0, false)

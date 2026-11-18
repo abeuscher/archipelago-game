@@ -88,9 +88,6 @@ const NOTICE_MONEY := "Out of money. Build more banks."
 const NOTICE_FUEL := "Out of fuel. Build more refineries."
 const NOTICE_SILO := "Missile silo damaged. Repair during build phase."
 const NOTICE_NO_WEAPONS := "Player has no weapons to attack with."
-## Shown as the alarm light starts, when the battle begins. Placeholder
-## wording until the final text is given.
-const NOTICE_BATTLE := "Battle stations! The attack begins."
 
 
 func _ready() -> void:
