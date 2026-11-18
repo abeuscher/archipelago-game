@@ -1,4 +1,4 @@
-## A left-toolbar button with the building's placeholder piece drawn at its
+## A left-toolbar button with the building's sprite drawn at its
 ## left, then its name and a right-aligned cost or detail.
 extends Button
 
@@ -21,7 +21,8 @@ func _draw() -> void:
 	var col := Color(0.92, 0.94, 0.96) if not disabled else Color(0.5, 0.52, 0.55)
 	var x := 10.0
 	if piece_type != "":
-		Pieces.draw_piece(self, font, Vector2(24, size.y / 2.0 + 10), {"type": piece_type})
+		if not Pieces.draw_sheet(self, Pieces.sheet_name({"type": piece_type}), Vector2(25, size.y / 2.0 + 9), 0, 0.82):
+			Pieces.draw_piece(self, font, Vector2(24, size.y / 2.0 + 10), {"type": piece_type})
 		if disabled:
 			draw_rect(Rect2(6, 4, 36, size.y - 8), Color(0.1, 0.11, 0.13, 0.6))
 		x = 46.0

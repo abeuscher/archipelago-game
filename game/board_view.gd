@@ -1,5 +1,5 @@
 ## Draws one side's space in isometric view: terrain with height walls, fog,
-## and placeholder pieces that always face the camera. Reads tiles prepared
+## and building sprites turned to match the board rotation. Reads tiles prepared
 ## by the controller; never touches the rules state directly.
 extends Node2D
 
@@ -123,11 +123,11 @@ func _draw() -> void:
 		var c := iso.top_center(i, lvl, land)
 		var b = t.get("building")
 		if b != null:
-			Pieces.draw_piece(self, font, c, b)
+			Pieces.draw_piece(self, font, c, b, iso.rotation_step)
 			if show_hits and String(b["type"]) in ["suspected_base", "decoy"] and float(b["hits"]) > 0.0:
 				_draw_yard_number(font, c, b)
 		elif String(t.get("destroyed", "")) != "":
-			Pieces.draw_rubble(self, c, String(t["destroyed"]))
+			Pieces.draw_rubble(self, c, String(t["destroyed"]), iso.rotation_step)
 
 	if _has_fog:
 		_draw_fog_overlay()

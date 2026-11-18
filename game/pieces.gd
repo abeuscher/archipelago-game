@@ -1,6 +1,5 @@
-## Placeholder pieces. Each building is one upright piece on one hex that
-## always faces the camera. If a sprite exists at
-## res://assets/sprites/<type>.png it is used instead of the placeholder.
+## Building pieces: rendered sprites (see draw_piece), with upright
+## placeholder blocks as the fallback when a sheet is missing.
 extends RefCounted
 
 const NAMES := {
@@ -50,33 +49,93 @@ const RESEARCH_TEXT := {
 static func research_name(item: String) -> String:
 	return RESEARCH_NAMES.get(item, item.replace("_", " ").capitalize())
 
-static var _sprites: Dictionary = {}
+## Building sprites: six-frame sheets rendered by tools/sprites (one frame
+## per board rotation), described by assets/buildings/sprites.json. Drawn
+## at the board's hex size; the art is rendered larger so it stays sharp
+## when zoomed in. Images are read straight from the files, so the game runs
+## from a fresh checkout without an editor import step.
+const SPRITE_DIR := "res://assets/buildings/"
+const BOARD_HEX_WIDTH := 30.0 * 1.7320508   ## Iso.HEX_SIZE * sqrt(3)
+const SHEET_FOR := {
+	"base": "base", "decoy": "decoy", "suspected_base": "base",
+	"bank": "bank", "refinery": "refinery", "lab": "lab",
+	"basic_launcher": "missile_launcher", "ballistic_launcher": "ballistic_launcher",
+	"anti_air": "anti_air", "radar": "radar",
+}
+## Sheets with a separate frame set for a launcher that has fired.
+const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
+
+static var _sheets: Dictionary = {}
+static var _meta = null
 
 
 static func display_name(type: String) -> String:
 	return NAMES.get(type, type.capitalize())
 
 
-static func sprite(type: String) -> Texture2D:
-	if not _sprites.has(type):
-		var path := "res://assets/sprites/%s.png" % type
-		_sprites[type] = load(path) if ResourceLoader.exists(path) else null
-	return _sprites[type]
+static func sprite_meta() -> Dictionary:
+	if _meta == null:
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(SPRITE_DIR + "sprites.json"))
+		_meta = parsed if parsed is Dictionary else {}
+	return _meta
 
 
-## b: {"type", "hits", "damaged", "disabled", "repairing"}. The decoy is
-## drawn exactly like a base on the owner's side too, except for a small dot,
-## so the owner can tell them apart.
-static func draw_piece(ci: CanvasItem, font: Font, c: Vector2, b: Dictionary) -> void:
+static func sheet(name: String) -> Texture2D:
+	if not _sheets.has(name):
+		var tex: Texture2D = null
+		var path: String = SPRITE_DIR + name + ".png"
+		if FileAccess.file_exists(path):
+			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+			if img != null and not img.is_empty():
+				img.generate_mipmaps()
+				tex = ImageTexture.create_from_image(img)
+		_sheets[name] = tex
+	return _sheets[name]
+
+
+## Sheet name for a building as drawn: scaffolding while under repair, the
+## empty launcher once it has fired this round.
+static func sheet_name(b: Dictionary) -> String:
+	if b.get("repairing", false):
+		return "repair"
+	var n: String = SHEET_FOR.get(String(b["type"]), "")
+	if n in EMPTY_SHEETS and b.get("empty", false):
+		n += "_empty"
+	return n
+
+
+## Draws one frame of a sheet with its anchor on `c` (the centre of the hex
+## top face). `view` is the board rotation step. Returns false if the sheet
+## is missing, so the caller can fall back to the placeholder.
+static func draw_sheet(ci: CanvasItem, name: String, c: Vector2, view: int, scale: float = 1.0,
+		modulate: Color = Color.WHITE) -> bool:
+	var tex := sheet(name)
+	var meta := sprite_meta()
+	if tex == null or meta.is_empty():
+		return false
+	var fw := float(meta["frame_width"])
+	var fh := float(meta["frame_height"])
+	var k := BOARD_HEX_WIDTH / float(meta["hex_width"]) * scale
+	var anchor := Vector2(float(meta["anchor"][0]), float(meta["anchor"][1]))
+	var frame := posmod(view, int(meta.get("frames_per_sheet", 6)))
+	ci.draw_texture_rect_region(tex, Rect2(c - anchor * k, Vector2(fw, fh) * k),
+		Rect2(frame * fw, 0, fw, fh), modulate)
+	return true
+
+
+## b: {"type", "hits", "damaged", "disabled", "repairing", "empty"}. The
+## owner's decoy uses its own sheet (a grey flag) so the owner can tell it
+## apart; the enemy sees a base. `view` is the board rotation step.
+static func draw_piece(ci: CanvasItem, font: Font, c: Vector2, b: Dictionary, view: int = 0, scale: float = 1.0) -> void:
 	var type := String(b["type"])
-	var tex := sprite(type)
 	var w := 22.0
 	var h := 26.0
 	var base_y := c.y + 4.0
-	if tex != null:
-		var sz := tex.get_size()
-		ci.draw_texture(tex, Vector2(c.x - sz.x / 2.0, base_y - sz.y))
-	else:
+	var tint := Color(0.5, 0.5, 0.55) if b.get("disabled", false) and not b.get("repairing", false) else Color.WHITE
+	var drawn := draw_sheet(ci, sheet_name(b), c, view, scale, tint)
+	if drawn and b.get("repairing", false):
+		return
+	if not drawn:
 		var col: Color = COLORS.get(type, Color.WHITE)
 		if b.get("disabled", false):
 			col = col.darkened(0.55)
@@ -113,7 +172,9 @@ static func _draw_scaffold(ci: CanvasItem, top: Vector2, w: float, h: float) -> 
 	ci.draw_line(Vector2(r, top.y + 13), Vector2(l, top.y + 22), col, 1.0)
 
 
-static func draw_rubble(ci: CanvasItem, c: Vector2, _type: String) -> void:
+static func draw_rubble(ci: CanvasItem, c: Vector2, _type: String, view: int = 0) -> void:
+	if draw_sheet(ci, "rubble", c, view):
+		return
 	var col := Color(0.25, 0.22, 0.2)
 	for p in [Vector2(-7, 0), Vector2(4, 2), Vector2(-1, -4), Vector2(8, -3)]:
 		ci.draw_circle(c + p, 3.5, col)

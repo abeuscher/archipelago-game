@@ -1,0 +1,29 @@
+{
+  "frame_width": 132,
+  "frame_height": 198,
+  "frames_per_sheet": 6,
+  "anchor": [
+    66.0,
+    150
+  ],
+  "anchor_note": "pixel in each frame that sits on the centre of the hex top face",
+  "hex_width": 103.923,
+  "squash": 0.58,
+  "facing": 0,
+  "reverse": true,
+  "sheets": {
+    "missile_launcher": "missile_launcher.png",
+    "missile_launcher_empty": "missile_launcher_empty.png",
+    "ballistic_launcher": "ballistic_launcher.png",
+    "ballistic_launcher_empty": "ballistic_launcher_empty.png",
+    "anti_air": "anti_air.png",
+    "radar": "radar.png",
+    "bank": "bank.png",
+    "refinery": "refinery.png",
+    "lab": "lab.png",
+    "base": "base.png",
+    "decoy": "decoy.png",
+    "repair": "repair.png",
+    "rubble": "rubble.png"
+  }
+}
