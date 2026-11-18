@@ -63,12 +63,6 @@ func _ready() -> void:
 	_face.draw.connect(_draw_face)
 	add_child(_face)
 
-	_tail = Control.new()
-	_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tail.visible = false
-	_tail.draw.connect(_draw_tail)
-	add_child(_tail)
-
 	_bubble = PanelContainer.new()
 	_bubble.visible = false
 	var st := StyleBoxFlat.new()
@@ -117,6 +111,14 @@ func _ready() -> void:
 	_ok.custom_minimum_size = Vector2(64, 0)
 	_ok.pressed.connect(_on_ok)
 	row.add_child(_ok)
+
+	# The tail goes over the bubble so it can cover the bubble's border where
+	# they join, making one shape.
+	_tail = Control.new()
+	_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tail.visible = false
+	_tail.draw.connect(_draw_tail)
+	add_child(_tail)
 
 
 func _load_characters() -> void:
@@ -260,7 +262,7 @@ func _hide_all() -> void:
 				_face.visible = false)
 
 
-## Portrait centred in the slot (left part), bubble above and to its right
+## Portrait centred in the slot, bubble above and to its right
 ## with the tail pointing down at the face.
 func _layout() -> void:
 	if slot == null:
@@ -268,7 +270,7 @@ func _layout() -> void:
 	var r := slot.get_global_rect()
 	var d := minf(PORTRAIT_MAX, minf(r.size.y, r.size.x) - 8.0)
 	_face.size = Vector2(d, d)
-	_face.position = Vector2(r.position.x + 10.0, r.position.y + (r.size.y - d) / 2.0)
+	_face.position = Vector2(r.position.x + (r.size.x - d) / 2.0, r.position.y + (r.size.y - d) / 2.0)
 	_face.pivot_offset = _face.size / 2.0
 	_bubble.reset_size()
 	var bs := _bubble.get_combined_minimum_size()
@@ -331,13 +333,19 @@ func _draw_tail() -> void:
 	if not _bubble.visible:
 		return
 	var b := Rect2(_bubble.position, _bubble.size)
-	var base_a := Vector2(b.position.x + 18, b.end.y - 3)
-	var base_b := Vector2(b.position.x + 46, b.end.y - 3)
+	# The base sits just inside the bubble, above its 3 px border, so the
+	# cream fill hides the border there; only the two sides are inked, from
+	# the border's outer edge down to the tip.
+	var inside := b.end.y - 5.0
+	var edge := b.end.y
+	var x0 := b.position.x + 20.0
+	var x1 := b.position.x + 48.0
 	var tip := _face.position + Vector2(_face.size.x * 0.80, _face.size.y * 0.42)
-	var poly := PackedVector2Array([base_a, tip, base_b])
-	_tail.draw_colored_polygon(poly, CREAM)
-	_tail.draw_line(base_a, tip, INK, 3.0, true)
-	_tail.draw_line(tip, base_b, INK, 3.0, true)
+	_tail.draw_colored_polygon(PackedVector2Array([Vector2(x0, inside), Vector2(x1, inside), tip]), CREAM)
+	var a := Vector2(x0 + (tip.x - x0) * (edge - inside) / maxf(tip.y - inside, 1.0), edge)
+	var c := Vector2(x1 + (tip.x - x1) * (edge - inside) / maxf(tip.y - inside, 1.0), edge)
+	_tail.draw_line(a, tip, INK, 3.0, true)
+	_tail.draw_line(tip, c, INK, 3.0, true)
 
 
 ## Dims everything but the anchor of the tip on screen, which gets a bright
