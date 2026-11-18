@@ -115,6 +115,7 @@ func _ready() -> void:
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
+	hud.research_panel.closed.connect(_refresh)
 	hud.esc_menu.setup(data.settings, prefs)
 	_update_rules_text()
 	hud.esc_menu.settings_changed.connect(_on_settings_changed)
@@ -829,6 +830,7 @@ func _open_research(lab_id: int) -> void:
 	if ui != Ui.BUILD:
 		return
 	hud.research_panel.open_lab(m.sides[0], data, lab_id, true)
+	_update_tips()   # the Scientist explains research the first time
 
 
 func _start_research(lab_id: int, item: String) -> void:
@@ -886,6 +888,7 @@ func _tip_context() -> Dictionary:
 		"phase": phase,
 		"round": m.round_number,
 		"has_lab": st.count_role(data, "lab") > 0,
+		"research_open": hud.research_panel.visible,
 		"setup_complete": setup_complete,
 		"clock_on": clock_running,
 		"has_launcher": st.count_role(data, "launcher") > 0,

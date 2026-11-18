@@ -63,12 +63,14 @@ func test_tips_load_with_numbers_from_data() -> void:
 	eq(tips[2]["anchor"], "timer", "points at the timer")
 	check(tips[2]["pause"], "blocks the screen")
 	check(String(tips[2]["text"]).contains("{build_clock}"), "clock filled in when shown")
-	eq(tips[3]["id"], "repair", "damage comes straight after, when there is any")
-	eq(tips[3]["character"], "mechanic", "the Mechanic reports damage")
-	eq(tips[4]["id"], "rebuild_launcher", "then a launcher kept down")
-	eq(tips[5]["id"], "build_launcher", "then the launcher")
-	eq(tips[5]["anchor"], "tool:basic_launcher", "points at the launcher button")
-	eq(tips[6]["id"], "build_anti_air", "then anti-air")
+	eq(tips[3]["id"], "research_intro", "the Scientist when research first opens")
+	eq(tips[3]["character"], "scientist", "said by the Scientist")
+	eq(tips[4]["id"], "repair", "damage comes straight after, when there is any")
+	eq(tips[4]["character"], "mechanic", "the Mechanic reports damage")
+	eq(tips[5]["id"], "rebuild_launcher", "then a launcher kept down")
+	eq(tips[6]["id"], "build_launcher", "then the launcher")
+	eq(tips[6]["anchor"], "tool:basic_launcher", "points at the launcher button")
+	eq(tips[7]["id"], "build_anti_air", "then anti-air")
 	for t in tips:
 		check(not String(t["text"]).replace("{build_clock}", "").contains("{"), "placeholders filled in " + t["id"])
 	var radar: Dictionary = tips.filter(func(t): return t["id"] == "research_radar")[0]
@@ -379,3 +381,14 @@ func test_radar_tip_after_first_lab() -> void:
 	ctx["has_lab"] = true
 	r = Tips.update(tips, ctx, done, null)
 	eq(r["current"]["id"], "research_radar", "once there is a lab")
+
+
+func test_scientist_explains_research_when_it_first_opens() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var done: Array = ["place_bases", "setup_done", "round_timer"]
+	var ctx := {"phase": "build", "round": 1, "has_launcher": true, "has_anti_air": true, "has_lab": true, "radar_started": true}
+	var r: Dictionary = Tips.update(tips, ctx, done, null)
+	check(r["current"] == null or r["current"]["id"] != "research_intro", "not until research is opened")
+	ctx["research_open"] = true
+	r = Tips.update(tips, ctx, done, null)
+	eq(r["current"]["id"], "research_intro", "when the research screen opens")

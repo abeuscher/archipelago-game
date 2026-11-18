@@ -37,6 +37,15 @@
         448,
         418
       ]
+    },
+    "scientist": {
+      "name": "Scientist",
+      "portrait": "res://assets/characters/scientist.jpg",
+      "circle": [
+        598,
+        448,
+        418
+      ]
     }
   }
 }

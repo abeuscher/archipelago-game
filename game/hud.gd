@@ -329,16 +329,10 @@ func _ready() -> void:
 	_hover.add_child(_hover_text)
 
 	# Research panel, centred.
+	# Research screen: covers everything right of the toolbar.
 	research_panel = ResearchPanel.new()
-	research_panel.anchor_left = 0.5
-	research_panel.anchor_right = 0.5
-	research_panel.anchor_top = 0.5
-	research_panel.anchor_bottom = 0.5
-	research_panel.offset_left = -330
-	research_panel.offset_right = 330
-	research_panel.offset_top = -220
-	research_panel.offset_bottom = 120
-	research_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	research_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	research_panel.offset_left = TOOLBAR_W
 	research_panel.visible = false
 	root.add_child(research_panel)
 

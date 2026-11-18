@@ -48,7 +48,7 @@ static func placeholders(data) -> Dictionary:
 
 
 ## ctx keys: phase ("setup", "build", "targeting", ...), round, setup_complete, clock_on,
-## has_lab,
+## has_lab, research_open,
 ## has_launcher, has_anti_air, radar_started, suspected_base_seen,
 ## own_damaged, launcher_targeted, fuel_short.
 static func holds(when: String, ctx: Dictionary) -> bool:
@@ -64,6 +64,8 @@ static func holds(when: String, ctx: Dictionary) -> bool:
 			return phase == "build" and not ctx.get("has_launcher", true)
 		"build_without_anti_air":
 			return phase == "build" and not ctx.get("has_anti_air", false)
+		"research_open":
+			return phase == "build" and ctx.get("research_open", false)
 		"radar_not_started":
 			# Once there is a lab to research with.
 			return phase == "build" and ctx.get("has_lab", false) and not ctx.get("radar_started", false)

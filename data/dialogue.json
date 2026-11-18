@@ -1,5 +1,5 @@
 {
-  "_about": "Everything the characters say to the player, and who says it. character is an id from data/characters.json (ginger, admiral, pilot, mechanic). Edit the text freely; keep {placeholders} as they are.",
+  "_about": "Everything the characters say to the player, and who says it. character is an id from data/characters.json (ginger, admiral, pilot, mechanic, scientist). Edit the text freely; keep {placeholders} as they are.",
   "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control: timer, tool:<building> for a toolbar building button, or button:<label> for a toolbar button by its label. from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
   "tips": [
     {
@@ -23,6 +23,12 @@
       "anchor": "timer",
       "pause": true,
       "text": "General, you have {build_clock} seconds every round to place your buildings. Make sure we're producing fuel and money, and of course wreak as much havoc on the enemy as you can."
+    },
+    {
+      "id": "research_intro",
+      "character": "scientist",
+      "when": "research_open",
+      "text": "Ah, General, welcome to the lab! Each lab works on one project at a time and adds its research points to it every round. Starting a project costs money up front; the screen shows how long it will take. More labs mean more projects at once, and a lab without a project of its own helps the oldest one along."
     },
     {
       "id": "repair",
