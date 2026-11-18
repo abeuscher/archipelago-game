@@ -19,6 +19,7 @@ var _build_off: CheckBox
 var _target_off: CheckBox
 var _decoys: SpinBox
 var _tips: CheckBox
+var _reset_note: Label
 
 
 func _ready() -> void:
@@ -65,10 +66,20 @@ func _ready() -> void:
 	_decoys = SpinBox.new()
 	_decoys.step = 1
 	_row(grid, "Decoys per side", _decoys, Control.new())
+	var tips_row := HBoxContainer.new()
+	_opts_box.add_child(tips_row)
 	_tips = _check("Show tips")
-	_opts_box.add_child(_tips)
+	_tips.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tips_row.add_child(_tips)
+	var reset := _button("Reset tips", _reset_tips)
+	reset.tooltip_text = "Show every tip again from the beginning"
+	tips_row.add_child(reset)
+	_reset_note = Label.new()
+	_reset_note.add_theme_font_size_override("font_size", 13)
+	_reset_note.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
+	_opts_box.add_child(_reset_note)
 	var note := Label.new()
-	note.text = "Clock changes apply from the next phase. Decoys per side applies from the next game. Turning tips on starts them from the beginning."
+	note.text = "Clock changes apply from the next phase. Decoys per side applies from the next game."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD
 	note.custom_minimum_size = Vector2(380, 0)
 	note.add_theme_font_size_override("font_size", 13)
@@ -130,6 +141,7 @@ func _show_options() -> void:
 	_target_clock.value = int(defaults["targeting_clock_seconds"]) if _target_off.button_pressed else int(settings["targeting_clock_seconds"])
 	_decoys.value = int(settings["decoys_per_side"])
 	_tips.button_pressed = bool(settings["show_tips"])
+	_reset_note.text = ""
 	_main_box.visible = false
 	_opts_box.visible = true
 
@@ -140,12 +152,17 @@ func _apply() -> void:
 	s["build_clock_seconds"] = off if _build_off.button_pressed else int(_build_clock.value)
 	s["targeting_clock_seconds"] = off if _target_off.button_pressed else int(_target_clock.value)
 	s["decoys_per_side"] = int(_decoys.value)
-	if _tips.button_pressed and not bool(settings["show_tips"]):
-		s["tips_done"] = []
 	s["show_tips"] = _tips.button_pressed
 	settings = UserSettings.sanitize(s, defaults)
 	settings_changed.emit(settings.duplicate(true))
 	_show_main()
+
+
+## Takes effect at once: every tip becomes new again.
+func _reset_tips() -> void:
+	settings["tips_done"] = []
+	settings_changed.emit(settings.duplicate(true))
+	_reset_note.text = "Tips reset. They will show again from the beginning."
 
 
 func _heading(text: String) -> Label:

@@ -28,6 +28,8 @@ const FOG := Color(0.33, 0.34, 0.37)
 const FOG_SPECK := Color(0.42, 0.43, 0.46)
 const FOG_SPECK_DARK := Color(0.27, 0.28, 0.30)
 const STALE_TINT := Color(0.2, 0.2, 0.25, 0.22)
+## Own hexes the enemy has revealed are lightened slightly.
+const ENEMY_SEEN_TINT := Color(1, 1, 1, 0.15)
 
 
 func setup(grid) -> void:
@@ -93,6 +95,8 @@ func _draw() -> void:
 			draw_polyline(_closed(top), WALL[clampi(lvl, 0, 2)].darkened(0.2), 1.0)
 			if t.get("stale", false):
 				draw_colored_polygon(top, STALE_TINT)
+		if t.get("enemy_seen", false):
+			draw_colored_polygon(top, ENEMY_SEEN_TINT)
 		if placement_ok.has(i):
 			draw_colored_polygon(top, Color(1, 1, 1, 0.10))
 		var c := iso.top_center(i, lvl, land)
@@ -171,13 +175,14 @@ static func _closed(poly: PackedVector2Array) -> PackedVector2Array:
 
 # --- Tile builders ---------------------------------------------------------
 
-## Tiles for a side's own island: everything visible.
-static func own_tiles(st, data) -> Array:
+## Tiles for a side's own island: everything visible. `enemy_seen` holds
+## the hexes the enemy has revealed (its knowledge); they are drawn lighter.
+static func own_tiles(st, data, enemy_seen: Dictionary = {}) -> Array:
 	var out: Array = []
 	var isl = st.island
 	for i in isl.grid.count:
 		var t := {"known": true, "land": isl.is_land(i), "level": isl.level[i], "stale": false,
-			"building": null, "destroyed": ""}
+			"building": null, "destroyed": "", "enemy_seen": enemy_seen.has(i)}
 		var b = st.building_at(i)
 		if b != null:
 			t["building"] = {

@@ -138,7 +138,6 @@ func show_state(st, data, editable: bool) -> void:
 			label += "  (%d done)" % int(p["progress"])
 		var b := Button.new()
 		b.text = label
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var err: String = st.can_start_research(lab.id, item, data)
 		b.disabled = not editable or err != ""
 		b.tooltip_text = Pieces.RESEARCH_TEXT.get(item, "") + ("" if err == "" else "\n" + err)

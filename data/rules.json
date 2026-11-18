@@ -12,7 +12,7 @@
   },
 
   "economy": {
-    "start_money": 160,
+    "start_money": 260,
     "start_fuel": 3,
     "income_from_round": 2,
     "baseline_money": 20,

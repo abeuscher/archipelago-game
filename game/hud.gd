@@ -19,8 +19,7 @@ const ResearchPanel = preload("res://game/research_panel.gd")
 const EscMenu = preload("res://game/esc_menu.gd")
 
 signal rotate_requested(dir: int)
-signal tip_dismissed(id: String)
-signal tips_off_requested
+signal tip_dismissed(id: String, forever: bool)
 signal earnings_requested
 
 var minimap
@@ -47,6 +46,7 @@ var _strip_title_text: Label
 var _tip: PanelContainer
 var _tip_text: Label
 var _tip_id: String = ""
+var _tip_forever: CheckBox
 var _hover: PanelContainer
 var _hover_text: Label
 var _overlay: PanelContainer
@@ -260,17 +260,17 @@ func _ready() -> void:
 	_tip_text.custom_minimum_size = Vector2(356, 0)
 	tv.add_child(_tip_text)
 	var tb := HBoxContainer.new()
-	tb.alignment = BoxContainer.ALIGNMENT_END
 	tv.add_child(tb)
-	var off := Button.new()
-	off.text = "No more tips"
-	off.focus_mode = Control.FOCUS_NONE
-	off.pressed.connect(func(): tips_off_requested.emit())
-	tb.add_child(off)
+	_tip_forever = CheckBox.new()
+	_tip_forever.text = "Don't show this again"
+	_tip_forever.button_pressed = true
+	_tip_forever.focus_mode = Control.FOCUS_NONE
+	_tip_forever.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tb.add_child(_tip_forever)
 	var ok := Button.new()
 	ok.text = "Got it"
 	ok.focus_mode = Control.FOCUS_NONE
-	ok.pressed.connect(func(): tip_dismissed.emit(_tip_id))
+	ok.pressed.connect(func(): tip_dismissed.emit(_tip_id, _tip_forever.button_pressed))
 	tb.add_child(ok)
 
 	# Hover text that follows the mouse over the board.
@@ -334,7 +334,38 @@ static func make_theme() -> Theme:
 	panel.set_corner_radius_all(4)
 	panel.set_content_margin_all(10)
 	th.set_stylebox("panel", "PanelContainer", panel)
+	# Buttons look like buttons: filled, bordered, padded, text centred.
+	th.set_stylebox("normal", "Button", _button_box(Color(0.19, 0.23, 0.29), Color(0.36, 0.42, 0.5)))
+	th.set_stylebox("hover", "Button", _button_box(Color(0.25, 0.30, 0.38), Color(0.55, 0.65, 0.76)))
+	th.set_stylebox("pressed", "Button", _button_box(Color(0.20, 0.36, 0.52), Color(0.50, 0.78, 1.0)))
+	th.set_stylebox("hover_pressed", "Button", _button_box(Color(0.24, 0.42, 0.60), Color(0.60, 0.85, 1.0)))
+	th.set_stylebox("disabled", "Button", _button_box(Color(0.12, 0.13, 0.16), Color(0.22, 0.24, 0.28)))
+	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	th.set_color("font_color", "Button", Color(0.93, 0.95, 0.97))
+	th.set_color("font_hover_color", "Button", Color(1, 1, 1))
+	th.set_color("font_pressed_color", "Button", Color(1, 1, 1))
+	th.set_color("font_hover_pressed_color", "Button", Color(1, 1, 1))
+	th.set_color("font_disabled_color", "Button", Color(0.48, 0.5, 0.54))
+	# Check boxes would otherwise inherit the button look.
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		var e := StyleBoxEmpty.new()
+		e.set_content_margin_all(4)
+		th.set_stylebox(state, "CheckBox", e)
 	return th
+
+
+static func _button_box(bg: Color, border: Color) -> StyleBoxFlat:
+	var b := StyleBoxFlat.new()
+	b.bg_color = bg
+	b.border_color = border
+	b.set_border_width_all(1)
+	b.border_width_bottom = 2
+	b.set_corner_radius_all(4)
+	b.content_margin_left = 14
+	b.content_margin_right = 14
+	b.content_margin_top = 6
+	b.content_margin_bottom = 6
+	return b
 
 
 # --- Top bar ---------------------------------------------------------------
@@ -436,8 +467,7 @@ func add_tool_button(text: String, action: Callable, disabled: bool = false, pre
 	b.toggle_mode = pressed
 	b.button_pressed = pressed
 	b.focus_mode = Control.FOCUS_NONE
-	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.custom_minimum_size = Vector2(0, 34)
+	b.custom_minimum_size = Vector2(0, 36)
 	b.tooltip_text = tooltip
 	b.pressed.connect(action)
 	_tools.add_child(b)
@@ -551,6 +581,8 @@ func show_tip(tip) -> void:
 		_tip.visible = false
 		_tip_id = ""
 		return
+	if String(tip["id"]) != _tip_id:
+		_tip_forever.button_pressed = true
 	_tip_id = String(tip["id"])
 	_tip_text.text = String(tip["text"])
 	_tip.visible = true

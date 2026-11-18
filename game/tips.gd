@@ -1,8 +1,10 @@
 ## Tips that introduce the game as the player goes (section 14). The list,
 ## order and wording are in data/tips.json; the conditions are named here.
-## One tip shows at a time. A tip is done when the player dismisses it or
-## when its condition stops holding after it was shown (for example, the
-## anti-air tip once anti-air is built). Done tips never come back.
+## One tip shows at a time. A tip is done when the player dismisses it with
+## "Don't show this again" ticked, or when its condition stops holding in the
+## same phase it was shown in (for example, the anti-air tip once anti-air is
+## built). Done tips never come back until tips are reset. Dismissing with
+## the box unticked only hides the tip for the rest of that phase.
 extends RefCounted
 
 const PATH := "res://data/tips.json"
@@ -53,14 +55,18 @@ static func holds(when: String, ctx: Dictionary) -> bool:
 
 
 ## Returns {"current": tip or null, "done": Array of ids}. `current` is the
-## tip on screen before this update (or null).
-static func update(tips: Array, ctx: Dictionary, done: Array, current) -> Dictionary:
+## tip on screen before this update (or null). `skip` lists tips hidden for
+## now but not done.
+static func update(tips: Array, ctx: Dictionary, done: Array, current, skip: Array = []) -> Dictionary:
 	var new_done := done.duplicate()
-	if current != null and not holds(String(current["when"]), ctx) and not new_done.has(current["id"]):
+	var phase := String(ctx.get("phase", ""))
+	if current != null and not holds(String(current["when"]), ctx) 			and String(current.get("shown_in", "")) == phase and not new_done.has(current["id"]):
 		new_done.append(current["id"])
 	for t in tips:
-		if new_done.has(t["id"]):
+		if new_done.has(t["id"]) or skip.has(t["id"]):
 			continue
 		if holds(String(t["when"]), ctx):
-			return {"current": t, "done": new_done}
+			var shown: Dictionary = t.duplicate()
+			shown["shown_in"] = phase
+			return {"current": shown, "done": new_done}
 	return {"current": null, "done": new_done}

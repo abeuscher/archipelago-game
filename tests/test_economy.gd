@@ -4,10 +4,10 @@ extends "res://tests/test_case.gd"
 
 func test_start_resources_and_no_income_round_one() -> void:
 	var m = flat_match()
-	eq(m.sides[0].money, 160, "start money")
+	eq(m.sides[0].money, m.data.integer("economy", "start_money"), "start money")
 	eq(m.sides[0].fuel, 3, "start fuel")
 	m.begin_round()
-	eq(m.sides[0].money, 160, "round 1 money")
+	eq(m.sides[0].money, m.data.integer("economy", "start_money"), "round 1 money")
 	eq(m.sides[0].fuel, 3, "round 1 fuel")
 
 
@@ -17,9 +17,9 @@ func test_baseline_and_building_income() -> void:
 	put(m, 0, "refinery", 2, 1)
 	play_round(m)
 	m.begin_round()
-	eq(m.sides[0].money, 160 + 20 + 15, "money round 2")
+	eq(m.sides[0].money, m.data.integer("economy", "start_money") + 20 + 15, "money round 2")
 	eq(m.sides[0].fuel, 3 + 3 + 3, "fuel round 2")
-	eq(m.sides[1].money, 180, "other side baseline")
+	eq(m.sides[1].money, m.data.integer("economy", "start_money") + 20, "other side baseline")
 
 
 func test_damaged_buildings_half_income_rounded_up() -> void:
@@ -45,6 +45,7 @@ func test_half_strength_flag_off() -> void:
 func test_build_costs_and_checks() -> void:
 	var m = flat_match()
 	m.begin_round()
+	m.sides[0].money = 160   # enough for a launcher and a lab, not a second lab
 	var h := hex(m, 3, 3)
 	ok(m.build_action(0, {"action": "build", "type": "basic_launcher", "hex": h}))
 	eq(m.sides[0].money, 100, "after launcher")
@@ -76,7 +77,7 @@ func test_setup_bases_not_adjacent() -> void:
 	err_contains(st.setup([hex(m, 2, 2), hex(m, 5, 2), hex(m, 8, 8)], [hex(m, 9, 8)], m.data, m.settings), "close")
 	eq(st.buildings.size(), 0, "failed setup leaves no buildings")
 	ok(st.setup([hex(m, 2, 2), hex(m, 5, 2), hex(m, 8, 8)], [hex(m, 11, 11)], m.data, m.settings))
-	eq(st.money, 140, "decoy bought from starting money")
+	eq(st.money, m.data.integer("economy", "start_money") - 20, "decoy bought from starting money")
 	eq(st.bases_alive(m.data), 3, "bases")
 	check(g != null)
 
@@ -100,7 +101,7 @@ func test_weapon_repair_out_one_round() -> void:
 	l.disabled = true
 	m.begin_round()
 	ok(m.build_action(0, {"action": "repair", "hex": l.hex}))
-	eq(m.sides[0].money, 160 - 18, "repair is 30% of 60")
+	eq(m.sides[0].money, m.data.integer("economy", "start_money") - 18, "repair is 30% of 60")
 	eq(l.hp, 50, "repair restores HP")
 	m.end_build_phase()
 	var tgt := hex(m, 7, 7)
@@ -153,7 +154,7 @@ func test_research_one_lab_radar_three_rounds() -> void:
 	var lab = put(m, 0, "lab", 1, 1)
 	m.begin_round()
 	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "radar"}))
-	eq(m.sides[0].money, 130, "radar research costs 30")
+	eq(m.sides[0].money, m.data.integer("economy", "start_money") - 30, "radar research costs 30")
 	for i in 2:
 		m.end_build_phase()
 		m.resolve_playout()

@@ -149,3 +149,19 @@ func test_base_button_colours() -> void:
 	eq(StripButton.base_color(1.0), StripButton.RED, "1 left")
 	eq(StripButton.base_color(0.5), StripButton.RED, "half a hit left")
 	eq(StripButton.base_color(0.0), StripButton.DEAD, "destroyed")
+
+
+func test_tips_phase_change_and_snooze() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var build := {"phase": "build", "has_anti_air": false, "radar_started": false}
+	var r: Dictionary = Tips.update(tips, build, [], null)
+	eq(r["current"]["id"], "build_anti_air", "shown in build")
+	# Leaving the phase hides the tip without marking it done.
+	r = Tips.update(tips, {"phase": "targeting"}, r["done"], r["current"])
+	check(not r["done"].has("build_anti_air"), "phase change is not completion")
+	r = Tips.update(tips, build, r["done"], null)
+	eq(r["current"]["id"], "build_anti_air", "comes back next build phase")
+	# Dismissed with the box unticked: skipped for now, not done.
+	r = Tips.update(tips, build, r["done"], null, ["build_anti_air"])
+	eq(r["current"]["id"], "research_radar", "snoozed tip skipped")
+	check(not r["done"].has("build_anti_air"), "snoozed tip not done")

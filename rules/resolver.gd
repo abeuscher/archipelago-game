@@ -128,11 +128,13 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 					p["damage"] = int(p["damage"]) + dmg
 					damaged.append({"hex": h, "damage": dmg})
 				pending[h] = p
+		var seen: Array = []
 		for h in grid.within(impact, int(mdef["view_radius"])):
 			if reveal_up or isl.level[h] <= lvl:
 				reveals.append(h)
+				seen.append(h)
 		events.append({"type": "impact", "side": attacker, "id": ms["id"], "missile": ms["missile"],
-			"hex": impact, "damaged": damaged})
+			"hex": impact, "damaged": damaged, "revealed": seen})
 
 
 ## Motion sensor: from an empty hex, move to the nearest building within the

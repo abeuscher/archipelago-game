@@ -37,6 +37,7 @@ var prefs: Dictionary                ## the player's settings (user_settings.gd)
 var prefs_path: String = UserSettings.PATH
 var tips: Array = []
 var current_tip = null
+var tips_snoozed: Array = []         ## hidden for the rest of this phase
 
 var ui: int = Ui.SETUP
 var viewing: int = 0
@@ -88,7 +89,6 @@ func _ready() -> void:
 	hud.rotate_requested.connect(_rotate)
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
-	hud.tips_off_requested.connect(_on_tips_off)
 	hud.research_panel.start_requested.connect(_start_research)
 	hud.esc_menu.setup(data.settings, prefs)
 	hud.esc_menu.settings_changed.connect(_on_settings_changed)
@@ -123,6 +123,7 @@ func _layout_boards() -> void:
 
 func _enter_setup() -> void:
 	ui = Ui.SETUP
+	tips_snoozed = []
 	setup_trial = m.sides[0].duplicate_state()
 	setup_mode = "base"
 	_focus(0)
@@ -157,6 +158,7 @@ func _start_round() -> void:
 		m.build_action(MatchState.ENEMY, a)
 	ui = Ui.BUILD
 	tool = ""
+	tips_snoozed = []
 	selected = Vector2i(-1, -1)
 	_focus(0)
 	hud.set_phase("Build and repair", m.round_number)
@@ -173,6 +175,7 @@ func _end_build() -> void:
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
 		m.set_launch_orders(MatchState.ENEMY, [])
 	ui = Ui.TARGETING
+	tips_snoozed = []
 	tool = ""
 	orders = []
 	missile_choice = {}
@@ -478,7 +481,7 @@ func _own_state():
 func _refresh() -> void:
 	var own_state = _own_state()
 	if ui != Ui.PLAYOUT:
-		own_board.set_tiles(BoardView.own_tiles(own_state, data))
+		own_board.set_tiles(BoardView.own_tiles(own_state, data, m.knowledge[1]))
 		enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
 	own_board.selected = selected.y if selected.x == 0 else -1
 	enemy_board.selected = selected.y if selected.x == 1 else -1
@@ -607,7 +610,7 @@ func _build_toolbar(st) -> void:
 					"Select this launcher, then click an enemy hex to aim it.")
 				var options: Array = data.building(b.type)["missiles"].filter(func(x): return st.missile_unlocked(x, data))
 				if options.size() > 1:
-					hud.add_tool_button("    Switch missile", func(): _cycle_missile(hx), false, false,
+					hud.add_tool_button("Switch missile", func(): _cycle_missile(hx), false, false,
 						"Change what this launcher fires")
 			hud.add_spacer()
 			hud.add_tool_button("Undo", _undo, orders.is_empty(), false, "Take back the last order. Free.")
@@ -719,7 +722,7 @@ func _update_tips() -> void:
 	if not bool(prefs["show_tips"]) or ui in [Ui.PLAYOUT, Ui.COIN, Ui.OVER]:
 		hud.show_tip(null)
 		return
-	var r: Dictionary = Tips.update(tips, _tip_context(), prefs["tips_done"], current_tip)
+	var r: Dictionary = Tips.update(tips, _tip_context(), prefs["tips_done"], current_tip, tips_snoozed)
 	current_tip = r["current"]
 	if r["done"].size() != prefs["tips_done"].size():
 		prefs["tips_done"] = r["done"]
@@ -727,17 +730,14 @@ func _update_tips() -> void:
 	hud.show_tip(current_tip)
 
 
-func _on_tip_dismissed(id: String) -> void:
-	if id != "" and not prefs["tips_done"].has(id):
-		prefs["tips_done"].append(id)
-		_save_prefs()
+func _on_tip_dismissed(id: String, forever: bool) -> void:
+	if id != "":
+		if forever and not prefs["tips_done"].has(id):
+			prefs["tips_done"].append(id)
+			_save_prefs()
+		elif not forever:
+			tips_snoozed.append(id)
 	current_tip = null
-	_update_tips()
-
-
-func _on_tips_off() -> void:
-	prefs["show_tips"] = false
-	_save_prefs()
 	_update_tips()
 
 
@@ -878,12 +878,14 @@ static func _fmt(v: float) -> String:
 # --- Playout ---------------------------------------------------------------
 
 func _run_playout() -> void:
-	var pre_own: Array = BoardView.own_tiles(m.sides[0], data)
+	var pre_own: Array = BoardView.own_tiles(m.sides[0], data, m.knowledge[1])
 	var pre_enemy: Array = BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
 	own_board.set_tiles(pre_own)
 	enemy_board.set_tiles(pre_enemy)
 	enemy_board.markers = {}
 	var events: Array = m.resolve_playout()
+	# What our strikes will have revealed, applied hex by hex as they land.
+	var post_enemy: Array = BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number)
 	var by_id := {}
 	for ev in events:
 		if ev.has("id"):
@@ -914,7 +916,7 @@ func _run_playout() -> void:
 		for k in launches[1].size():
 			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
 		await _wait(1.4 + launches[1].size() * 0.35)
-	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data))
+	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1]))
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
 			_log_event(ev)
@@ -924,7 +926,7 @@ func _run_playout() -> void:
 		_focus(1)
 		await _wait(0.3)
 		for k in launches[0].size():
-			_strike(enemy_board, null, by_id[launches[0][k]["id"]], int(launches[0][k]["target"]), Color(1, 0.9, 0.5), k * 0.35)
+			_strike(enemy_board, null, by_id[launches[0][k]["id"]], int(launches[0][k]["target"]), Color(1, 0.9, 0.5), k * 0.35, post_enemy)
 		await _wait(1.4 + launches[0].size() * 0.35)
 	enemy_board.set_tiles(BoardView.enemy_tiles(m.knowledge[0], m.sides[1].island.grid, m.round_number))
 	for ev in events:
@@ -954,7 +956,10 @@ func _rise(board, hex: int, color: Color, delay: float, offset: Vector2 = Vector
 ## One incoming missile: falls toward its aimed hex, may be engaged by
 ## anti-air, may seek, then explodes. `isl` is the defender's island when we
 ## can show anti-air positions (our own); null when it is the enemy's.
-func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: float) -> void:
+## `reveal_tiles`, when given, holds the after-playout tiles for the enemy
+## space; the hexes this impact reveals switch to them as it lands. On our
+## own island the revealed hexes are marked as seen by the enemy.
+func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: float, reveal_tiles: Array = []) -> void:
 	await _wait(delay)
 	var ground: Vector2 = board.position + board.tile_center(target)
 	var ms = effects.add_missile(ground, 700.0, color)
@@ -986,6 +991,12 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 	var imp: Dictionary = info.get("impact", {})
 	var is_scout: bool = String(imp.get("missile", "")) == "scouting"
 	effects.explosion(ground, 14.0 if is_scout else 26.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
+	for h in imp.get("revealed", []):
+		if not reveal_tiles.is_empty():
+			board.tiles[int(h)] = reveal_tiles[int(h)]
+		else:
+			board.tiles[int(h)]["enemy_seen"] = true
+	board.queue_redraw()
 	for d in imp.get("damaged", []):
 		var p: Vector2 = board.position + board.tile_center(int(d["hex"]))
 		if d.has("damage"):
