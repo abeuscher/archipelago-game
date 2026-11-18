@@ -33,7 +33,7 @@ Controls:
 | Rotate the board 60° | Q / E, or the rotate buttons under the minimap |
 | Look at the other island | Click or drag on the minimap (enemy island north, yours south); the view also moves there when the phase changes |
 | Cancel a tool or selection | Right click |
-| Pause, options, quit | Esc |
+| Pause, options, quit | Esc (the screen goes black while paused) |
 | Debug panel: add money, clear the fog of war | \` (the key left of 1) |
 
 The screen follows section 14 of the spec:

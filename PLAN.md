@@ -1,5 +1,10 @@
 # Work queue
 
+## Waiting on a spec
+
+- **Announcer (Ginger).** Portrait filed at `assets/characters/ginger.jpg`. She will appear in the left-hand panel between the toolbar and the timer to announce game events. Behaviour to come.
+- **Battle notice wording.** The notice shown when the alarm light starts uses placeholder text (`game/hud.gd` `NOTICE_BATTLE`).
+
 ## Session 005 (play-test notes, 2026-11-18): done
 
 All six items are built; ASSUMPTIONS.md D54 to D58 and P2 record the details.
