@@ -26,8 +26,7 @@ const ZOOM_MAX := 3.0
 const PAN_SPEED := 700.0
 const ZOOM_STEP := 1.25        ## per press of a zoom button
 const ROUND_LINE_ID := "round_announcement"   ## remembered when the player hides round announcements
-const ALARM_TURNS := 2.0       ## the siren turns this many times before the warning
-const WARNING_SECONDS := 2.0   ## the incoming warning stays fully shown this long
+const ALARM_TURNS := 1.0       ## the siren turns this many times before the warning
 
 enum Ui { SETUP, BUILD, TARGETING, PLAYOUT, COIN, OVER }
 
@@ -1117,14 +1116,14 @@ func _run_playout() -> void:
 
 	# Enemy strikes land on our island, then damage shows.
 	if not launches[1].is_empty():
-		# Warning first: the siren turns twice, then the character warns of the
-		# attack and stays two full seconds, then she goes and the missiles land.
+		# Warning first: the siren turns once, then the character warns of the
+		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
 		var incoming := String(lines.get("incoming_one" if n == 1 else "incoming_many", "{n} enemy missiles incoming!")).format({"n": n})
 		hud.set_alarm(true)
 		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
 		await _wait(hud.alarm_seconds(ALARM_TURNS))
-		hud.announce(incoming, "", WARNING_SECONDS, false)
+		hud.announce(incoming, "", 0.0, false)
 		while hud.announcing():
 			await get_tree().process_frame
 		await _wait(0.25)

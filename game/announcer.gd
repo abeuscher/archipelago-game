@@ -3,8 +3,9 @@
 ##   tip: stays until dismissed; "Don't show this again" at bottom left and
 ##     OK at bottom right. A tip with an anchor dims the screen around what
 ##     it points at. A tip marked pause also blocks the screen behind it.
-##   announcement: round starts, incoming attacks. OK closes it, or it goes
-##     after a few seconds (counted from when the bubble is fully shown).
+##   announcement: round starts, incoming attacks. Stays until OK is
+##     pressed, so the player gets a moment to take it in (a caller may
+##     still give it a timeout).
 ##     It can carry "Don't show this again" (unticked to start) and an id
 ##     to remember that by. Announcements come before tips; a tip waiting
 ##     behind one shows when it is gone.
@@ -14,7 +15,7 @@
 extends Control
 
 const PATH := "res://data/characters.json"
-const ANNOUNCE_SECONDS := 3.5
+const ANNOUNCE_SECONDS := 0.0   ## 0: stays until OK
 const POP_SECONDS := 0.12
 const BUBBLE_POP_SECONDS := 0.08
 const PORTRAIT_MAX := 150.0
@@ -200,7 +201,7 @@ func _on_ok() -> void:
 
 
 func _process(delta: float) -> void:
-	if _msg != null and not _msg.has("tip") and _box.visible:
+	if _msg != null and not _msg.has("tip") and _box.visible and float(_msg.get("seconds", 0.0)) > 0.0:
 		_left -= delta
 		if _left <= 0.0:
 			_on_ok()

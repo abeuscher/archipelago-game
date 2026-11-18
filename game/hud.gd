@@ -834,9 +834,9 @@ func show_tip(tip) -> void:
 	announcer.set_tip(tip)
 
 
-## A line from the character, closing itself after `seconds` of being
-## fully shown. id/can_hide: see announcer.gd.
-func announce(text: String, id: String = "", seconds: float = 3.5, can_hide: bool = true) -> void:
+## A line from the character. It stays until OK unless `seconds` > 0.
+## id/can_hide: see announcer.gd.
+func announce(text: String, id: String = "", seconds: float = 0.0, can_hide: bool = true) -> void:
 	announcer.announce(text, id, seconds, can_hide)
 
 

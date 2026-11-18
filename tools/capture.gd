@@ -41,6 +41,11 @@ func _shot(name: String) -> void:
 	print("saved ", name)
 
 
+## The incoming warning must still be up a while after it appears.
+func check_still_up() -> void:
+	print("warning still up after 1.4 s: ", main.hud.announcing())
+
+
 func _free_hexes() -> Array:
 	var free: Array = []
 	for h in main.m.sides[0].island.land_hexes():
@@ -64,7 +69,8 @@ func _run() -> void:
 	main._start_setup_game()
 	await create_timer(1.1).timeout   # camera flight
 	await _shot("03a_round_announced")
-	await create_timer(3.8).timeout   # the announcement closes itself
+	main.hud.announcer._ok.pressed.emit()   # announcements wait for OK
+	await create_timer(0.3).timeout
 	await _shot("03_build_tip")
 	main.hud.announcer._ok.pressed.emit()   # the real OK button
 	await create_timer(0.3).timeout
@@ -118,14 +124,17 @@ func _run() -> void:
 		await process_frame
 	await create_timer(0.4).timeout
 	await _shot("14_incoming_warning")
-	while main.hud.announcing():
-		await process_frame
+	await create_timer(1.0).timeout
+	check_still_up()
+	main.hud.announcer._ok.pressed.emit()
 	await create_timer(0.75).timeout
 	await _shot("14b_missile_falling")
 	await create_timer(0.35).timeout
 	await _shot("14c_explosion")
 	while main.ui == main.Ui.PLAYOUT:
 		await process_frame
+	await create_timer(0.3).timeout
+	main.hud.announcer._ok.pressed.emit()   # round 2 announcement
 	main.hud._log_button.button_pressed = true
 	await _shot("15_round2_log")
 	main.hud._log_button.button_pressed = false
