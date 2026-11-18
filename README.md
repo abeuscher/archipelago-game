@@ -41,7 +41,7 @@ The screen follows section 14 of the spec:
 - **Research.** Select a lab and press "Research...", or click a beaker.
 - **Top right.** "Next round" shows next round's projected income. "Log" opens the full game log; events also flash at the top as they happen.
 
-Settings and tip progress are saved to `user://settings.json`. On Windows that is `%APPDATA%\Godotpp_userdata\Archipelago\settings.json`. Delete the file to reset them.
+Settings and tip progress are saved to `user://settings.json`. On Windows that is `%APPDATA%\Godot\app_userdata\Archipelago\settings.json`. Delete the file to reset them.
 
 ## Commands
 
