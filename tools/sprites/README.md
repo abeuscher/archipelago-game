@@ -34,7 +34,7 @@ Output per run:
 
 Every building except the shared states also has a `<name>_damaged` sheet (hit, needs repair): the main feature is broken or knocked over, with soot, scorch marks, debris, a small fire and smoke. Damaged launchers have no missile, so there is no separate empty variant. `--no-fire` and `--no-smoke` drop those effects if you would rather do them as particles in-game.
 
-`decoy` is the base with a grey flag so the owner can tell them apart. Draw enemy decoys with the `base` sheet.
+`decoy` is the base in sandy tan instead of cool grey, with the same geometry and flag, so the owner can tell them apart. Draw enemy decoys with the `base` sheet. `stronghold` is a base variant with a steel dome and a twin anti-air gun on top; `stronghold_damaged` (gun knocked out) has the dome cracked and the gun wrecked.
 
 ## Troop buildings
 

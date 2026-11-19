@@ -161,7 +161,7 @@ static func draw_sheet(ci: CanvasItem, name: String, c: Vector2, view: int, scal
 
 
 ## b: {"type", "hits", "damaged", "disabled", "repairing", "empty"}. The
-## owner's decoy uses its own sheet (a grey flag) so the owner can tell it
+## owner's decoy uses its own sheet (sandy tan) so the owner can tell it
 ## apart; the enemy sees a base. `view` is the board rotation step.
 static func draw_piece(ci: CanvasItem, font: Font, c: Vector2, b: Dictionary, view: int = 0, scale: float = 1.0) -> void:
 	var type := String(b["type"])

@@ -374,19 +374,20 @@ def lab(damaged=False):
     return m
 
 
-def base(flag=WHITE, damaged=False):
+def base(flag=WHITE, damaged=False, wall=CONCRETE_LT, upper="#efede6", band="#2a3340",
+         roof="#4a4f55"):
     m = pad()
-    m += prism(6, .66, .56, .12, .42, CONCRETE_LT, rot=90)
-    m += prism(6, .4, .34, .42, .66, "#efede6", rot=90)
-    m += prism(6, .39, .375, .5, .56, "#2a3340", rot=90)
+    m += prism(6, .66, .56, .12, .42, wall, rot=90)
+    m += prism(6, .4, .34, .42, .66, upper, rot=90)
+    m += prism(6, .39, .375, .5, .56, band, rot=90)
     if damaged:
         m += prism(6, .3, .3, .66, .665, "#1d1b1a", rot=90)
         m += box((.06, .22, .2), GUNMETAL, (.53, 0, .22))
         m += tube(4, .02, .02, .5, GUNMETAL, (.1, .1, .66), pitch=28, yaw=35)
         m += box((.3, .025, .17), flag, _xf((.34, 0, -.1), 28, 35, (.1, .1, .66)), pitch=28, yaw=35)
-        m += box((.3, .26, .05), "#4a4f55", (-.3, -.25, .46), pitch=20, yaw=40)
+        m += box((.3, .26, .05), roof, (-.3, -.25, .46), pitch=20, yaw=40)
         return wreck(m, (-.05, -.05, .66), 8)
-    m += prism(6, .37, .37, .66, .7, "#4a4f55", rot=90)
+    m += prism(6, .37, .37, .66, .7, roof, rot=90)
     m += box((.06, .22, .2), GUNMETAL, (.53, 0, .22))
     m += prism(4, .02, .02, .7, 1.2, GUNMETAL)
     m += box((.3, .025, .17), flag, (.17, 0, 1.1))
@@ -394,36 +395,34 @@ def base(flag=WHITE, damaged=False):
 
 
 def decoy(damaged=False):
-    return base(flag="#6c7076", damaged=damaged)
+    """The base in sandy tan instead of cool grey; same geometry and flag."""
+    return base(damaged=damaged, wall="#cdbf9f", upper="#e0d2b0", band="#3a3326", roof="#5a5140")
 
 
 def stronghold(damaged=False):
-    """A squat walled fort: thick sloped walls with merlons, a keep, and an
-    anti-air launcher on the roof. Damaged = the roof gun knocked out; the
-    fort itself never shows harm (only troops can take it)."""
-    stone, stone_dk = "#a29f94", "#7f7c72"
+    """Base variant: steel dome on the lower tier with a twin anti-air gun on top."""
+    dome = "#8996a3"
     m = pad()
-    m += prism(8, .74, .66, .12, .4, stone, rot=22.5)            # outer wall, sloped
-    m += prism(8, .62, .62, .4, .405, "#5d5a53", rot=22.5)       # wall walk
-    for i in range(8):                                           # merlons
-        a = math.radians(22.5 + 45 * i)
-        m += box((.14, .1, .09), stone, (.64 * math.cos(a), .64 * math.sin(a), .445), yaw=math.degrees(a) + 90)
-    m += prism(6, .42, .38, .4, .62, "#c9c6bb", rot=90)          # keep
-    m += prism(6, .37, .37, .62, .65, stone_dk, rot=90)
-    m += box((.04, .18, .16), DARK, (.73, 0, .2))                # gate
-    m += prism(4, .02, .02, .65, 1.15, GUNMETAL, at=(-.25, .15))  # flag
-    m += box((.26, .025, .15), WHITE, _xf((.13, 0, 0), 0, 0, (-.25, .15, 1.06)))
-    gun = (.06, -.05, .65)
-    m += prism(8, .2, .18, .65, .74, STEEL)                      # gun ring
+    m += prism(6, .66, .56, .12, .42, CONCRETE_LT, rot=90)
+    m += box((.06, .22, .2), GUNMETAL, (.53, 0, .22))
+    m += prism(12, .45, .45, .42, .5, "#efede6")
+    m += prism(12, .455, .455, .44, .48, "#2a3340")
+    m += prism(12, .45, .4, .5, .63, dome)
     if damaged:
-        m += box((.24, .38, .14), "#4a4f55", (gun[0], gun[1], .82), pitch=12, yaw=30)
-        m += tube(8, .045, .045, .5, GUNMETAL, (gun[0], gun[1] - .1, .82), pitch=6, yaw=-35, x0=.05)
-        m += tube(8, .045, .045, .3, GUNMETAL, (gun[0], gun[1] + .1, .82), pitch=55, yaw=25, x0=.05)
-        return wreck(m, (gun[0], gun[1], .86), 21)
-    m += box((.24, .38, .14), GREEN, (gun[0], gun[1], .82))
-    for y in (-.1, .1):
-        m += tube(8, .045, .045, .55, GUNMETAL, (gun[0], gun[1] + y, .82), pitch=50, x0=.05)
-        m += tube(8, .06, .06, .1, "#16181b", (gun[0], gun[1] + y, .82), pitch=50, x0=.55)
+        m += prism(12, .4, .33, .63, .7, dome)
+        m += prism(12, .33, .33, .7, .705, "#1d1b1a")
+        m += box((.3, .26, .04), dome, (-.2, .12, .72), pitch=24, yaw=30)
+        m += box((.16, .26, .1), GREEN, (.2, -.12, .7), pitch=-22, yaw=-25)
+        m += tube(8, .032, .032, .44, GUNMETAL, (.2, -.2, .7), pitch=-6, yaw=-40, x0=.02)
+        m += tube(8, .032, .032, .26, GUNMETAL, (.2, -.04, .72), pitch=30, yaw=-10, x0=.02)
+        return wreck(m, (-.02, .02, .7), 15)
+    m += prism(12, .4, .29, .63, .75, dome)
+    m += prism(12, .29, .15, .75, .82, dome)
+    m += prism(8, .17, .15, .82, .87, STEEL_DK)
+    m += box((.16, .26, .1), GREEN, (0, 0, .92))
+    for y in (-.08, .08):
+        m += tube(8, .032, .032, .44, GUNMETAL, (0, y, .93), pitch=50, x0=.02)
+        m += tube(8, .045, .045, .07, "#16181b", (0, y, .93), pitch=50, x0=.44)
     return m
 
 
@@ -589,8 +588,6 @@ BUILDINGS = {
     "lab_damaged": lambda: lab(damaged=True),
     "base_damaged": lambda: base(damaged=True),
     "decoy_damaged": lambda: decoy(damaged=True),
-    "stronghold": stronghold,
-    "stronghold_damaged": lambda: stronghold(damaged=True),
     "airport": airport,
     "airport_damaged": lambda: airport(damaged=True),
     "bunker": bunker,
@@ -599,6 +596,8 @@ BUILDINGS = {
     "docks_damaged": lambda: docks(damaged=True),
     "coastal_cannon": coastal_cannon,
     "coastal_cannon_damaged": lambda: coastal_cannon(damaged=True),
+    "stronghold": stronghold,
+    "stronghold_damaged": lambda: stronghold(damaged=True),
     "repair": repair,
     "rubble": rubble,
 }
