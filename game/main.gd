@@ -437,10 +437,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_dragging = false
 				if mb.button_index == MOUSE_BUTTON_RIGHT and _drag_moved < 6.0:
 					_cancel()
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_zoom_at(1.12, mb.position)
-		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_zoom_at(1.0 / 1.12, mb.position)
+		elif mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			# No zooming under an open window: the wheel is for its scrolling.
+			if not hud.modal_open():
+				_zoom_at(1.12 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.12, mb.position)
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 			var hit := _pick(get_global_mouse_position())
 			if hit.y >= 0:

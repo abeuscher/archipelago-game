@@ -1046,5 +1046,11 @@ func debug_visible() -> bool:
 	return _debug.visible
 
 
+## A window over the map is open (log, research, next-round projection or
+## an end-of-game overlay): the mouse wheel shouldn't zoom the map then.
+func modal_open() -> bool:
+	return _log_panel.visible or research_panel.visible or _earn_panel.visible or _overlay.visible
+
+
 func overlay_visible() -> bool:
 	return _overlay.visible
