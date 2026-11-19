@@ -116,7 +116,58 @@
     },
     "battle_report": {
       "character": "admiral",
-      "text": "Battle report, General."
+      "text": "General, I have the battle summary.",
+      "_parts": "One line per thing that happened this round, in this order, skipped when it's zero. Each is [said for one, said for more]; {n} is the number. Soldiers are counted 8 to a platoon.",
+      "parts": {
+        "hit_us": [
+          "One enemy missile got through to us.",
+          "{n} enemy missiles got through to us."
+        ],
+        "our_damaged": [
+          "One of our buildings was damaged.",
+          "{n} of our buildings were damaged."
+        ],
+        "our_destroyed": [
+          "We lost one building.",
+          "We lost {n} buildings."
+        ],
+        "shot_down_by_us": [
+          "Our anti-air shot down one of their missiles.",
+          "Our anti-air shot down {n} of their missiles."
+        ],
+        "transports_shot_down_by_us": [
+          "We brought down one of their transports.",
+          "We brought down {n} of their transports."
+        ],
+        "hit_them": [
+          "One of our missiles found its target.",
+          "{n} of our missiles found their targets."
+        ],
+        "our_shot_down": [
+          "They shot down one of our missiles.",
+          "They shot down {n} of our missiles."
+        ],
+        "our_transports_shot_down": [
+          "They shot down one of our transports.",
+          "They shot down {n} of our transports."
+        ],
+        "enemy_damaged": [
+          "We damaged one enemy building.",
+          "We damaged {n} enemy buildings."
+        ],
+        "enemy_destroyed": [
+          "We destroyed one enemy building.",
+          "We destroyed {n} enemy buildings."
+        ],
+        "our_soldiers_lost": [
+          "We lost one soldier.",
+          "We lost {n} soldiers."
+        ],
+        "enemy_soldiers_lost": [
+          "We stopped one of their soldiers.",
+          "We stopped {n} of their soldiers."
+        ]
+      }
     }
   }
 }

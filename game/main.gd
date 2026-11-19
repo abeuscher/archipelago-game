@@ -297,9 +297,9 @@ func _after_playout() -> void:
 		# The round's battle report, if anything happened; the next round's
 		# clock waits for it.
 		if not battle_report.is_empty():
-			hud.announce(_line_text("battle_report") + "\n" + "\n".join(battle_report), "", 0.0, false,
-				_line_character("battle_report"))
-			hud.add_log("Battle report: " + "; ".join(battle_report) + ".", false)
+			var said := _line_text("battle_report") + " " + " ".join(battle_report)
+			hud.announce(said, "", 0.0, false, _line_character("battle_report"))
+			hud.add_log(said, false)
 		_start_round()
 
 
@@ -1443,7 +1443,7 @@ func _run_playout() -> void:
 			_log_event(ev)
 	await _wait(0.8)
 	effects.clear()
-	battle_report = BattleReport.lines(events)
+	battle_report = BattleReport.sentences(events, lines.get("battle_report", {}).get("parts", {}))
 	ui = Ui.BUILD   # placeholder until the next phase sets itself
 	_after_playout()
 
@@ -1602,7 +1602,7 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 	# Eight parachutes, while the plane flies on and away.
 	plane.door_open = true
 	var chutes: Array = []
-	for k in 8:
+	for k in BattleReport.SOLDIERS_PER_PLATOON:
 		var off := Vector2(float(k % 4) * 9.0 - 13.5, float(k / 4) * 6.0 - 3.0)
 		chutes.append(effects.add_chute(ground + off, alt - 10.0 - k * 3.0, color, side))
 	var away := create_tween()
