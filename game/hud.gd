@@ -722,10 +722,13 @@ func add_tool_button(text: String, action: Callable, disabled: bool = false, pre
 ## A button with a piece icon: piece_type may be "" for none.
 ## dimmed: drawn greyed out but still clickable, so the action can explain
 ## why it can't be done.
+## compact: a tile in a two-across grid (consecutive compact buttons share
+## one grid).
 func add_piece_button(piece_type: String, title: String, detail: String, note: String, action: Callable,
-		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false) -> void:
+		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false, compact: bool = false) -> void:
 	var b := ToolButton.new()
 	b.dimmed = dimmed
+	b.compact = compact
 	b.piece_type = piece_type
 	b.title = title
 	b.detail = detail
@@ -735,7 +738,22 @@ func add_piece_button(piece_type: String, title: String, detail: String, note: S
 	b.button_pressed = pressed
 	b.tooltip_text = tooltip
 	b.pressed.connect(action)
-	_tools.add_child(b)
+	if compact:
+		b.custom_minimum_size = Vector2(0, 76)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var grid: GridContainer = null
+		var n := _tools.get_child_count()
+		if n > 0 and _tools.get_child(n - 1) is GridContainer and not _tools.get_child(n - 1).is_queued_for_deletion():
+			grid = _tools.get_child(n - 1)
+		if grid == null:
+			grid = GridContainer.new()
+			grid.columns = 2
+			grid.add_theme_constant_override("h_separation", 4)
+			grid.add_theme_constant_override("v_separation", 4)
+			_tools.add_child(grid)
+		grid.add_child(b)
+	else:
+		_tools.add_child(b)
 
 
 func add_fuel_planner(fuel: int, planned: int) -> void:
@@ -859,7 +877,12 @@ func _anchor_rect(anchor: String) -> Rect2:
 		return _timer.get_global_rect()
 	if anchor.begins_with("tool:"):
 		var type := anchor.substr(5)
+		var found: Array = []
 		for c in _tools.get_children():
+			found.append(c)
+			if c is GridContainer:
+				found.append_array(c.get_children())
+		for c in found:
 			if c is ToolButton and c.piece_type == type and not c.is_queued_for_deletion():
 				return c.get_global_rect()
 	return Rect2()

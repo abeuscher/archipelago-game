@@ -775,7 +775,7 @@ func _build_toolbar(st) -> void:
 				var note := ""
 				var at_limit := false
 				if not unlocked:
-					note = "Research %s first" % Pieces.research_name(String(def.get("requires", "")))
+					note = "Research first"
 				elif type == "decoy" and st.count_role(data, "decoy") >= int(m.settings["decoys_per_side"]):
 					note = "Limit reached"
 					at_limit = true
@@ -786,8 +786,7 @@ func _build_toolbar(st) -> void:
 				var pick := func(): tool = t; selected = Vector2i(-1, -1); _refresh()
 				hud.add_piece_button(type, Pieces.display_name(type), str(data.cost(type)), note,
 					(func(): hud.show_notice(Hud.NOTICE_MONEY)) if broke else pick,
-					not unlocked or at_limit, tool == type, _building_tooltip(type), broke)
-			hud.add_label("Select a building to repair it. Select a lab, or click a beaker on the right, for research.", true)
+					not unlocked or at_limit, tool == type, _building_tooltip(type), broke, true)
 			hud.add_spacer()
 			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now")
 		Ui.TARGETING:
