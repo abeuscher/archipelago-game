@@ -74,6 +74,7 @@ var _strip_title_text: Label
 var _hover: PanelContainer
 var _hover_text: Label
 var _overlay: PanelContainer
+var hex_anchor: Callable         ## "hex:<what>" tip anchors -> Rect2 on screen (set by the game)
 var _confirm: Control            ## a yes/no question in the middle of the screen
 var _confirm_text: Label
 var _confirm_yes: Callable
@@ -1040,8 +1041,19 @@ func announcing() -> bool:
 
 ## Where a tip's anchor is on screen: "timer" for the round timer,
 ## "tool:<type>" for a toolbar building button, "button:<label>" for a
-## toolbar button by its label. Empty if it isn't shown.
+## toolbar button by its label, "weapons" for the first weapon in
+## targeting, "hex:<what>" for a hex on the map (asked of the game through
+## hex_anchor). Empty if it isn't shown.
 func _anchor_rect(anchor: String) -> Rect2:
+	if anchor.begins_with("hex:"):
+		return hex_anchor.call(anchor.substr(4)) if hex_anchor.is_valid() else Rect2()
+	if anchor == "weapons":
+		for c in _tools.get_children():
+			if c is GridContainer:
+				for t in c.get_children():
+					if t is ToolButton and not t.is_queued_for_deletion():
+						return t.get_global_rect()
+		return Rect2()
 	if anchor.begins_with("button:"):
 		var label := anchor.substr(7)
 		for c in _tools.get_children():

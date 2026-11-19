@@ -135,6 +135,7 @@ func _ready() -> void:
 	hud.debug_add_money.connect(_debug_add_money)
 	hud.debug_toggle_fog.connect(_debug_toggle_fog)
 	hud.debug_next_level.connect(_debug_next_level)
+	hud.hex_anchor = _hex_anchor
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
@@ -310,6 +311,35 @@ func _end_build() -> void:
 	hud.set_phase("Targeting", m.round_number)
 	_set_clock(int(prefs["targeting_clock_seconds"]))
 	_refresh()
+
+
+## A map hex a tip points at, as a rect on screen: "damaged" is our first
+## building waiting for repair, "suspected_base" an enemy potential base with
+## hits on it. Empty when there is none, or it is off screen.
+func _hex_anchor(what: String) -> Rect2:
+	var board = null
+	var hex := -1
+	match what:
+		"damaged":
+			board = own_board
+			for b in m.sides[0].buildings_sorted():
+				if m.sides[0].needs_repair(b, data):
+					hex = b.hex
+					break
+		"suspected_base":
+			board = enemy_board
+			for h in m.knowledge[0]:
+				var kb = m.knowledge[0][h]["building"]
+				if kb != null and String(kb["type"]) == "suspected_base" and float(kb["hits"]) > 0.0:
+					hex = h
+					break
+	if board == null or hex < 0:
+		return Rect2()
+	var xf: Transform2D = board.get_global_transform_with_canvas()
+	var c: Vector2 = xf * board.tile_center(hex)
+	var half := Vector2(Iso.HEX_SIZE * 0.9, Iso.HEX_SIZE * 0.7) * camera.zoom.x
+	var r := Rect2(c - half - Vector2(0, half.y * 0.6), half * 2.0 + Vector2(0, half.y * 0.6))
+	return r if get_viewport_rect().intersects(r) else Rect2()
 
 
 ## The Done button. The first time it is pressed with nothing that can fire,
@@ -489,6 +519,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			hovered = hit
 			own_board.hover = hit.y if hit.x == 0 else -1
 			enemy_board.hover = hit.y if hit.x == 1 else -1
+			if ui == Ui.BUILD and tool != "":
+				_update_ranges(_own_state())   # the reach preview follows the mouse
 			own_board.queue_redraw()
 			enemy_board.queue_redraw()
 			_update_info()
@@ -938,25 +970,53 @@ func _update_placement_hints(st) -> void:
 
 func _update_ranges(st) -> void:
 	own_board.range_rings = []
-	if selected.x != 0 or ui == Ui.SETUP:
+	own_board.range_fill = {}
+	if ui == Ui.SETUP:
+		return
+	# Placing a building: shade what it would reach from the hex under the
+	# mouse, if it can go there.
+	if ui == Ui.BUILD and tool != "" and hovered.x == 0 and hovered.y >= 0 \
+			and st.can_build(tool, hovered.y, data, m.settings) == "":
+		var reach: Array = _reach(st, tool, hovered.y)
+		if not reach.is_empty():
+			var shade: Color = reach[1]
+			shade.a = 0.28
+			for h in reach[0]:
+				own_board.range_fill[h] = shade
+	if selected.x != 0:
 		return
 	var b = st.building_at(selected.y)
 	if b == null:
 		return
+	var r: Array = _reach(st, b.type, b.hex, b)
+	if not r.is_empty():
+		own_board.range_rings = [{"hexes": r[0], "color": r[1]}]
+
+
+## [hexes, colour] a building of `type` on `hex` covers (anti-air, radar,
+## bunker, coastal cannon); [] for buildings with no reach. `b` is the
+## building itself when it stands (a radar under repair covers nothing, a
+## damaged one half).
+func _reach(st, type: String, hex: int, b = null) -> Array:
 	var g = st.island.grid
-	if data.mounts_anti_air(b.type):
-		own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("anti_air")["radius"])), "color": Color(0.4, 1.0, 0.5, 0.6)}]
-		return
-	match data.role(b.type):
-		"anti_air":
-			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("anti_air")["radius"])), "color": Color(0.4, 1.0, 0.5, 0.6)}]
+	if data.mounts_anti_air(type) or data.role(type) == "anti_air":
+		return [g.within(hex, int(data.section("anti_air")["radius"])), Color(0.4, 1.0, 0.5, 0.6)]
+	match data.role(type):
 		"radar":
-			if not st.out_for_repair(b, data):
-				own_board.range_rings = [{"hexes": g.within(b.hex, st.radar_range(b, data)), "color": Color(0.8, 0.5, 1.0, 0.7)}]
+			var r: int
+			if b != null:
+				if st.out_for_repair(b, data):
+					return []
+				r = st.radar_range(b, data)
+			else:
+				var ranges: Array = data.section("radar")["range_by_level"]
+				r = int(ranges[clampi(st.island.level[hex], 0, ranges.size() - 1)])
+			return [g.within(hex, r), Color(0.8, 0.5, 1.0, 0.7)]
 		"bunker":
-			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("troops")["bunker_range"])), "color": Color(0.85, 0.85, 0.75, 0.7)}]
+			return [g.within(hex, int(data.section("troops")["bunker_range"])), Color(0.85, 0.85, 0.75, 0.7)]
 		"coastal_cannon":
-			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("troops")["cannon_range"])), "color": Color(0.55, 0.75, 1.0, 0.7)}]
+			return [g.within(hex, int(data.section("troops")["cannon_range"])), Color(0.55, 0.75, 1.0, 0.7)]
+	return []
 
 
 func _building_tooltip(type: String) -> String:

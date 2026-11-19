@@ -391,6 +391,27 @@ func _draw_spot() -> void:
 	_spot.draw_rect(Rect2(0, hole.position.y, hole.position.x, hole.size.y), DIM)
 	_spot.draw_rect(Rect2(hole.end.x, hole.position.y, view.x - hole.end.x, hole.size.y), DIM)
 	_spot.draw_rect(hole, SPOT_EDGE, false, 2.0)
+	_draw_arrow(hole)   # over the dimming, so it stands out
+
+
+## A bobbing arrow pointing down at what the tip is about (up from below
+## when there is no room above it).
+func _draw_arrow(hole: Rect2) -> void:
+	var bob := sin(Time.get_ticks_msec() / 1000.0 * 5.0) * 6.0
+	var down := hole.position.y > 70.0
+	var tip := Vector2(hole.get_center().x, hole.position.y - 6.0 + bob) if down \
+		else Vector2(hole.get_center().x, hole.end.y + 6.0 - bob)
+	var dir := 1.0 if down else -1.0   # +1: the arrow points down
+	var head := PackedVector2Array([tip, tip + Vector2(-16, -20 * dir), tip + Vector2(16, -20 * dir)])
+	# The shaft runs from the head's back edge away from what it points at.
+	var shaft := Rect2(tip.x - 6.0, tip.y - 52.0, 12.0, 32.0) if down else Rect2(tip.x - 6.0, tip.y + 20.0, 12.0, 32.0)
+	var edge := Color(0.10, 0.09, 0.08)
+	var fill := Color(1.0, 0.82, 0.25)
+	_spot.draw_rect(shaft.grow(2.0), edge)
+	var outline := PackedVector2Array([head[0] + Vector2(0, 3 * dir), head[1] + Vector2(-3, -2 * dir), head[2] + Vector2(3, -2 * dir)])
+	_spot.draw_colored_polygon(outline, edge)
+	_spot.draw_rect(shaft, fill)
+	_spot.draw_colored_polygon(head, fill)
 
 
 ## A plain check box drawn dark on the cream bubble.

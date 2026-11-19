@@ -18,6 +18,7 @@ var selected: int = -1
 var markers: Dictionary = {}      ## hex -> Color, e.g. planned targets
 var drops: Array = []             ## planned troop drops: {"target", "dir" (-1 while still choosing)}
 var range_rings: Array = []       ## [{"hexes": PackedInt32Array, "color": Color}]
+var range_fill: Dictionary = {}   ## hex -> Color: shaded, for a building's reach while placing it
 var placement_ok: Dictionary = {} ## hex -> true where the current tool may place
 var show_hits: bool = false       ## draw hit counts on suspected bases
 var show_grid: bool = false       ## outline every hex, not just coasts and height changes
@@ -249,6 +250,8 @@ func _draw_tile_extras(i: int, t: Dictionary, top: PackedVector2Array, rings_at:
 		draw_colored_polygon(top, ENEMY_SEEN_TINT)
 	if placement_ok.has(i):
 		draw_colored_polygon(top, Color(1, 1, 1, 0.10))
+	if range_fill.has(i):
+		draw_colored_polygon(top, range_fill[i])
 	var c := iso.top_center(i, lvl, land)
 	_draw_outlines(i, c, top, rings_at.get(i, []))
 	var b = t.get("building")
