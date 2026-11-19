@@ -382,7 +382,7 @@ func _build_timeout_tip() -> void:
 ## attacking. The clock running out attacks without asking.
 func _attack_pressed() -> void:
 	var warn := "attack_unaimed"
-	if ui == Ui.TARGETING and not prefs["tips_done"].has(warn) and _next_free_launcher() >= 0 and lines.has(warn):
+	if ui == Ui.TARGETING and not prefs["tips_done"].has(warn) and _next_free_launcher(true) >= 0 and lines.has(warn):
 		prefs["tips_done"].append(warn)
 		_save_prefs()
 		hud.announce(_line_text(warn), "", 0.0, false, _line_character(warn))
@@ -773,7 +773,7 @@ func _target_click(hex: int) -> void:
 		return
 	orders = new_orders
 	pending_drop = {}
-	active_launcher = _next_free_launcher()
+	active_launcher = _next_free_launcher(true)
 
 
 func _undo() -> void:
@@ -815,14 +815,26 @@ func _cycle_missile(launcher_hex: int) -> void:
 	_refresh()
 
 
-func _next_free_launcher() -> int:
+## The first weapon not yet aimed that could fire: working, with its
+## carrier, and its launch money affordable after the other orders. With
+## need_fuel, also only one whose missile the fuel left after the other
+## orders can pay for (for picking the next weapon to aim and for Ginger's
+## reminder; the end of the build phase counts weapons regardless of fuel).
+func _next_free_launcher(need_fuel: bool = false) -> int:
 	var used := {}
 	for o in orders:
 		used[o["launcher"]] = true
 	var money_left: int = m.sides[0].money - _money_planned()
+	var fuel_left: int = m.sides[0].fuel - _fuel_planned()
 	for b in _attackers(m.sides[0]):
-		if m.sides[0].weapon_active(b) and _carrier_block(b) == "" and not used.has(b.hex) 				and int(data.missile(_missile_for(b.hex)).get("money", 0)) <= money_left:
-			return b.hex
+		if not m.sides[0].weapon_active(b) or _carrier_block(b) != "" or used.has(b.hex):
+			continue
+		var mdef: Dictionary = data.missile(_missile_for(b.hex))
+		if int(mdef.get("money", 0)) > money_left:
+			continue
+		if need_fuel and int(mdef["fuel"]) > fuel_left:
+			continue
+		return b.hex
 	return -1
 
 
