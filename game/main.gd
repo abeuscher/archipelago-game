@@ -74,6 +74,7 @@ var ocean
 var _cam_tween: Tween
 var debug_no_fog: bool = false       ## debug tool: show the enemy island as it really is
 var level: Dictionary = {}           ## this match's level (data/levels.json)
+var first_base_line_said: bool = false   ## the level's line for losing our first base, once
 var enemy_stronghold_seen: bool = false   ## set when a missile gives the enemy's stronghold away
 
 
@@ -87,7 +88,10 @@ func _ready() -> void:
 	lines = Tips.load_lines()
 	seed_value = _seed_from_args()
 	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
-	m.sides[MatchState.PLAYER].money += Campaign.award_money   # the last win's award
+	# The last win's award; the enemy gets the same, so it buys a head start
+	# for the player's plans rather than an edge.
+	m.sides[MatchState.PLAYER].money += Campaign.award_money
+	m.sides[MatchState.ENEMY].money += Campaign.award_money
 	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
 
 	# Beyond the drawn sea hexes the screen is plain sea, so there is never
@@ -190,7 +194,7 @@ func _enter_setup() -> void:
 	tips_snoozed = []
 	setup_trial = m.sides[0].duplicate_state()
 	setup_history = []
-	setup_mode = "base"
+	setup_mode = "stronghold" if SideState.strongholds_per_side(data) > 0 else "base"
 	hud.set_alarm(false)
 	_reset_rotation()
 	_fly_to(0, 0.0)
@@ -199,8 +203,7 @@ func _enter_setup() -> void:
 	_set_clock(0)
 	var strongholds := SideState.strongholds_per_side(data)
 	if strongholds > 0:
-		hud.add_log("Place your three bases; the first %s. Bases and decoys may not touch each other."
-			% ("is a stronghold" if strongholds == 1 else "%d are strongholds" % strongholds))
+		hud.add_log("Place your stronghold and bases. Bases and decoys may not touch each other.")
 	else:
 		hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
 	var intro := String(level.get("intro", ""))
@@ -295,6 +298,19 @@ func _end_build() -> void:
 	_refresh()
 
 
+## The Attack button. The first time it is pressed with weapons left
+## unaimed, Ginger warns once (the clock holds while she talks) instead of
+## attacking. The clock running out attacks without asking.
+func _attack_pressed() -> void:
+	var warn := "attack_unaimed"
+	if ui == Ui.TARGETING and not prefs["tips_done"].has(warn) and _next_free_launcher() >= 0 and lines.has(warn):
+		prefs["tips_done"].append(warn)
+		_save_prefs()
+		hud.announce(_line_text(warn), "", 0.0, false, _line_character(warn))
+		return
+	_attack()
+
+
 func _attack() -> void:
 	if ui != Ui.TARGETING:
 		return
@@ -314,6 +330,13 @@ func _after_playout() -> void:
 	elif m.is_over():
 		_show_game_over()
 	else:
+		# Our first base lost: the level's line (Ginger in level 1), every match.
+		var lost_line := String(level.get("first_base_lost", ""))
+		var lost: int = data.integer("bases", "per_side") - m.sides[0].bases_alive(data)
+		if not first_base_line_said and lost >= 1 and lost_line != "" and lines.has(lost_line):
+			first_base_line_said = true
+			if lost == 1:
+				hud.announce(_line_text(lost_line), "", 0.0, false, _line_character(lost_line))
 		# The first sight of the enemy's stronghold: the Admiral's warning,
 		# once a match.
 		if enemy_stronghold_seen and lines.has("enemy_stronghold"):
@@ -602,14 +625,16 @@ func _setup_click(hex: int) -> void:
 	if e != "":
 		hud.add_log("[color=salmon]%s[/color]" % e)
 		return
-	if setup_mode == "base":
-		if setup_trial.bases_alive(data) >= data.integer("bases", "per_side"):
-			hud.add_log("All three bases are placed. Click one to move it.")
+	if setup_mode == "base" or setup_mode == "stronghold":
+		var forts_needed := SideState.strongholds_per_side(data)
+		var room: int = forts_needed - _count_type(setup_trial, "stronghold") if setup_mode == "stronghold" \
+			else data.integer("bases", "per_side") - forts_needed - _count_type(setup_trial, "base")
+		if room <= 0:
+			hud.add_log("All placed. Click one to move it.")
 			return
-		var type := _next_setup_base()
-		setup_trial._add_building(type, hex, data, 0)
+		setup_trial._add_building(setup_mode, hex, data, 0)
 		setup_history.append(hex)
-		audio.built(type)
+		audio.built(setup_mode)
 	else:
 		var err: String = setup_trial.can_build("decoy", hex, data, m.settings)
 		if err != "":
@@ -621,15 +646,12 @@ func _setup_click(hex: int) -> void:
 		audio.built("decoy")
 
 
-## The next base placed in setup: a stronghold until the level's are all
-## down, then plain bases.
-func _next_setup_base() -> String:
-	var have := 0
-	if setup_trial != null:
-		for b in setup_trial.buildings.values():
-			if b.type == "stronghold":
-				have += 1
-	return "stronghold" if have < SideState.strongholds_per_side(data) else "base"
+func _count_type(st, type: String) -> int:
+	var n := 0
+	for b in st.buildings.values():
+		if b.type == type:
+			n += 1
+	return n
 
 
 func _setup_remove(hex: int) -> void:
@@ -917,19 +939,27 @@ func _build_toolbar(st) -> void:
 		Ui.SETUP:
 			var placed: int = st.bases_alive(data)
 			var per_side: int = data.integer("bases", "per_side")
+			var forts_needed := SideState.strongholds_per_side(data)
+			var forts := _count_type(st, "stronghold")
+			var plain := placed - forts
 			var decoys: int = st.count_role(data, "decoy")
 			var max_decoys := int(m.settings["decoys_per_side"])
 			hud.add_label("Place your bases on your island. Bases and decoys may not touch each other.", true)
-			var bases_full := placed >= per_side
+			var forts_full := forts >= forts_needed
+			var bases_full := plain >= per_side - forts_needed
 			var decoys_full := decoys >= max_decoys
-			# A full piece greys out; the mode moves to the other one if it can.
-			if setup_mode == "base" and bases_full and not decoys_full:
-				setup_mode = "decoy"
-			elif setup_mode == "decoy" and decoys_full and not bases_full:
-				setup_mode = "base"
-			var next_base := _next_setup_base()
-			hud.add_piece_button(next_base, Pieces.display_name(next_base), "%d/%d" % [placed, per_side], "All placed" if bases_full else "Free",
-				func(): setup_mode = "base"; _refresh(), bases_full, setup_mode == "base" and not bases_full, _building_tooltip(next_base))
+			# A full piece greys out; the mode moves on to one still to place.
+			var full := {"stronghold": forts_full, "base": bases_full, "decoy": decoys_full}
+			if full.get(setup_mode, true):
+				for mode in ["stronghold", "base", "decoy"]:
+					if not full[mode]:
+						setup_mode = mode
+						break
+			if forts_needed > 0:
+				hud.add_piece_button("stronghold", "Stronghold", "%d/%d" % [forts, forts_needed], "Placed" if forts_full else "Free",
+					func(): setup_mode = "stronghold"; _refresh(), forts_full, setup_mode == "stronghold" and not forts_full, _building_tooltip("stronghold"))
+			hud.add_piece_button("base", "Base", "%d/%d" % [plain, per_side - forts_needed], "All placed" if bases_full else "Free",
+				func(): setup_mode = "base"; _refresh(), bases_full, setup_mode == "base" and not bases_full, _building_tooltip("base"))
 			hud.add_piece_button("decoy", "Decoy (optional)", "%d/%d" % [decoys, max_decoys], "%d money" % data.cost("decoy"),
 				func(): setup_mode = "decoy"; _refresh(), decoys_full, setup_mode == "decoy" and not decoys_full, _building_tooltip("decoy"))
 			hud.add_label("Click a placed piece to remove it.", true)
@@ -965,21 +995,24 @@ func _build_toolbar(st) -> void:
 			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now", "", true)
 		Ui.TARGETING:
 			hud.add_fuel_planner(st.fuel, _fuel_planned())
-			hud.add_label("Weapons")
 			var launchers: Array = _attackers(st)
 			if launchers.is_empty():
 				hud.add_label("No launchers. Build one in the build and repair phase.", true)
+			# Weapons as tiles, two across: the sprite and the fuel cost. The
+			# details are in each tile's tooltip.
 			for b in launchers:
 				var name := Pieces.display_name(b.type)
 				var hx: int = b.hex
 				if not st.weapon_active(b):
 					hud.add_piece_button(b.type, name, "", "Under repair" if b.repairing else "Out of action",
-						func(): hud.show_notice(Hud.NOTICE_SILO), false, false, "Repair it in the build and repair phase.", true)
+						func(): hud.show_notice(Hud.NOTICE_SILO), false, false, "Repair it in the build and repair phase.",
+						false, true, "", false, true)
 					continue
 				if _carrier_block(b) != "":
 					var why: String = _carrier_block(b)
 					var short: String = "Boat at sea" if b.boat_out else ("Transport lost" if data.role(b.type) == "airport" else "Boat lost")
-					hud.add_piece_button(b.type, name, "", short, func(): hud.show_notice(why), false, false, why, true)
+					hud.add_piece_button(b.type, name, "", short, func(): hud.show_notice(why), false, false, why,
+						false, true, "", false, true)
 					continue
 				var mt := _missile_for(b.hex)
 				var aimed := false
@@ -988,24 +1021,27 @@ func _build_toolbar(st) -> void:
 						aimed = true
 				var mdef: Dictionary = data.missile(mt)
 				var troop := mdef.has("carries")
-				var note: String = Pieces.MISSILE_NAMES.get(mt, mt)
+				var note: String = Pieces.MISSILE_NAMES.get(mt, mt) + ", %d fuel" % int(mdef["fuel"])
 				if troop:
 					note += ", %d money" % int(mdef.get("money", 0))
 				if aimed:
-					note += "  · aimed"
-				elif troop and int(pending_drop.get("launcher", -1)) == b.hex:
-					note += "  · pick direction"
-				hud.add_piece_button(b.type, name, "%d fuel" % int(mdef["fuel"]), note,
-					func(): active_launcher = hx; _refresh(), false, active_launcher == b.hex,
-					"Select it, click the landing hex, then a hex next to it for the march direction." if troop
-					else "Select this launcher, then click an enemy hex to aim it.")
+					note += " (aimed)"
 				var options: Array = data.building(b.type)["missiles"].filter(func(x): return st.missile_unlocked(x, data))
+				var tip := "Select it, click the landing hex, then a hex next to it for the march direction." if troop \
+					else "Select this launcher, then click an enemy hex to aim it."
 				if options.size() > 1:
-					hud.add_tool_button("Switch missile", func(): _cycle_missile(hx), false, false,
-						"Change what this launcher fires")
+					tip += "\nClick it again to switch missile."
+				var pick := func():
+					if active_launcher == hx and options.size() > 1:
+						_cycle_missile(hx)
+					else:
+						active_launcher = hx
+						_refresh()
+				hud.add_piece_button(b.type, name, str(int(mdef["fuel"])), note, pick, false, active_launcher == b.hex,
+					tip, false, true, "", aimed)
 			hud.add_spacer()
 			hud.add_tool_button("Undo", _undo, orders.is_empty(), false, "Take back the last order. Free.", "undo")
-			hud.add_tool_button("Attack", _attack, false, false, "Launch the orders placed and end targeting", "", true)
+			hud.add_tool_button("Attack", _attack_pressed, false, false, "Launch the orders placed and end targeting", "", true)
 		Ui.PLAYOUT:
 			hud.add_label("Missiles in flight.", true)
 

@@ -5,8 +5,6 @@ extends Button
 
 const Icons = preload("res://game/research_icons.gd")
 const INK := Color(0.10, 0.09, 0.08)
-const DIM_INK := Color(0.80, 0.78, 0.72)    ## the name on a button that can't be pressed
-const REASON := Color(1.0, 0.80, 0.35)      ## why it can't be pressed, bright enough to read
 
 var item: String = ""
 var title: String = ""
@@ -47,7 +45,6 @@ func _draw() -> void:
 	draw_style_box(sq, icon_rect)
 	Icons.draw(self, item, icon_rect.get_center(), s * 0.36, INK)
 	var f: Font = font if font != null else get_theme_default_font()
-	var text_ink := INK if not disabled else DIM_INK
+	var text_ink := INK if not disabled else Color(0.18, 0.17, 0.16)
 	draw_string(f, Vector2(14, 22), title.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - s - 40.0, 19, text_ink)
-	draw_string(f, Vector2(14, 41), state if state != "" else detail, HORIZONTAL_ALIGNMENT_LEFT, size.x - s - 40.0, 13,
-		REASON if disabled and state != "" else text_ink)
+	draw_string(f, Vector2(14, 41), state if state != "" else detail, HORIZONTAL_ALIGNMENT_LEFT, size.x - s - 40.0, 13, text_ink)

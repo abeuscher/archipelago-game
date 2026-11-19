@@ -16,6 +16,8 @@ var dimmed: bool = false   ## looks disabled but still clickable
 var compact: bool = false
 var broke: bool = false      ## the price is more than the money on hand
 var tag: String = ""         ## "LOCKED", "LIMIT" or ""
+var marked: bool = false     ## a weapon already aimed: a small crosshair on the tile
+var out: bool = false        ## a weapon that can't fire this round: greyed, no words
 
 
 func _init() -> void:
@@ -52,7 +54,7 @@ const LOCKED_FILL := Color(0.42, 0.43, 0.42)
 
 func _draw_tile() -> void:
 	var font := get_theme_default_font()
-	var locked := tag != ""
+	var locked := tag != "" or out
 	var fill: Color = Pieces.TILE_COLORS.get(piece_type, Color(0.7, 0.72, 0.75))
 	if locked:
 		fill = LOCKED_FILL
@@ -83,8 +85,15 @@ func _draw_tile() -> void:
 		draw_style_box(bb, badge)
 		var price_col := Color(0.6, 0.6, 0.6) if locked else (Color(1.0, 0.45, 0.40) if broke else Color(1.0, 0.86, 0.38))
 		draw_string(_bold(), Vector2(badge.position.x + 5, badge.position.y + 15), detail, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, price_col)
+	# Aimed: a green crosshair, bottom left.
+	if marked:
+		var c := Vector2(16, size.y - 18)
+		draw_circle(c, 9.0, Color(0.13, 0.13, 0.15, 0.85))
+		draw_arc(c, 6.0, 0, TAU, 20, Color(0.45, 0.95, 0.5), 2.0, true)
+		for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+			draw_line(c + d * 3.0, c + d * 8.5, Color(0.45, 0.95, 0.5), 2.0)
 	# Locked or at its limit: a small tag, bottom left.
-	if locked:
+	if tag != "":
 		var t := Rect2(Vector2(6, size.y - 24), Vector2(_bold().get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10, 16))
 		var tb := StyleBoxFlat.new()
 		tb.bg_color = Color(0.13, 0.13, 0.15, 0.85)

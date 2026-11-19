@@ -118,6 +118,14 @@
       "character": "admiral",
       "text": "General, bad news! Enemy spies have stolen the secrets of our stronghold tech and built one of their own. We're going to have to get some invasion forces ready to destroy it."
     },
+    "attack_unaimed": {
+      "character": "ginger",
+      "text": "Don't forget to target your weapons before you click attack. Otherwise you're a sitting duck!"
+    },
+    "first_base_lost": {
+      "character": "ginger",
+      "text": "Oh no! We lost our first base! Two more and we're toast!"
+    },
     "boat_spotted": {
       "character": "ginger",
       "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."

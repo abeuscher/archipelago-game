@@ -70,7 +70,10 @@ func _run() -> void:
 	await _shot("L2_02_stronghold_placed")
 	for k in range(1, setup["bases"].size()):
 		main._setup_click(setup["bases"][k])
+		main._refresh()
+	main.selected = Vector2i(-1, -1)
 	main._refresh()
+	await _shot("L2_02b_all_placed")
 	await _ok()
 	main._start_setup_game()
 	await create_timer(1.1).timeout
@@ -81,9 +84,19 @@ func _run() -> void:
 	st.fuel += 20
 	var lau_hex: int = _free_hexes()[30]
 	st._add_building("basic_launcher", lau_hex, main.data, main.m.round_number)
+	for k in 5:   # a crowded weapons list
+		st._add_building("basic_launcher", _free_hexes()[50 + k * 9], main.data, main.m.round_number)
+	st.unlocked["airport"] = true
+	st._add_building("airport", _free_hexes()[12], main.data, main.m.round_number)
 	main._refresh()
 	main._end_build()
 	await create_timer(1.2).timeout
+	await _ok()
+	await _shot("L2_02c_targeting_tiles")
+	main._attack_pressed()   # nothing aimed: Ginger's warning
+	await create_timer(0.4).timeout
+	await _shot("L2_02d_attack_warning")
+	await _ok()
 	var fort: int = -1
 	for b in main.m.sides[1].buildings.values():
 		if b.type == "stronghold":

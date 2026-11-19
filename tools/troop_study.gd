@@ -5,7 +5,7 @@
 ##   godot --headless --path . -s tools/troop_study.gd -- [--matches N] [--part 1|2|search]
 ##     [--level L] [--award M]
 ## --level plays a campaign level (data/levels.json); --award adds money to
-## side 0's start, as the win before it would.
+## both sides' start, as the win before it does in the game.
 extends SceneTree
 
 const GameData = preload("res://rules/game_data.gd")
@@ -154,6 +154,7 @@ func _play(seed_in: int, ais: Array) -> Dictionary:
 	# Same loop as MatchRunner.play, but keeps the match for its history.
 	var m = MatchState.create(data, seed_in, {})
 	m.sides[0].money += award
+	m.sides[1].money += award   # the enemy gets the same, as in the game
 	var port_info := [{"first": 0, "spent": 0}, {"first": 0, "spent": 0}]
 	for s in 2:
 		var setup: Dictionary = ais[s].choose_setup(m.view_for(s))

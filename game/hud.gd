@@ -42,6 +42,7 @@ var research_panel
 var esc_menu
 var _tool_title: Label
 var _tools: VBoxContainer
+var _tools_head: VBoxContainer   ## above the scrolling tools, always in view (the fuel gauge)
 var _timer
 var _timer_label: RichTextLabel
 var _beacon
@@ -134,10 +135,15 @@ func _ready() -> void:
 	tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tray.add_theme_stylebox_override("panel", _plate_box(TRAY, Color(0.12, 0.12, 0.11), 3, 8, 6))
 	lv.add_child(tray)
+	var tray_col := VBoxContainer.new()
+	tray_col.add_theme_constant_override("separation", 6)
+	tray.add_child(tray_col)
+	_tools_head = VBoxContainer.new()
+	tray_col.add_child(_tools_head)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	tray.add_child(scroll)
+	tray_col.add_child(scroll)
 	_tools = VBoxContainer.new()
 	_tools.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tools.add_theme_constant_override("separation", 4)
@@ -705,9 +711,10 @@ func _toggle_log(on: bool) -> void:
 # --- Left toolbar ----------------------------------------------------------
 
 func clear_tools() -> void:
-	for c in _tools.get_children():
-		_tools.remove_child(c)
-		c.queue_free()
+	for box in [_tools, _tools_head]:
+		for c in box.get_children():
+			box.remove_child(c)
+			c.queue_free()
 
 
 func add_label(text: String, small: bool = false) -> void:
@@ -793,8 +800,11 @@ static func _plate_box(bg: Color, edge: Color, width: int, radius: int, margin: 
 ## compact: a tile in a two-across grid (consecutive compact buttons share
 ## one grid).
 func add_piece_button(piece_type: String, title: String, detail: String, note: String, action: Callable,
-		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false, compact: bool = false, tag: String = "") -> void:
+		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false, compact: bool = false, tag: String = "",
+		marked: bool = false, out: bool = false) -> void:
 	var b := ToolButton.new()
+	b.marked = marked
+	b.out = out
 	b.dimmed = dimmed
 	b.compact = compact
 	b.broke = dimmed
@@ -832,7 +842,7 @@ func add_fuel_planner(fuel: int, planned: int) -> void:
 	var f := FuelPlanner.new()
 	f.set_values(fuel, planned)
 	f.tooltip_text = "Fuel used by the orders placed so far, out of the fuel you have."
-	_tools.add_child(f)
+	_tools_head.add_child(f)
 
 
 # --- Right strip -----------------------------------------------------------
