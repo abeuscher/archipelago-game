@@ -88,7 +88,7 @@
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
   ],
-  "_announcements": "Said at moments in the game. income is the report at the start of each round from round 2 (no Don't show this again box; the round clock runs underneath it). {money}, {fuel}, {research}, {n} are filled in when said. The incoming warning has no Don't show this again box either.",
+  "_announcements": "Said at moments in the game. income is the report at the start of each round from round 2 (no Don't show this again box; the round clock runs underneath it). When the last round's attack had anything to report, the battle_report lines come first and income_after_report follows them in the same bubble, which holds the clock until OK. {money}, {fuel}, {research}, {n} are filled in when said. The incoming warning has no Don't show this again box either.",
   "announcements": {
     "income": {
       "character": "pilot",
@@ -130,8 +130,12 @@
       "character": "ginger",
       "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."
     },
+    "income_after_report": {
+      "character": "pilot",
+      "text": "And we took in {money} money, {fuel} fuel and {research} research."
+    },
     "battle_report": {
-      "character": "admiral",
+      "character": "pilot",
       "text": "General, I have the battle summary.",
       "_parts": "One line per thing that happened this round, in this order, skipped when it's zero. Each is [said for one, said for more]; {n} is the number. Soldiers are counted 8 to a platoon.",
       "parts": {

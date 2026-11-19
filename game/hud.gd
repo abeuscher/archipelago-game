@@ -22,6 +22,7 @@ const ToolButton = preload("res://game/tool_button.gd")
 const FuelPlanner = preload("res://game/fuel_planner.gd")
 const IconButton = preload("res://game/icon_button.gd")
 const Beacon = preload("res://game/beacon.gd")
+const ResourceIcon = preload("res://game/resource_icon.gd")
 const Announcer = preload("res://game/announcer.gd")
 const ResearchPanel = preload("res://game/research_panel.gd")
 const EscMenu = preload("res://game/esc_menu.gd")
@@ -44,7 +45,6 @@ var _tool_title: Label
 var _tools: VBoxContainer
 var _tools_head: VBoxContainer   ## above the scrolling tools, always in view (the fuel gauge)
 var _timer
-var _timer_label: RichTextLabel
 var _beacon
 var announcer
 var _portrait_slot: Control
@@ -149,28 +149,19 @@ func _ready() -> void:
 	_tools.add_theme_constant_override("separation", 4)
 	scroll.add_child(_tools)
 	# The space where characters appear to talk to the player (announcer.gd),
-	# then the alarm light, the "Round Timer" label (shown while the clock
-	# runs) and the timer itself.
+	# then the alarm light sitting right on top of the timer.
 	_portrait_slot = Control.new()
 	_portrait_slot.custom_minimum_size = Vector2(0, PORTRAIT_SLOT_H)
 	_portrait_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lv.add_child(_portrait_slot)
+	var alarm_stack := VBoxContainer.new()
+	alarm_stack.add_theme_constant_override("separation", 0)
+	lv.add_child(alarm_stack)
 	_beacon = Beacon.new()
-	lv.add_child(_beacon)
-	_timer_label = RichTextLabel.new()
-	_timer_label.bbcode_enabled = true
-	_timer_label.fit_content = true
-	_timer_label.scroll_active = false
-	_timer_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_timer_label.add_theme_font_override("normal_font", tracked_font(1))
-	_timer_label.add_theme_color_override("default_color", Color(1.0, 0.72, 0.35))
-	_timer_label.text = "[center]%s[/center]" % small_caps("Round Timer", 15, 11)
-	_timer_label.visible = false
-	lv.add_child(_timer_label)
+	alarm_stack.add_child(_beacon)
 	_timer = SevenSeg.new()
 	_timer.tooltip_text = "Time left in this phase. Black when the clock is off or not running."
-	lv.add_child(_timer)
+	alarm_stack.add_child(_timer)
 
 	# Top right: resources, then the earnings and log buttons.
 	var tr := VBoxContainer.new()
@@ -471,7 +462,6 @@ func set_phase(phase_name: String, round_number: int) -> void:
 ## seconds < 0 means the clock is off or not running: a plain black box.
 func set_timer(seconds: float) -> void:
 	_timer.set_time(seconds)
-	_timer_label.visible = seconds >= 0.0
 
 
 ## The alarm light: on from the moment the battle begins.
@@ -523,11 +513,10 @@ static func _corner(c: Control, right: float) -> void:
 const RES_CAPTION := Color(0.62, 0.68, 0.76)
 const RES_VALUE := Color(0.97, 0.98, 1.0)
 const RES_NEXT := Color(0.55, 0.85, 0.55)
-const RES_ACCENT := {"money": Color(0.95, 0.78, 0.30), "fuel": Color(0.95, 0.55, 0.25), "research": Color(0.40, 0.80, 0.95)}
 
 
 ## A compact strip: three stats, each a small-caps caption over a bold
-## value with a thin colour key, split by dividers.
+## value with its icon (coin, barrel, beaker), split by dividers.
 func _build_resources() -> Control:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -580,12 +569,7 @@ func _stat(parent: Control, caption: String, key: String, tip: String) -> Array:
 	vrow.add_theme_constant_override("separation", 5)
 	vrow.mouse_filter = Control.MOUSE_FILTER_PASS
 	box.add_child(vrow)
-	var key_bar := ColorRect.new()
-	key_bar.color = RES_ACCENT[key]
-	key_bar.custom_minimum_size = Vector2(3, 16)
-	key_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	key_bar.mouse_filter = Control.MOUSE_FILTER_PASS
-	vrow.add_child(key_bar)
+	vrow.add_child(ResourceIcon.new(key))
 	var val := Label.new()
 	val.add_theme_font_override("font", bold_font())
 	val.add_theme_font_size_override("font_size", 19)

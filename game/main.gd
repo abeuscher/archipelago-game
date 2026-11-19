@@ -235,19 +235,29 @@ func _start_round() -> void:
 	# The character reports what came in (from round 2, when there is
 	# income); the clock runs underneath. The log keeps the plain record
 	# without flashing it.
-	var said := ""
+	# Last round's battle report comes first, if anything happened; then the
+	# income, said together by one character so it is one OK, not two.
+	var report := ""
+	if not battle_report.is_empty():
+		report = _line_text("battle_report") + " " + " ".join(battle_report)
+		hud.add_log(report, false)
+		battle_report = []
+	var income_said := ""
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
 		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
 			var inc: Dictionary = ev["income"]
-			said = _line_text("income").format({"n": m.round_number,
-				"money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]})
+			var fill := {"n": m.round_number, "money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]}
+			income_said = _line_text("income_after_report" if report != "" else "income").format(fill)
 			hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]], false)
 		else:
 			_log_event(ev)
-	if said != "":
-		hud.announce(said, "", 0.0, false, _line_character("income"), false)
+	if report != "":
+		# Held until OK: there is a lot to read.
+		hud.announce((report + " " + income_said).strip_edges(), "", 0.0, false, _line_character("battle_report"))
+	elif income_said != "":
+		hud.announce(income_said, "", 0.0, false, _line_character("income"), false)
 	if m.boats[MatchState.ENEMY].any(func(bt): return int(bt["lands_round"]) == m.round_number):
 		hud.announce(_line_text("boat_spotted"), "", 0.0, false, _line_character("boat_spotted"))
 	# The enemy commits its build for the round from its own view.
@@ -345,10 +355,8 @@ func _after_playout() -> void:
 		enemy_stronghold_seen = false
 		# The round's battle report, if anything happened; the next round's
 		# clock waits for it.
-		if not battle_report.is_empty():
-			var said := _line_text("battle_report") + " " + " ".join(battle_report)
-			hud.announce(said, "", 0.0, false, _line_character("battle_report"))
-			hud.add_log(said, false)
+		# The battle report waits for the next round's income: the Pilot
+		# gives both together (see _start_round).
 		_start_round()
 
 

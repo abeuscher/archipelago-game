@@ -1,4 +1,4 @@
-## The alarm light above the round timer: a red dome like an ambulance
+## The alarm light, sitting on top of the round timer: a red dome like an ambulance
 ## light. Off, it sits dim. On, a bright spot sweeps round the dome and
 ## beams of light turn across the panel behind it.
 extends Control
@@ -14,7 +14,7 @@ var _angle: float = 0.0
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(0, 56)
+	custom_minimum_size = Vector2(0, 44)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
@@ -32,7 +32,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var c := Vector2(size.x / 2.0, size.y - 14.0)
+	var c := Vector2(size.x / 2.0, size.y - 8.0)   # its base sits on the timer below
 	var r := 15.0
 	if active:
 		# Two beams on opposite sides of the turning lamp, widest when they

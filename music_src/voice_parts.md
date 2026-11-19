@@ -6,7 +6,7 @@ Every line the characters say, grouped by speaker. Each clip is named on the lef
 - **[n]** marks a number that changes during play. The game plays that speaker's number clip there (see *Numbers* in each speaker's section). Where a number falls in the middle of a line, the line is split into pieces recorded separately: `pilot_006a`, `pilot_006b`, and so on.
 - Made by `music_src/make_voice_parts.py` from `data/dialogue.json`. Clip numbers are kept in `voice_ids.json`, so a line keeps its name when lines are added.
 
-Clips: Admiral 137, Ginger 110, Pilot 118, Mechanic 3, Scientist 2.
+Clips: Admiral 3, Ginger 110, Pilot 156, Mechanic 3, Scientist 2.
 
 ---
 
@@ -23,324 +23,6 @@ Clips: Admiral 137, Ginger 110, Pilot 118, Mechanic 3, Scientist 2.
 *Level 2, when our missile first reveals the enemy's stronghold.*
 
 **admiral_003**  General, bad news! Enemy spies have stolen the secrets of our stronghold tech and built one of their own. We're going to have to get some invasion forces ready to destroy it.
-
-*End of each round, opening the battle summary. The summary lines below follow it.*
-
-**admiral_004**  General, I have the battle summary.
-
-*Battle summary, after the opening line. Only the lines for what happened are said, in this order.*
-
-**admiral_005**  One enemy missile got through to us.
-
-**admiral_006**  **[n]** enemy missiles got through to us.
-
-> Record without the number: "enemy missiles got through to us."
-
-**admiral_007**  One of our buildings was damaged.
-
-**admiral_008**  **[n]** of our buildings were damaged.
-
-> Record without the number: "of our buildings were damaged."
-
-**admiral_009**  We lost one building.
-
-We lost **[n]** buildings.  (in pieces)
-
-> **admiral_010a**  We lost
->
-> *(n number)*
->
-> **admiral_010b**  buildings.
-
-**admiral_011**  Our anti-air shot down one of their missiles.
-
-Our anti-air shot down **[n]** of their missiles.  (in pieces)
-
-> **admiral_012a**  Our anti-air shot down
->
-> *(n number)*
->
-> **admiral_012b**  of their missiles.
-
-**admiral_013**  We brought down one of their transports.
-
-We brought down **[n]** of their transports.  (in pieces)
-
-> **admiral_014a**  We brought down
->
-> *(n number)*
->
-> **admiral_014b**  of their transports.
-
-**admiral_015**  One of our missiles found its target.
-
-**admiral_016**  **[n]** of our missiles found their targets.
-
-> Record without the number: "of our missiles found their targets."
-
-**admiral_017**  They shot down one of our missiles.
-
-They shot down **[n]** of our missiles.  (in pieces)
-
-> **admiral_018a**  They shot down
->
-> *(n number)*
->
-> **admiral_018b**  of our missiles.
-
-**admiral_019**  They shot down one of our transports.
-
-They shot down **[n]** of our transports.  (in pieces)
-
-> **admiral_020a**  They shot down
->
-> *(n number)*
->
-> **admiral_020b**  of our transports.
-
-**admiral_021**  We damaged one enemy building.
-
-We damaged **[n]** enemy buildings.  (in pieces)
-
-> **admiral_022a**  We damaged
->
-> *(n number)*
->
-> **admiral_022b**  enemy buildings.
-
-**admiral_023**  We destroyed one enemy building.
-
-We destroyed **[n]** enemy buildings.  (in pieces)
-
-> **admiral_024a**  We destroyed
->
-> *(n number)*
->
-> **admiral_024b**  enemy buildings.
-
-**admiral_025**  We lost one soldier.
-
-We lost **[n]** soldiers.  (in pieces)
-
-> **admiral_026a**  We lost
->
-> *(n number)*
->
-> **admiral_026b**  soldiers.
-
-**admiral_027**  We stopped one of their soldiers.
-
-We stopped **[n]** of their soldiers.  (in pieces)
-
-> **admiral_028a**  We stopped
->
-> *(n number)*
->
-> **admiral_028b**  of their soldiers.
-
-### Numbers
-
-One clip per number, said on its own in the voice of the lines above, named for its value: `admiral_n024` says "twenty-four". The battle summary counts missiles, buildings and soldiers (soldiers go up in eights). Past 100 the summary shows the number in the text only.
-
-**admiral_n001**  one
-
-**admiral_n002**  two
-
-**admiral_n003**  three
-
-**admiral_n004**  four
-
-**admiral_n005**  five
-
-**admiral_n006**  six
-
-**admiral_n007**  seven
-
-**admiral_n008**  eight
-
-**admiral_n009**  nine
-
-**admiral_n010**  ten
-
-**admiral_n011**  eleven
-
-**admiral_n012**  twelve
-
-**admiral_n013**  thirteen
-
-**admiral_n014**  fourteen
-
-**admiral_n015**  fifteen
-
-**admiral_n016**  sixteen
-
-**admiral_n017**  seventeen
-
-**admiral_n018**  eighteen
-
-**admiral_n019**  nineteen
-
-**admiral_n020**  twenty
-
-**admiral_n021**  twenty-one
-
-**admiral_n022**  twenty-two
-
-**admiral_n023**  twenty-three
-
-**admiral_n024**  twenty-four
-
-**admiral_n025**  twenty-five
-
-**admiral_n026**  twenty-six
-
-**admiral_n027**  twenty-seven
-
-**admiral_n028**  twenty-eight
-
-**admiral_n029**  twenty-nine
-
-**admiral_n030**  thirty
-
-**admiral_n031**  thirty-one
-
-**admiral_n032**  thirty-two
-
-**admiral_n033**  thirty-three
-
-**admiral_n034**  thirty-four
-
-**admiral_n035**  thirty-five
-
-**admiral_n036**  thirty-six
-
-**admiral_n037**  thirty-seven
-
-**admiral_n038**  thirty-eight
-
-**admiral_n039**  thirty-nine
-
-**admiral_n040**  forty
-
-**admiral_n041**  forty-one
-
-**admiral_n042**  forty-two
-
-**admiral_n043**  forty-three
-
-**admiral_n044**  forty-four
-
-**admiral_n045**  forty-five
-
-**admiral_n046**  forty-six
-
-**admiral_n047**  forty-seven
-
-**admiral_n048**  forty-eight
-
-**admiral_n049**  forty-nine
-
-**admiral_n050**  fifty
-
-**admiral_n051**  fifty-one
-
-**admiral_n052**  fifty-two
-
-**admiral_n053**  fifty-three
-
-**admiral_n054**  fifty-four
-
-**admiral_n055**  fifty-five
-
-**admiral_n056**  fifty-six
-
-**admiral_n057**  fifty-seven
-
-**admiral_n058**  fifty-eight
-
-**admiral_n059**  fifty-nine
-
-**admiral_n060**  sixty
-
-**admiral_n061**  sixty-one
-
-**admiral_n062**  sixty-two
-
-**admiral_n063**  sixty-three
-
-**admiral_n064**  sixty-four
-
-**admiral_n065**  sixty-five
-
-**admiral_n066**  sixty-six
-
-**admiral_n067**  sixty-seven
-
-**admiral_n068**  sixty-eight
-
-**admiral_n069**  sixty-nine
-
-**admiral_n070**  seventy
-
-**admiral_n071**  seventy-one
-
-**admiral_n072**  seventy-two
-
-**admiral_n073**  seventy-three
-
-**admiral_n074**  seventy-four
-
-**admiral_n075**  seventy-five
-
-**admiral_n076**  seventy-six
-
-**admiral_n077**  seventy-seven
-
-**admiral_n078**  seventy-eight
-
-**admiral_n079**  seventy-nine
-
-**admiral_n080**  eighty
-
-**admiral_n081**  eighty-one
-
-**admiral_n082**  eighty-two
-
-**admiral_n083**  eighty-three
-
-**admiral_n084**  eighty-four
-
-**admiral_n085**  eighty-five
-
-**admiral_n086**  eighty-six
-
-**admiral_n087**  eighty-seven
-
-**admiral_n088**  eighty-eight
-
-**admiral_n089**  eighty-nine
-
-**admiral_n090**  ninety
-
-**admiral_n091**  ninety-one
-
-**admiral_n092**  ninety-two
-
-**admiral_n093**  ninety-three
-
-**admiral_n094**  ninety-four
-
-**admiral_n095**  ninety-five
-
-**admiral_n096**  ninety-six
-
-**admiral_n097**  ninety-seven
-
-**admiral_n098**  ninety-eight
-
-**admiral_n099**  ninety-nine
-
-**admiral_n100**  one hundred
 
 ---
 
@@ -624,9 +306,141 @@ General, we took in **[money]** money, **[fuel]** fuel and **[research]** resear
 >
 > **pilot_006d**  research.
 
+*After the battle summary, the round's income.*
+
+And we took in **[money]** money, **[fuel]** fuel and **[research]** research.  (in pieces)
+
+> **pilot_007a**  And we took in
+>
+> *(money number)*
+>
+> **pilot_007b**  money,
+>
+> *(fuel number)*
+>
+> **pilot_007c**  fuel and
+>
+> *(research number)*
+>
+> **pilot_007d**  research.
+
+*Start of each round after an attack, opening the battle summary. The summary lines below follow it, then the income.*
+
+**pilot_008**  General, I have the battle summary.
+
+*Battle summary, after the opening line. Only the lines for what happened are said, in this order.*
+
+**pilot_009**  One enemy missile got through to us.
+
+**pilot_010**  **[n]** enemy missiles got through to us.
+
+> Record without the number: "enemy missiles got through to us."
+
+**pilot_011**  One of our buildings was damaged.
+
+**pilot_012**  **[n]** of our buildings were damaged.
+
+> Record without the number: "of our buildings were damaged."
+
+**pilot_013**  We lost one building.
+
+We lost **[n]** buildings.  (in pieces)
+
+> **pilot_014a**  We lost
+>
+> *(n number)*
+>
+> **pilot_014b**  buildings.
+
+**pilot_015**  Our anti-air shot down one of their missiles.
+
+Our anti-air shot down **[n]** of their missiles.  (in pieces)
+
+> **pilot_016a**  Our anti-air shot down
+>
+> *(n number)*
+>
+> **pilot_016b**  of their missiles.
+
+**pilot_017**  We brought down one of their transports.
+
+We brought down **[n]** of their transports.  (in pieces)
+
+> **pilot_018a**  We brought down
+>
+> *(n number)*
+>
+> **pilot_018b**  of their transports.
+
+**pilot_019**  One of our missiles found its target.
+
+**pilot_020**  **[n]** of our missiles found their targets.
+
+> Record without the number: "of our missiles found their targets."
+
+**pilot_021**  They shot down one of our missiles.
+
+They shot down **[n]** of our missiles.  (in pieces)
+
+> **pilot_022a**  They shot down
+>
+> *(n number)*
+>
+> **pilot_022b**  of our missiles.
+
+**pilot_023**  They shot down one of our transports.
+
+They shot down **[n]** of our transports.  (in pieces)
+
+> **pilot_024a**  They shot down
+>
+> *(n number)*
+>
+> **pilot_024b**  of our transports.
+
+**pilot_025**  We damaged one enemy building.
+
+We damaged **[n]** enemy buildings.  (in pieces)
+
+> **pilot_026a**  We damaged
+>
+> *(n number)*
+>
+> **pilot_026b**  enemy buildings.
+
+**pilot_027**  We destroyed one enemy building.
+
+We destroyed **[n]** enemy buildings.  (in pieces)
+
+> **pilot_028a**  We destroyed
+>
+> *(n number)*
+>
+> **pilot_028b**  enemy buildings.
+
+**pilot_029**  We lost one soldier.
+
+We lost **[n]** soldiers.  (in pieces)
+
+> **pilot_030a**  We lost
+>
+> *(n number)*
+>
+> **pilot_030b**  soldiers.
+
+**pilot_031**  We stopped one of their soldiers.
+
+We stopped **[n]** of their soldiers.  (in pieces)
+
+> **pilot_032a**  We stopped
+>
+> *(n number)*
+>
+> **pilot_032b**  of their soldiers.
+
 ### Numbers
 
-One clip per number, said on its own in the voice of the lines above, named for its value: `pilot_n024` says "twenty-four". The income report. A number over 99 is said as its hundreds clip then the rest: 345 is `pilot_n300` + `pilot_n045` ("three hundred" + "forty-five"); 300 is just `pilot_n300`.
+One clip per number, said on its own in the voice of the lines above, named for its value: `pilot_n024` says "twenty-four". The battle summary and income report (the summary counts missiles, buildings and soldiers; soldiers go up in eights). A number over 99 is said as its hundreds clip then the rest: 345 is `pilot_n300` + `pilot_n045` ("three hundred" + "forty-five"); 300 is just `pilot_n300`.
 
 **pilot_n000**  zero
 

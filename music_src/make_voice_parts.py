@@ -31,7 +31,8 @@ ANNOUNCE_WHEN = {
     "attack_unaimed": "First time the player presses Attack with weapons not aimed.",
     "first_base_lost": "Level 1, when the player loses their first base.",
     "boat_spotted": "Start of a round when an enemy boat is crossing the channel.",
-    "battle_report": "End of each round, opening the battle summary. The summary lines below follow it.",
+    "battle_report": "Start of each round after an attack, opening the battle summary. The summary lines below follow it, then the income.",
+    "income_after_report": "After the battle summary, the round's income.",
 }
 TIP_WHEN = "Tutorial tip (shown once; the player can turn tips off)."
 REPORT_WHEN = "Battle summary, after the opening line. Only the lines for what happened are said, in this order."
@@ -40,13 +41,11 @@ NUMBERED = {"{n}": "n", "{money}": "money", "{fuel}": "fuel", "{research}": "res
 
 # Who says numbers that change during play, and which number clips they need.
 NUMBER_CLIPS = {
-    "admiral": {"from": 1, "to": 100,
-                "note": "The battle summary counts missiles, buildings and soldiers (soldiers go up in eights). "
-                        "Past 100 the summary shows the number in the text only."},
     "ginger": {"from": 1, "to": 100,
                "note": "Her warning counts incoming missiles. Past 100 it shows in the text only."},
     "pilot": {"from": 0, "to": 99, "hundreds": True,
-              "note": "The income report. A number over 99 is said as its hundreds clip then the rest: "
+              "note": "The battle summary and income report (the summary counts missiles, buildings and soldiers; "
+                      "soldiers go up in eights). A number over 99 is said as its hundreds clip then the rest: "
                       "345 is `pilot_n300` + `pilot_n045` (\"three hundred\" + \"forty-five\"); 300 is just `pilot_n300`."},
 }
 
@@ -120,6 +119,8 @@ def main():
     all_lines = lines()
     # Number new lines after the highest number each character already has.
     for key, who, _, _ in all_lines:
+        if key in ids and not ids[key].startswith(who + "_"):
+            del ids[key]   # the line moved to another speaker: it gets that speaker's next number
         if key not in ids:
             used = [int(v.split("_")[-1]) for k, v in ids.items() if v.startswith(who + "_")]
             ids[key] = "%s_%03d" % (who, max(used, default=0) + 1)
