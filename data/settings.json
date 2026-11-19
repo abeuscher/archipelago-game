@@ -10,5 +10,6 @@
   "decoys_per_side_max": 3,
   "show_tips": true,
   "show_grid": false,
+  "volume": 0.8,
   "debug_money": 100
 }

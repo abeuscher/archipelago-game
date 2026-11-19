@@ -98,6 +98,12 @@ func play(path: String, volume_db: float = 0.0) -> void:
 	p.play()
 
 
+## The main volume, 0 (silent) to 1 (full), on the master bus.
+static func set_master_volume(v: float) -> void:
+	AudioServer.set_bus_mute(0, v <= 0.001)
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(v, 0.001)))
+
+
 # --- Ambience ----------------------------------------------------------------
 
 ## Starts the looping ambience layers and the occasional calls, easing in.

@@ -36,6 +36,7 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Palette.SEA)
 	audio = Audio.new()
 	add_child(audio)
+	Audio.set_master_volume(float(prefs["volume"]))
 	audio.start_ambient()
 	audio.set_closeness(float(audio.sounds.get("ambient", {}).get("title_closeness", 0.4)))
 

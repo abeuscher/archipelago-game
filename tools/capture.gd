@@ -220,6 +220,9 @@ func _run() -> void:
 	main.m.sides[0].stored_research = 0
 	main._refresh()
 	main.hud.research_panel.visible = false
+	main.hud.status_gauge.set_hits(2.5, 6)   # a battered gauge, for the record
+	await _shot("07c_status_gauge")
+	main._refresh()
 	main.hud._earn_button.button_pressed = true
 	main._refresh()
 	await _shot("08_earnings")

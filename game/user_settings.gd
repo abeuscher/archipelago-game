@@ -1,10 +1,10 @@
-## The player's game settings (section 14): the two clocks, decoys per side
-## and whether tips show. Defaults and ranges come from data/settings.json;
+## The player's game settings (section 14): the two clocks, decoys per side,
+## whether tips show, and the main volume (0 to 1, the comms slider). Defaults and ranges come from data/settings.json;
 ## the player's choices are kept in user://settings.json.
 extends RefCounted
 
 const PATH := "user://settings.json"
-const KEYS := ["settings_version", "build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "show_grid", "tips_done"]
+const KEYS := ["settings_version", "build_clock_seconds", "targeting_clock_seconds", "decoys_per_side", "show_tips", "show_grid", "volume", "tips_done"]
 ## Settings saved before this version drop their clock values, so a change
 ## to the default clocks reaches players who already have a settings file.
 const CLOCK_RESET_BEFORE := 3
@@ -45,6 +45,7 @@ static func sanitize(s: Dictionary, defaults: Dictionary) -> Dictionary:
 			int(defaults["decoys_per_side_min"]), int(defaults["decoys_per_side_max"])),
 		"show_tips": bool(s.get("show_tips", defaults.get("show_tips", true))),
 		"show_grid": bool(s.get("show_grid", defaults.get("show_grid", false))),
+		"volume": clampf(float(s.get("volume", defaults.get("volume", 0.8))), 0.0, 1.0),
 		"tips_done": [],
 	}
 	var done = s.get("tips_done", [])

@@ -14,6 +14,8 @@ extends CanvasLayer
 
 const Minimap = preload("res://game/minimap.gd")
 const DevicePanel = preload("res://game/device_panel.gd")
+const StatusGauge = preload("res://game/status_gauge.gd")
+const VolumeSlider = preload("res://game/volume_slider.gd")
 const SevenSeg = preload("res://game/seven_seg.gd")
 const StripButton = preload("res://game/strip_button.gd")
 const ToolButton = preload("res://game/tool_button.gd")
@@ -26,12 +28,15 @@ const EscMenu = preload("res://game/esc_menu.gd")
 
 signal rotate_requested(dir: int)
 signal zoom_requested(dir: int)
+signal volume_changed(value: float, done: bool)   ## done: the slider was let go
 signal tip_dismissed(id: String, forever: bool)
 signal earnings_requested
 signal debug_add_money
 signal debug_toggle_fog(on: bool)
 
 var minimap
+var status_gauge     ## our bases' hits left
+var volume_slider    ## the main volume
 var research_panel
 var esc_menu
 var _tool_title: Label
@@ -315,7 +320,11 @@ func _ready() -> void:
 	_corner(radar, 8)
 	root.add_child(radar)
 
-	var comms := DevicePanel.comms(ih, Vector2(INFO_W, INFO_H))
+	status_gauge = StatusGauge.new()
+	volume_slider = VolumeSlider.new()
+	volume_slider.changed.connect(func(v: float): volume_changed.emit(v, false))
+	volume_slider.released.connect(func(v: float): volume_changed.emit(v, true))
+	var comms := DevicePanel.comms(ih, Vector2(INFO_W, INFO_H), status_gauge, volume_slider)
 	_corner(comms, 8 + RADAR_W + 10)
 	root.add_child(comms)
 

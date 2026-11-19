@@ -1,9 +1,9 @@
 ## Retro hardware for the bottom-right corner, in the same beige plastic as
 ## the research mainframe: a radar monitor round the minimap, with chunky
-## coloured keys beneath, and a comms set round the info screen, with a
-## status gauge and a knob on one side and a slider on the other. The
-## builders only frame content; the content itself (the minimap, the info
-## text) is made by hud.gd.
+## coloured keys beneath, and a comms set round the info screen, with the
+## status gauge (our bases' hits left) on one side and the volume slider on
+## the other. The builders only frame content; the content itself (the
+## minimap, the info text, the gauge and slider) is made by hud.gd.
 extends RefCounted
 
 const ResearchPanel = preload("res://game/research_panel.gd")
@@ -61,19 +61,19 @@ static func radar(content: Control, keys: Array) -> PanelContainer:
 	return unit
 
 
-## The comms set: gauge and knob, the screen holding `content`, a slider.
-static func comms(content: Control, screen_size: Vector2) -> PanelContainer:
+## The comms set: the gauge, the screen holding `content`, the slider.
+static func comms(content: Control, screen_size: Vector2, gauge: Control, slider: Control) -> PanelContainer:
 	var unit := PanelContainer.new()
 	unit.add_theme_stylebox_override("panel", box(BEZEL, BEZEL_EDGE, 3, 18, [12, 10, 12, 10]))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	unit.add_child(row)
-	row.add_child(_status_column())
+	row.add_child(_status_column(gauge))
 	var scr := _screen(content, 10)
 	scr.custom_minimum_size = screen_size
 	scr.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(scr)
-	row.add_child(_comms_column())
+	row.add_child(_comms_column(slider))
 	return unit
 
 
@@ -149,57 +149,23 @@ static func _label(text: String, size_px: int = 12) -> Label:
 	return l
 
 
-## Left of the comms screen: a little dial gauge, its label, and a knob.
-static func _status_column() -> Control:
+## Left of the comms screen: the gauge over its label.
+static func _status_column(gauge: Control) -> Control:
 	var col := VBoxContainer.new()
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 4)
-	col.custom_minimum_size = Vector2(58, 0)
-	var gauge := Control.new()
-	gauge.custom_minimum_size = Vector2(58, 40)
-	gauge.draw.connect(func():
-		var c := Vector2(gauge.size.x / 2.0, gauge.size.y - 6)
-		gauge.draw_circle(c, 23.0, BEZEL_EDGE)
-		gauge.draw_circle(c, 21.0, Color(0.95, 0.93, 0.86))
-		gauge.draw_rect(Rect2(c.x - 24, c.y, 48, 26), BEZEL)
-		for k in 5:
-			var a := PI + PI * (0.1 + 0.2 * k)
-			gauge.draw_line(c + Vector2(cos(a), sin(a)) * 15, c + Vector2(cos(a), sin(a)) * 19,
-				Color(0.85, 0.25, 0.2) if k == 4 else PLATE_INK, 2.0)
-		gauge.draw_line(c, c + Vector2(cos(PI * 1.35), sin(PI * 1.35)) * 17, Color(0.85, 0.2, 0.15), 2.0, true)
-		gauge.draw_circle(c, 3.0, PLATE_INK))
+	col.custom_minimum_size = Vector2(62, 0)
 	col.add_child(gauge)
 	col.add_child(_label("STATUS"))
-	var knob := Control.new()
-	knob.custom_minimum_size = Vector2(58, 40)
-	knob.draw.connect(func():
-		var c := knob.size / 2.0
-		knob.draw_circle(c, 15.0, KNOB_DARK)
-		knob.draw_circle(c, 12.0, KNOB)
-		knob.draw_line(c, c + Vector2(0, -11).rotated(-0.8), PLATE_INK, 2.5))
-	col.add_child(knob)
 	return col
 
 
-## Right of the comms screen: its label over a slider in a slot.
-static func _comms_column() -> Control:
+## Right of the comms screen: its label over the slider.
+static func _comms_column(slider: Control) -> Control:
 	var col := VBoxContainer.new()
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 4)
 	col.custom_minimum_size = Vector2(52, 0)
 	col.add_child(_label("COMMS"))
-	var slider := Control.new()
-	slider.custom_minimum_size = Vector2(52, 92)
-	slider.draw.connect(func():
-		var x := slider.size.x / 2.0
-		slider.draw_style_box(box(Color(0.18, 0.18, 0.17), BEZEL_EDGE, 1, 4, [0, 0, 0, 0]),
-			Rect2(x - 5, 4, 10, slider.size.y - 8))
-		for k in 6:
-			var y := 10 + k * (slider.size.y - 20) / 5.0
-			slider.draw_line(Vector2(x - 16, y), Vector2(x - 9, y), PLATE_INK, 1.0)
-		var hy := slider.size.y * 0.58
-		slider.draw_style_box(box(Color(0.93, 0.55, 0.22), Color(0.4, 0.2, 0.08), 2, 3, [0, 0, 0, 0]),
-			Rect2(x - 11, hy - 7, 22, 14))
-		slider.draw_line(Vector2(x - 7, hy), Vector2(x + 7, hy), Color(0.4, 0.2, 0.08), 1.5))
 	col.add_child(slider)
 	return col

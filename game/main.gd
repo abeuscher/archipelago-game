@@ -109,6 +109,14 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.minimap.setup(own_board, enemy_board, ocean, camera)
+	# The comms slider is the main volume, kept with the settings.
+	Audio.set_master_volume(float(prefs["volume"]))
+	hud.volume_slider.value = float(prefs["volume"])
+	hud.volume_changed.connect(func(v: float, done: bool):
+		Audio.set_master_volume(v)
+		prefs["volume"] = v
+		if done:
+			_save_prefs())
 	hud.minimap.view_requested.connect(_on_minimap)
 	hud.rotate_requested.connect(_rotate)
 	hud.zoom_requested.connect(func(dir: int): _zoom_at(ZOOM_STEP if dir > 0 else 1.0 / ZOOM_STEP, get_viewport_rect().size / 2.0))
@@ -953,6 +961,13 @@ func _build_strip(st) -> void:
 	var per_side: int = data.integer("bases", "per_side")
 	var max_hits := float(data.building("base")["hits_to_destroy"])
 	var bases: Array = st.of_role(data, "base")
+	# The status gauge: hits our bases can still take before we lose.
+	var hits_left := 0.0
+	for b in bases:
+		hits_left += max_hits - float(b.hits)
+	if ui == Ui.SETUP:
+		hits_left = per_side * max_hits   # bases still being placed: all to come
+	hud.status_gauge.set_hits(hits_left, per_side * max_hits)
 	for i in per_side:
 		if i < bases.size():
 			var b = bases[i]
