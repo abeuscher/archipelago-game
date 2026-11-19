@@ -1,5 +1,14 @@
 # Work queue
 
+## Troops (agreed; rules in spec.md section 10, art brief in docs/troop_assets.md)
+
+1. **Research tabs.** Buildings and Upgrades tabs on the research screen; radar and ballistic launcher move to Buildings; airport, bunker, docks and coastal cannon appear there.
+2. **Airport, air transport, platoon, bunker.** Rules (landing, three-hex march, can jump down but not climb, bunker range 2, kills a base outright, anti-air on transports), two-click targeting with a direction arrow, playout with parachutes, AI use and defence, tests, batch.
+3. **Docks, boats, coastal cannons.** Two-round crossing visible in the channel, coastal landings, cannon fire.
+4. Spy helicopter and checkpoints: dropped.
+
+Placeholder art until the brief's assets arrive: simple drawn soldiers, plane and boat.
+
 ## Waiting on a spec
 
 - **To discuss: selling unused fuel.** Raised as a counter to a launcher being kept out of action (a side that can't fire could sell its fuel for money). Parked: it may be an unwelcome complication in a simple game. Notes: it should be a manual choice in the build phase (stockpiling fuel is a real strategy); the price must stay well under 5 money per fuel (around 2) or refineries become better banks; it helps most with a stockpile and little in the first rounds; the AI would need to learn it.

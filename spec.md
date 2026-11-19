@@ -109,7 +109,7 @@ Three resources: money builds, fuel launches and research unlocks.
 - The player chooses the specific item to research. Each item has a money cost to start and a number of points to complete.
 - Each lab works on one item at a time. With several labs, the player can research as many items at once as they have labs.
 - A lab with no project of its own helps the oldest running project. Two labs on one item finish it twice as fast.
-- Research unlocks new building types and upgrades. No item in the first build has a prerequisite. Later, the spy helicopter requires the airport.
+- Research unlocks new building types and upgrades. The research screen has two tabs: **Buildings** (new building types: radar, ballistic launcher, airport, bunker, docks, coastal cannon) and **Upgrades** (improvements to what the player already has: scouting missile, anti-air capacity, motion sensor). No item has a prerequisite.
 - **Later:** destroying an enemy lab gives a research boost.
 
 ## 7. Buildings
@@ -125,11 +125,10 @@ Three resources: money builds, fuel launches and research unlocks.
 | Anti-air | Shoots down incoming missiles | 40 | 50 HP | Start |
 | Radar | Raises anti-air accuracy within its range | 50 | 30 HP | Research: 30 money, 6 points |
 | Ballistic missile launcher | Fires one ballistic missile a round | 90 | 50 HP | Research: 60 money, 14 points |
-| Docks | Launch boats | 80 | 60 HP | **Later.** Research: 50 money, 12 points |
-| Coastal cannon | Sinks boats | 60 | 60 HP | **Later.** Research: 40 money, 10 points |
-| Airport | Sends an air transport; upgrade adds a spy helicopter | 100 | 60 HP | **Later.** Research: 80 money, 18 points |
-| Bunker | Stops landed platoons | 50 | 80 HP | **Later.** Research: 40 money, 10 points |
-| Checkpoint | Catches spies | 30 | 30 HP | **Later**, tentative. Research: 30 money, 8 points |
+| Docks | Launches a boat carrying a platoon. Must be on a coastal hex. | 80 | 60 HP | Research: 50 money, 12 points |
+| Coastal cannon | Fires on boats landing nearby | 60 | 60 HP | Research: 40 money, 10 points |
+| Airport | Sends an air transport carrying a platoon | 100 | 60 HP | Research: 80 money, 18 points |
+| Bunker | Wipes out platoons that land or march within 2 hexes | 50 | 80 HP | Research: 40 money, 10 points |
 
 **Placing bases and decoys**
 
@@ -145,7 +144,6 @@ Three resources: money builds, fuel launches and research unlocks.
 | Anti-air capacity | Each anti-air engages 3 missiles a round instead of 2 | 20 money, 4 points |
 | Motion sensor | A basic missile moves up to 3 hexes to hit an enemy target | 50 money, 12 points |
 | Anti-air range | Later. Each anti-air covers a wider radius than 3 hexes | To be set |
-| Spy helicopter | **Later.** The airport can also send a spy | 60 money, 14 points |
 
 One lab makes 2 points a round, so radar takes 3 rounds with one lab.
 
@@ -190,20 +188,36 @@ Every missile type is defined by damage, blast radius and view radius. Both laun
 - A building reduced to 0 HP is destroyed and must be rebuilt at full price.
 - **Working assumption:** bases and decoys cannot be repaired.
 
-## 10. Ground and air units (Later)
+## 10. Troops
 
-None of this is in the first playable build. Each unit runs automatically from launch to return.
+Troops are hard to field and devastating when they get through. The difficulty: the buildings and research are expensive, each launch costs fuel and money, and the carrier can be lost on the way. The advantage: a platoon that lands destroys what it walks over unless a bunker is in range.
 
-| Unit | Sent from | What it does | Stopped by | Comes back? |
-| --- | --- | --- | --- | --- |
-| Boat | Docks | Crosses the channel, lands, attacks a chosen area, returns to its dock | Coastal cannons | Yes. A sunk boat costs 30 money to replace. |
-| Air transport | Airport | Drops a platoon that does a set amount of damage in an area | Transport: anti-air. Platoon: bunkers. | Yes, if the transport survived |
-| Spy helicopter | Airport, with the upgrade | Drops one spy who reveals an area of the enemy map | Checkpoints (tentative) | Yes, if not caught |
+**Carriers**
 
-- An airport sends at most one transport and one spy helicopter a round, both in the same round if fuel allows.
-- Launch costs: boat 4 fuel, air transport 6, spy helicopter 4.
-- Missiles and troops can both destroy bases.
-- **Working assumption:** boats reach only buildings near the coast and take more than one round to cross, visible in the channel.
+| Carrier | Sent from | Launch cost | Lands on | Lost to | When lost |
+| --- | --- | --- | --- | --- | --- |
+| Air transport | Airport | 6 fuel, 40 money | Any hex | Anti-air, in flight, like a missile (it takes one of that anti-air's engagements) | 40 money to replace before the airport can launch again |
+| Boat | Docks | 4 fuel, 30 money | A coastal land hex | Coastal cannons, as it lands | 30 money to replace before the docks can launch again |
+
+- An airport sends at most one transport a round, and docks at most one boat.
+- A transport lands in the round it is launched. A boat takes two rounds: it crosses the channel in the round it is launched, where both sides can see it, and lands in the next round's playout.
+- A carrier that delivers its platoon comes back for the next launch.
+
+**Platoons**
+
+- Targeting a troop launch takes two clicks: the landing hex, then a neighbouring hex to choose the direction of the march, shown with an arrow.
+- The platoon fights on its landing hex, then marches two more hexes in a straight line in the chosen direction: three hexes in all.
+- On each of those hexes it destroys whatever stands there outright, a base included.
+- It can march down a height step but not up one: they can jump but they can't climb. A step up, the sea or the edge of the space ends the march.
+- A platoon that lands on the sea is lost.
+- A bunker wipes out a platoon that lands or marches within 2 hexes of it. The platoon does nothing on that hex or any after it.
+- The hexes a platoon lands on and marches through are revealed to the attacker.
+- As with missiles, all damage is applied at the end of the round: a bunker destroyed this round still stops troops this round.
+
+**Working assumptions** (to set while building and tune by testing):
+
+- A coastal cannon fires on a boat landing within 3 hexes of it, one shot per boat, hitting half the time.
+- Docks and coastal cannons must be built on coastal hexes (land next to the sea).
 
 ## 11. Run structure and progression (Later)
 
@@ -341,8 +355,8 @@ These come from a small simulation of a 15 by 15 island run while this spec was 
 
 - [ ] **Research and islands.** Whether the island number limits what can be researched, and whether research carries from island to island.
 - [ ] **Labs.** Destroying an enemy lab boosts research, while sparing it lets the player capture it. Confirm that trade-off is intended.
-- [ ] **Counters.** Whether anti-air handles everything that flies and bunkers everything on foot, and what a checkpoint is.
-- [ ] **Boats.** Coastal reach only, and a crossing that takes more than one round?
+- [x] **Counters.** Anti-air shoots down air transports; bunkers stop platoons; coastal cannons fire on boats. No spies or checkpoints (section 10).
+- [x] **Boats.** Land on coastal hexes only; the crossing takes two rounds, visible in the channel (section 10).
 - [ ] **Missile roster.** Types beyond the basic, ballistic and scouting missiles.
 - [ ] **Income forwarding.** How the cumulative half is calculated.
 - [ ] **Run map.** Linear or branching, and how many islands.
