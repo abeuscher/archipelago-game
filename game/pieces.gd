@@ -9,11 +9,12 @@ const NAMES := {
 	"bank": "Bank", "refinery": "Refinery", "lab": "Lab",
 	"basic_launcher": "Missile launcher", "anti_air": "Anti-air", "radar": "Radar",
 	"ballistic_launcher": "Ballistic launcher", "airport": "Airport", "bunker": "Bunker",
+	"docks": "Docks", "coastal_cannon": "Coastal cannon",
 }
 const SHORT := {
 	"base": "BASE", "decoy": "BASE", "suspected_base": "?", "bank": "$", "refinery": "F",
 	"lab": "R", "basic_launcher": "M", "anti_air": "AA", "radar": "RD", "ballistic_launcher": "BM",
-	"airport": "AP", "bunker": "BK",
+	"airport": "AP", "bunker": "BK", "docks": "DK", "coastal_cannon": "CC",
 }
 const COLORS := {
 	"base": Color(0.85, 0.85, 0.9), "decoy": Color(0.85, 0.85, 0.9),
@@ -22,9 +23,10 @@ const COLORS := {
 	"basic_launcher": Color(0.85, 0.25, 0.25), "anti_air": Color(0.30, 0.75, 0.40),
 	"radar": Color(0.70, 0.45, 0.90), "ballistic_launcher": Color(0.60, 0.15, 0.15),
 	"airport": Color(0.62, 0.62, 0.92), "bunker": Color(0.62, 0.62, 0.58),
+	"docks": Color(0.38, 0.72, 0.72), "coastal_cannon": Color(0.5, 0.6, 0.78),
 }
 const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile",
-	"transport": "Air transport"}
+	"transport": "Air transport", "boat": "Boat"}
 ## One-line descriptions for tooltips and the research panel. Numbers are
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
@@ -39,6 +41,8 @@ const BUILDING_TEXT := {
 	"ballistic_launcher": "Fires one ballistic missile a round: less damage, wider blast.",
 	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near.",
 	"bunker": "Wipes out enemy platoons that land or march within range.",
+	"docks": "Sends a boat with a platoon to the enemy coast. It lands the round after it sails. Built on the coast.",
+	"coastal_cannon": "Fires on enemy boats coming ashore nearby. Built on the coast.",
 }
 const RESEARCH_NAMES := {
 	"radar": "Radar", "scouting_missile": "Scouting missile", "anti_air_capacity": "Anti-air capacity",

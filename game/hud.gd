@@ -87,6 +87,8 @@ const NOTICE_FUEL := "Out of fuel. Build more refineries."
 const NOTICE_SILO := "Missile silo damaged. Repair during build phase."
 const NOTICE_NO_WEAPONS := "Player has no weapons to attack with."
 const NOTICE_TRANSPORT := "Transport lost. Replace it during the build phase."
+const NOTICE_BOAT_LOST := "Boat lost. Replace it during the build phase."
+const NOTICE_BOAT_OUT := "Our boat is at sea. The docks can launch again once it has landed."
 
 
 func _ready() -> void:

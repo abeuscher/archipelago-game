@@ -99,6 +99,14 @@
     "incoming_troops": {
       "character": "ginger",
       "text": "General! Enemy transport inbound! They're dropping troops on us!"
+    },
+    "incoming_boat": {
+      "character": "ginger",
+      "text": "General! Enemy boat coming ashore! They're landing troops on our coast!"
+    },
+    "boat_spotted": {
+      "character": "ginger",
+      "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."
     }
   }
 }

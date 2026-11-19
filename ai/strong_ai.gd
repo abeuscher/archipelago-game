@@ -28,12 +28,22 @@ var hc: Dictionary          ## active handicap settings
 var _land_prior: PackedFloat32Array
 
 
+var research: Array = []   ## research order for this match
+
+
 func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -> void:
 	super(side_index, game_data, match_seed)
 	cfg = game_data.ai["strong"]
 	var presets: Dictionary = cfg["handicap_presets"]
 	var key := handicap if handicap != "" else String(cfg["handicap"])
 	hc = presets.get(key, presets["none"])
+	# One troop route favoured per match, so both airports and docks appear.
+	research = Array(cfg["research_order"]).duplicate()
+	var a := research.find("airport")
+	var d := research.find("docks")
+	if a >= 0 and d >= 0 and rng.chance(0.5):
+		research[a] = "docks"
+		research[d] = "airport"
 
 
 # --- Shared helpers --------------------------------------------------------
@@ -172,18 +182,40 @@ func choose_build(view) -> Array:
 				st.repair(b.hex, data)
 				actions.append({"action": "repair", "hex": b.hex})
 	# A transport shot down is replaced as soon as there is money for it.
-	for port in st.of_role(data, "airport"):
+	for port in st.of_role(data, "airport") + st.of_role(data, "docks"):
 		if st.can_replace_carrier(port.hex, data) == "":
 			st.replace_carrier(port.hex, data)
 			actions.append({"action": "replace_carrier", "hex": port.hex})
+	# Troops seen coming: their counters jump the research queue.
+	var queue: Array = research.duplicate()
+	var threats: Array = []
+	var enemy_boats: Array = view.boats[1 - side] if view.boats.size() == 2 else []
+	var known_types := {}
+	for h in view.enemy_knowledge:
+		var kb = view.enemy_knowledge[h].get("building")
+		if kb != null:
+			known_types[String(kb["type"])] = true
+	if not enemy_boats.is_empty() or known_types.has("docks"):
+		threats.append_array(["coastal_cannon", "bunker"])
+	if known_types.has("airport"):
+		threats.append("bunker")
+	for t in threats:
+		queue.erase(t)
+	queue = threats + queue
 	for lab in st.of_role(data, "lab"):
 		if st.project_for_lab(lab.id) != null:
 			continue
-		for item in cfg["research_order"]:
+		for item in queue:
 			if st.can_start_research(lab.id, item, data) == "":
 				st.start_research(lab.id, item, data)
 				actions.append({"action": "research", "lab": lab.id, "item": item})
 				break
+	# Under threat, one of each counter goes up before the usual order.
+	for t in threats:
+		if st.building_unlocked(t, data) and st.count_role(data, data.role(t)) == 0 and st.money >= data.cost(t):
+			var th := _place_strong(st, t, view)
+			if th >= 0 and st.build(t, th, data, view.settings, view.round_number) == "":
+				actions.append({"action": "build", "type": t, "hex": th})
 	while true:
 		var type := _next_in_order(st)
 		if type == "" or st.money < data.cost(type):
@@ -222,7 +254,7 @@ func _next_in_order(st) -> String:
 			continue
 		if not st.building_unlocked(type, data):
 			var req := String(data.building(type).get("requires", ""))
-			if req != "" and cfg["research_order"].has(req) and not skip_blocked:
+			if req != "" and research.has(req) and not skip_blocked:
 				return ""
 			continue
 		if data.role(type) == "launcher" and not _can_fuel_another(st, type):
@@ -266,6 +298,8 @@ func _place_strong(st, type: String, view) -> int:
 	if bool(hc["plain_placement"]):
 		return _place(st, type)
 	var free := _empty_land(st)
+	if bool(data.building(type).get("coastal", false)):
+		free = free.filter(func(h): return st.island.is_coastal(h))
 	if type == "decoy":
 		free = free.filter(func(h): return st._base_spacing_error(h, data) == "")
 	if free.is_empty():
@@ -321,6 +355,15 @@ func _place_strong(st, type: String, view) -> int:
 							if g.distance(bk.hex, b.hex) <= reach:
 								covered += 1
 						s += float(w2.get(data.role(b.type), w2["default"])) / (1.0 + covered)
+				return s)
+		"coastal_cannon":
+			var reach2 := int(data.section("troops")["cannon_range"])
+			var w3: Dictionary = cfg["troops"]["cannon_weights"]
+			return _choose(free, func(h):
+				var s: float = common.call(h)
+				for b in st.buildings.values():
+					if st.island.is_coastal(b.hex) and g.distance(h, b.hex) <= reach2:
+						s += float(w3.get(data.role(b.type), w3["default"]))
 				return s)
 		"decoy":
 			var centre := _land_centre(st.island)
@@ -500,6 +543,31 @@ func choose_targets(view) -> Array:
 		for h in plan["path"]:
 			while wish.has(h):
 				wish.erase(h)
+	# Boats: the same, onto known coast, wary of known coastal cannons.
+	for dk in st.of_role(data, "docks"):
+		if not st.weapon_active(dk) or dk.carrier_lost or dk.boat_out:
+			continue
+		var bm: Dictionary = data.missile("boat")
+		if int(bm["fuel"]) > fuel or int(bm.get("money", 0)) > money:
+			continue
+		var cannon_reach := int(data.section("troops")["cannon_range"])
+		var cannons: Array = []
+		for h in know:
+			var kb = know[h].get("building")
+			if kb != null and String(kb["type"]) == "coastal_cannon":
+				cannons.append(h)
+		var guns := func(h: int) -> int:
+			var c := 0
+			for cn in cannons:
+				if g.distance(cn, h) <= cannon_reach:
+					c += 1
+			return c
+		var plan2 := _plan_drop(know, guns, true)
+		if plan2.is_empty():
+			continue
+		orders.append({"launcher": dk.hex, "missile": "boat", "target": plan2["target"], "dir": plan2["dir"]})
+		fuel -= int(bm["fuel"])
+		money -= int(bm.get("money", 0))
 	for b in shots:
 		var target := -1
 		var missile := ""
@@ -543,7 +611,7 @@ func choose_targets(view) -> Array:
 ## hexes count as passable at the same height), stopping where a known
 ## bunker would wipe it out. Scored by what it would overrun, discounted by
 ## known anti-air over the landing hex. {} if nothing reaches min_value.
-func _plan_drop(know: Dictionary, cover: Callable) -> Dictionary:
+func _plan_drop(know: Dictionary, cover: Callable, coast_only: bool = false) -> Dictionary:
 	var g := _enemy_grid
 	var tc: Dictionary = data.section("troops")
 	var ai_t: Dictionary = cfg["troops"]
@@ -566,6 +634,8 @@ func _plan_drop(know: Dictionary, cover: Callable) -> Dictionary:
 	for start in know:
 		var e: Dictionary = know[start]
 		if e.get("building") == null or not bool(e["land"]) or guarded.call(start):
+			continue
+		if coast_only and not _known_coast(start, know):
 			continue
 		for dir in 6:
 			var path: Array = [start]
@@ -593,6 +663,18 @@ func _plan_drop(know: Dictionary, cover: Callable) -> Dictionary:
 				best_score = score
 				best = {"target": start, "dir": dir, "path": path}
 	return best
+
+
+## A hex we know is land with known sea (or the edge of the space) beside it.
+func _known_coast(h: int, know: Dictionary) -> bool:
+	var ns: PackedInt32Array = _enemy_grid.neighbors(h)
+	if ns.size() < 6:
+		return true
+	for n in ns:
+		var e = know.get(n)
+		if e != null and not bool(e["land"]):
+			return true
+	return false
 
 
 ## For a missile with a wide blast: aim at the neighbour of `target` (or the

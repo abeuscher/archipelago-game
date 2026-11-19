@@ -62,7 +62,9 @@
       "refinery",
       "basic_launcher",
       "airport",
-      "bunker"
+      "bunker",
+      "docks",
+      "coastal_cannon"
     ],
     "build_order_plain": [
       "basic_launcher",
@@ -82,7 +84,9 @@
       "scouting_missile",
       "airport",
       "bunker",
+      "docks",
       "motion_sensor",
+      "coastal_cannon",
       "anti_air_capacity"
     ],
     "setup_decoys_max": 3,
@@ -175,7 +179,16 @@
         "launcher": 1.5,
         "airport": 1.5,
         "default": 0.5
-      }
+      },
+      "cannon_weights": {
+        "base": 4.0,
+        "decoy": 0.5,
+        "launcher": 1.5,
+        "airport": 1.5,
+        "docks": 1.5,
+        "default": 0.5
+      },
+      "_note_route": "Each match the AI favours one troop route: airport or docks. The favoured one is researched where the airport sits in research_order; the other moves to the docks' place."
     }
   },
   "batch": {

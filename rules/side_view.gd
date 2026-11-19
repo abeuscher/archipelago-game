@@ -18,6 +18,7 @@ var enemy_bases_total: int
 ## missiles land on its own island, so this tells it nothing hidden; the
 ## player sees the same set drawn lighter on their island.
 var own_seen_by_enemy: Dictionary
+var boats: Array = [[], []]       ## boats at sea, both sides (visible in the channel)
 
 
 ## Sighting at a hex, or null if never seen.

@@ -14,6 +14,9 @@ static func resolve(m) -> Array:
 
 	var missiles: Array = [[], []]
 	var next_id := 1
+	for s in [0, 1]:
+		for bt in m.boats[s]:
+			next_id = maxi(next_id, int(bt["id"]) + 1)
 	for s in m.LAUNCH_ORDER:
 		for o in m.orders[s]:
 			var ms := {
@@ -24,9 +27,22 @@ static func resolve(m) -> Array:
 			if o.has("dir"):
 				ms["dir"] = int(o["dir"])
 			next_id += 1
+			var mdef0: Dictionary = data.missile(ms["missile"])
+			m.sides[s].fuel -= int(mdef0["fuel"])
+			m.sides[s].money -= int(mdef0.get("money", 0))
+			if mdef0.has("crossing_rounds"):
+				# A boat: it puts to sea now and lands in a later playout.
+				var bt := {"id": ms["id"], "side": s, "launcher": ms["launcher"], "target": ms["target"],
+					"dir": int(ms.get("dir", 0)), "lands_round": m.round_number + int(mdef0["crossing_rounds"])}
+				m.boats[s].append(bt)
+				var dk = m.sides[s].building_at(ms["launcher"])
+				if dk != null:
+					dk.boat_out = true
+				m.stats[s]["fired"] += 1
+				events.append({"type": "boat_launch", "side": s, "id": ms["id"], "launcher": ms["launcher"],
+					"target": ms["target"], "dir": bt["dir"], "lands_round": bt["lands_round"]})
+				continue
 			missiles[s].append(ms)
-			m.sides[s].fuel -= int(data.missile(ms["missile"])["fuel"])
-			m.sides[s].money -= int(data.missile(ms["missile"]).get("money", 0))
 			m.stats[s]["fired"] += 1
 			m.stats[s]["fired_" + ms["missile"]] = int(m.stats[s].get("fired_" + ms["missile"], 0)) + 1
 			events.append({"type": "launch", "side": s, "id": ms["id"], "launcher": ms["launcher"],
@@ -35,6 +51,7 @@ static func resolve(m) -> Array:
 	# Enemy strikes land first, then the player's (presentation order). Dice
 	# are rolled in this order too, so the sequence is fixed for a given seed.
 	for attacker in m.LAUNCH_ORDER:
+		_land_boats(m, attacker, events, pending[1 - attacker], reveals[attacker])
 		_resolve_attack(m, attacker, missiles[attacker], events, pending[1 - attacker], reveals[attacker])
 
 	for defender in [0, 1]:
@@ -150,6 +167,49 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		events.append({"type": "impact", "side": attacker, "id": ms["id"], "missile": ms["missile"],
 			"hex": impact, "damaged": damaged, "revealed": seen})
 		m.note_bombed(defender, impact)
+
+
+## Boats due this round reach the defender's coast. Each active coastal
+## cannon within cannon_range of the landing hex fires once; a hit sinks the
+## boat and its docks must replace it. A boat aimed at a hex that isn't
+## coast finds nowhere to land and turns back. Otherwise its platoon lands
+## and marches as from a transport. Either way the docks can launch again.
+static func _land_boats(m, attacker: int, events: Array, pending: Dictionary, reveals: Array) -> void:
+	var data = m.data
+	var defender := 1 - attacker
+	var def = m.sides[defender]
+	var isl = def.island
+	var tc: Dictionary = data.section("troops")
+	var due: Array = m.boats[attacker].filter(func(bt): return int(bt["lands_round"]) <= m.round_number)
+	if due.is_empty():
+		return
+	var cannons: Array = def.of_role(data, "coastal_cannon").filter(func(b): return def.weapon_active(b))
+	for bt in due:
+		m.boats[attacker].erase(bt)
+		var dk = m.sides[attacker].building_at(int(bt["launcher"]))
+		events.append({"type": "boat_arrive", "side": attacker, "id": bt["id"], "launcher": bt["launcher"],
+			"target": bt["target"], "dir": bt["dir"]})
+		var sunk := false
+		for c in cannons:
+			if isl.grid.distance(c.hex, int(bt["target"])) > int(tc["cannon_range"]):
+				continue
+			var hit: bool = m.dice.chance(float(tc["cannon_accuracy"]))
+			events.append({"type": "cannon_fire", "side": defender, "cannon": c.hex, "id": bt["id"], "hit": hit})
+			if hit:
+				sunk = true
+				break
+		if dk != null:
+			dk.boat_out = false
+		if sunk:
+			if dk != null:
+				dk.carrier_lost = true
+			events.append({"type": "boat_sunk", "side": attacker, "id": bt["id"], "launcher": bt["launcher"]})
+			continue
+		if not isl.is_coastal(int(bt["target"])):
+			reveals.append(int(bt["target"]))
+			events.append({"type": "boat_no_landing", "side": attacker, "id": bt["id"]})
+			continue
+		_platoon(m, attacker, {"id": bt["id"], "target": int(bt["target"]), "dir": int(bt["dir"])}, events, pending, reveals)
 
 
 ## A platoon lands on its target hex and marches platoon_march more hexes

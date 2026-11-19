@@ -101,7 +101,7 @@ func test_replacing_a_transport_costs_money() -> void:
 	m.begin_round()
 	var before: int = m.sides[0].money
 	ok(m.build_action(0, {"action": "replace_carrier", "hex": port.hex}), "replace")
-	eq(m.sides[0].money, before - int(m.data.section("troops")["transport_replace_cost"]), "costs the replacement")
+	eq(m.sides[0].money, before - int(m.data.missile("transport")["replace_money"]), "costs the replacement")
 	check(not port.carrier_lost, "airport ready again")
 
 
@@ -123,3 +123,76 @@ func test_launch_costs_fuel_and_money_and_needs_a_direction() -> void:
 	var t: Dictionary = m.data.missile("transport")
 	eq(m.sides[0].fuel, fuel_before - int(t["fuel"]), "fuel paid")
 	eq(m.sides[0].money, 500 - int(t["money"]), "money paid")
+
+
+# --- Boats -----------------------------------------------------------------
+
+func _docks(m, side: int = 0):
+	m.sides[side].unlocked["docks"] = true
+	m.sides[side].fuel = 30
+	m.sides[side].money = 500
+	return put(m, side, "docks", 0, 1)   # column 0: the edge of the space is coast
+
+
+func _sail(dk, target: int, dir: int = EAST) -> Dictionary:
+	return {"launcher": dk.hex, "missile": "boat", "target": target, "dir": dir}
+
+
+func test_docks_and_cannons_need_the_coast() -> void:
+	var m = flat_match()
+	var st = m.sides[0]
+	st.unlocked["docks"] = true
+	st.unlocked["coastal_cannon"] = true
+	st.money = 500
+	err_contains(st.can_build("docks", hex(m, 6, 6), m.data, m.settings), "coast", "inland refused")
+	ok(st.can_build("docks", hex(m, 0, 6), m.data, m.settings), "edge of the space is coast")
+	m.sides[0].island.land[hex(m, 6, 7)] = 0
+	ok(st.can_build("coastal_cannon", hex(m, 6, 6), m.data, m.settings), "next to the sea")
+
+
+func test_boat_lands_the_round_after_launch() -> void:
+	var m = flat_match()
+	var dk = _docks(m)
+	var bank = put(m, 1, "bank", 0, 9)
+	var ev := play_round(m, [_sail(dk, hex(m, 0, 9))])
+	eq(events_of(ev, "boat_launch").size(), 1, "boat puts to sea")
+	eq(events_of(ev, "platoon").size(), 0, "nothing lands yet")
+	check(dk.boat_out, "docks busy while the boat is out")
+	check(m.sides[1].building_at(bank.hex) != null, "bank still there")
+	eq(m.view_for(1).boats[0].size(), 1, "the defender can see the boat")
+	m.begin_round()
+	m.end_build_phase()
+	err_contains(m.set_launch_orders(0, [_sail(dk, hex(m, 0, 9))]), "at sea", "can't launch another meanwhile")
+	ok(m.set_launch_orders(0, []))
+	ok(m.set_launch_orders(1, []))
+	ev = m.resolve_playout()
+	var p: Array = events_of(ev, "platoon")
+	eq(p.size(), 1, "the platoon lands next round")
+	check(m.sides[1].building_at(bank.hex) == null, "and overruns the bank")
+	check(not dk.boat_out, "the boat is back")
+
+
+func test_coastal_cannon_sinks_a_boat() -> void:
+	var m = flat_match()
+	m.data.set_path("rules.troops.cannon_accuracy", 1.0)
+	var dk = _docks(m)
+	put(m, 1, "coastal_cannon", 0, 7)
+	play_round(m, [_sail(dk, hex(m, 0, 9))])
+	var ev := play_round(m)
+	eq(events_of(ev, "boat_sunk").size(), 1, "sunk")
+	eq(events_of(ev, "platoon").size(), 0, "no landing")
+	check(dk.carrier_lost and not dk.boat_out, "docks need a new boat")
+	m.begin_round()
+	var before: int = m.sides[0].money
+	ok(m.build_action(0, {"action": "replace_carrier", "hex": dk.hex}))
+	eq(m.sides[0].money, before - int(m.data.missile("boat")["replace_money"]), "boat replacement cost")
+
+
+func test_boat_aimed_inland_cannot_land() -> void:
+	var m = flat_match()
+	var dk = _docks(m)
+	play_round(m, [_sail(dk, hex(m, 6, 6))])
+	var ev := play_round(m)
+	eq(events_of(ev, "boat_no_landing").size(), 1, "nowhere to land")
+	eq(events_of(ev, "platoon").size(), 0, "no platoon")
+	check(not dk.boat_out and not dk.carrier_lost, "the boat comes home")

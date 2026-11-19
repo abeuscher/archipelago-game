@@ -95,6 +95,65 @@ func _troops() -> void:
 		await process_frame
 	await create_timer(0.3).timeout
 	await _shot("25_after_drop")
+	await _boats()
+
+
+## Boats: docks on our coast, a boat sent at an enemy coastal hex; it shows
+## in the channel through the next round, then comes ashore.
+func _boats() -> void:
+	if main.hud.announcing():
+		main.hud.announcer._ok.pressed.emit()
+	var st = main.m.sides[0]
+	st.unlocked["docks"] = true
+	st.money += 300
+	st.fuel += 20
+	var dock_hex := -1
+	for h in st.island.land_hexes():
+		if st.island.is_coastal(h) and st.building_at(h) == null:
+			dock_hex = h
+			break
+	st._add_building("docks", dock_hex, main.data, main.m.round_number)
+	var enemy = main.m.sides[1]
+	var target := -1
+	for b in enemy.buildings_sorted():
+		if enemy.island.is_coastal(b.hex):
+			target = b.hex
+			break
+	if target < 0:
+		target = enemy.island.land_hexes()[0]
+	main._refresh()
+	main._end_build()
+	await create_timer(1.2).timeout
+	main.active_launcher = dock_hex
+	main._target_click(target)
+	main._target_click(enemy.island.grid.neighbors(target)[0])
+	main._attack()
+	while main.ui == main.Ui.PLAYOUT:
+		if main.hud.announcing():
+			main.hud.announcer._ok.pressed.emit()
+		await process_frame
+	await create_timer(0.4).timeout
+	while main.hud.announcing():
+		main.hud.announcer._ok.pressed.emit()
+		await create_timer(0.3).timeout
+	main._focus(1)
+	main.camera.position.y += 260
+	await create_timer(0.3).timeout
+	await _shot("26_boat_in_channel")
+	main._end_build()
+	await create_timer(1.2).timeout
+	main._attack()
+	var shot := false
+	while main.ui == main.Ui.PLAYOUT:
+		if main.hud.announcing():
+			main.hud.announcer._ok.pressed.emit()
+		if not shot and not main.effects.sea_boats.is_empty() and main.viewing == 1:
+			shot = true
+			await create_timer(0.7).timeout
+			await _shot("27_boat_ashore")
+		await process_frame
+	await create_timer(0.3).timeout
+	await _shot("28_after_landing")
 
 
 func _free_hexes() -> Array:

@@ -218,6 +218,8 @@ func can_build(type: String, hex: int, data, settings: Dictionary) -> String:
 	var e := _hex_error(hex)
 	if e != "":
 		return e
+	if bool(data.building(type).get("coastal", false)) and not island.is_coastal(hex):
+		return "Must be built on the coast"
 	if data.role(type) == "decoy":
 		if count_role(data, "decoy") >= int(settings["decoys_per_side"]):
 			return "Decoy limit reached"
@@ -463,7 +465,9 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 		if not weapon_active(b):
 			return "Launcher is out of action"
 		if b.carrier_lost:
-			return "Transport lost"
+			return "Transport lost" if data.role(b.type) == "airport" else "Boat lost"
+		if b.boat_out:
+			return "Boat at sea"
 		var m := String(o["missile"])
 		if not data.building(b.type)["missiles"].has(m):
 			return "That launcher cannot fire that missile"
@@ -485,7 +489,7 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 	return ""
 
 
-const LAUNCH_ROLES := ["launcher", "airport"]
+const LAUNCH_ROLES := ["launcher", "airport", "docks"]
 
 
 func launch_money(orders: Array, data) -> int:
@@ -495,21 +499,27 @@ func launch_money(orders: Array, data) -> int:
 	return total
 
 
+## What a new transport or boat costs for this airport or docks.
+func carrier_cost(b, data) -> int:
+	var ms: Array = data.building(b.type).get("missiles", [])
+	return int(data.missile(String(ms[0])).get("replace_money", 0)) if not ms.is_empty() else 0
+
+
 func can_replace_carrier(hex: int, data) -> String:
 	var b = buildings.get(hex)
 	if b == null or not b.carrier_lost:
-		return "No transport to replace"
-	if money < int(data.section("troops")["transport_replace_cost"]):
+		return "Nothing to replace"
+	if money < carrier_cost(b, data):
 		return "Not enough money"
 	return ""
 
 
-## Buys a new transport for an airport whose last one was shot down.
+## Buys a new transport or boat for an airport or docks that lost its last.
 func replace_carrier(hex: int, data) -> String:
 	var e := can_replace_carrier(hex, data)
 	if e != "":
 		return e
-	money -= int(data.section("troops")["transport_replace_cost"])
+	money -= carrier_cost(buildings[hex], data)
 	buildings[hex].carrier_lost = false
 	return ""
 

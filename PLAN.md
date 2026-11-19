@@ -1,13 +1,13 @@
 # Work queue
 
-## Troops (agreed; rules in spec.md section 10, art brief in docs/troop_assets.md)
+## Troops: done (rules in spec.md section 10, art brief in docs/troop_assets.md)
 
 1. **Research tabs.** Buildings and Upgrades tabs on the research screen; radar and ballistic launcher move to Buildings; airport, bunker, docks and coastal cannon appear there.
 2. **Airport, air transport, platoon, bunker.** Rules (landing, three-hex march, can jump down but not climb, bunker range 2, kills a base outright, anti-air on transports), two-click targeting with a direction arrow, playout with parachutes, AI use and defence, tests, batch.
 3. **Docks, boats, coastal cannons.** Two-round crossing visible in the channel, coastal landings, cannon fire.
 4. Spy helicopter and checkpoints: dropped.
 
-Placeholder art until the brief's assets arrive: simple drawn soldiers, plane and boat.
+To watch in play-testing: the enemy rarely gets coastal cannons before its first boat lands, and a platoon kills a base outright, so boats hit hard (in AI-against-AI games, about one base in four matches falls to troops). Levers: cannon research earlier in data/ai.json, platoon base damage, boat cost.
 
 ## Waiting on a spec
 

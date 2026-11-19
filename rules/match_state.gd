@@ -31,6 +31,9 @@ var bases_destroyed_by: Array = [[], []]   ## side -> hexes of enemy bases it de
 ## side -> hex -> {"count", "last_round"}: missiles that landed on this side's
 ## island (where they finally exploded, after any seeking).
 var bombed: Array = [{}, {}]
+## side -> boats at sea: {"id", "side", "launcher", "target", "dir", "lands_round"}.
+## Both sides can see them in the channel.
+var boats: Array = [[], []]
 var round_number: int = 0
 var phase: int = Phase.SETUP
 var orders: Array = [[], []]
@@ -269,6 +272,7 @@ func view_for(side: int):
 	v.enemy_bases_destroyed = bases_destroyed_by[side].duplicate()
 	v.enemy_bases_total = data.integer("bases", "per_side")
 	v.own_seen_by_enemy = {}
+	v.boats = boats.duplicate(true)
 	for h in knowledge[opponent(side)]:
 		v.own_seen_by_enemy[h] = true
 	return v

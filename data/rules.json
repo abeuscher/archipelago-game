@@ -36,21 +36,25 @@
     "radar":              { "role": "radar",    "cost": 50, "hp": 30, "requires": "radar" },
     "ballistic_launcher": { "role": "launcher", "cost": 90, "hp": 50, "weapon": true, "missiles": ["ballistic"], "requires": "ballistic_launcher" },
     "airport":            { "role": "airport",  "cost": 100, "hp": 60, "weapon": true, "missiles": ["transport"], "requires": "airport" },
-    "bunker":             { "role": "bunker",   "cost": 50, "hp": 80, "weapon": true, "requires": "bunker" }
+    "bunker":             { "role": "bunker",   "cost": 50, "hp": 80, "weapon": true, "requires": "bunker" },
+    "docks":              { "role": "docks",    "cost": 80, "hp": 60, "weapon": true, "missiles": ["boat"], "requires": "docks", "coastal": true },
+    "coastal_cannon":     { "role": "coastal_cannon", "cost": 60, "hp": 60, "weapon": true, "requires": "coastal_cannon", "coastal": true }
   },
 
   "missiles": {
     "basic":     { "fuel": 3, "damage_min": 30, "damage_max": 50, "blast_radius": 0, "view_radius": 1, "base_hits": 1.0, "seeks_with": "motion_sensor" },
     "scouting":  { "fuel": 1, "damage_min": 0,  "damage_max": 0,  "blast_radius": -1, "view_radius": 2, "base_hits": 0.0, "requires": "scouting_missile" },
     "ballistic": { "fuel": 5, "damage_min": 15, "damage_max": 25, "blast_radius": 1, "view_radius": 1, "base_hits": 0.5 },
-    "transport": { "fuel": 6, "money": 40, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "carries": "platoon" }
+    "transport": { "fuel": 6, "money": 40, "replace_money": 40, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "carries": "platoon" },
+    "boat":      { "fuel": 4, "money": 30, "replace_money": 30, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "carries": "platoon", "crossing_rounds": 1, "lands_on_coast": true }
   },
 
   "troops": {
     "platoon_march": 2,
     "platoon_can_climb": false,
     "bunker_range": 2,
-    "transport_replace_cost": 40
+    "cannon_range": 3,
+    "cannon_accuracy": 0.5
   },
 
   "research": {
@@ -58,8 +62,8 @@
     "ballistic_launcher": { "cost": 60, "points": 14, "tab": "buildings" },
     "airport":            { "cost": 80, "points": 18, "tab": "buildings" },
     "bunker":             { "cost": 40, "points": 10, "tab": "buildings" },
-    "docks":              { "cost": 50, "points": 12, "tab": "buildings", "available": false },
-    "coastal_cannon":     { "cost": 40, "points": 10, "tab": "buildings", "available": false },
+    "docks":              { "cost": 50, "points": 12, "tab": "buildings" },
+    "coastal_cannon":     { "cost": 40, "points": 10, "tab": "buildings" },
     "scouting_missile":   { "cost": 20, "points": 4,  "tab": "upgrades" },
     "anti_air_capacity":  { "cost": 20, "points": 4,  "tab": "upgrades" },
     "motion_sensor":      { "cost": 50, "points": 12, "tab": "upgrades" }

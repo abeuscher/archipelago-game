@@ -28,6 +28,20 @@ func land_count() -> int:
 	return n
 
 
+## Land next to the sea: a sea neighbour, or the edge of the space (the
+## open sea lies beyond it).
+func is_coastal(index: int) -> bool:
+	if not is_land(index):
+		return false
+	var ns: PackedInt32Array = grid.neighbors(index)
+	if ns.size() < 6:
+		return true
+	for n in ns:
+		if not is_land(n):
+			return true
+	return false
+
+
 func land_hexes() -> PackedInt32Array:
 	var out := PackedInt32Array()
 	for i in grid.count:

@@ -30,7 +30,22 @@ var flashes: Array = []
 var planes: Array = []
 var chutes: Array = []
 var squads: Array = []
+var sea_boats: Array = []      ## boats in the channel (and coming ashore)
 var _clock: float = 0.0
+
+
+class SeaBoat extends RefCounted:
+	var ground: Vector2
+	var facing: int = 0
+	var side: String = "player"
+
+
+func make_boat(at: Vector2, facing: int, side: String) -> SeaBoat:
+	var b := SeaBoat.new()
+	b.ground = at
+	b.facing = facing
+	b.side = side
+	return b
 
 
 class Aircraft extends RefCounted:
@@ -157,7 +172,8 @@ func clear() -> void:
 
 func _process(delta: float) -> void:
 	_clock += delta
-	if missiles.is_empty() and flashes.is_empty() and planes.is_empty() and chutes.is_empty() and squads.is_empty():
+	if missiles.is_empty() and flashes.is_empty() and planes.is_empty() and chutes.is_empty() and squads.is_empty() \
+			and sea_boats.is_empty():
 		return
 	for f in flashes.duplicate():
 		f.t += delta
@@ -168,6 +184,9 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	for bt in sea_boats:
+		if not _unit_frame("boat_" + bt.side, int(_clock * 3.0) % 2, bt.facing, bt.ground, 0.0):
+			draw_colored_polygon(_ellipse(bt.ground, 12.0, 5.0), Color(0.35, 0.38, 0.33))
 	for s in squads:
 		_draw_squad(s)
 	for c in chutes:

@@ -42,10 +42,15 @@ static func values(data, build_clock: int, targeting_clock: int) -> Dictionary:
 		"research_list": _research(data),
 		"transport_fuel": int(data.missile("transport")["fuel"]),
 		"transport_money": int(data.missile("transport").get("money", 0)),
-		"transport_replace": int(data.section("troops")["transport_replace_cost"]),
+		"transport_replace": int(data.missile("transport")["replace_money"]),
 		"march": int(data.section("troops")["platoon_march"]),
 		"march_total": int(data.section("troops")["platoon_march"]) + 1,
 		"bunker_range": int(data.section("troops")["bunker_range"]),
+		"boat_fuel": int(data.missile("boat")["fuel"]),
+		"boat_money": int(data.missile("boat").get("money", 0)),
+		"boat_replace": int(data.missile("boat")["replace_money"]),
+		"cannon_range": int(data.section("troops")["cannon_range"]),
+		"cannon_pct": roundi(float(data.section("troops")["cannon_accuracy"]) * 100.0),
 	}
 
 
