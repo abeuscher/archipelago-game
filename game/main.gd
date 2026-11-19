@@ -304,6 +304,8 @@ func _flip_coin() -> void:
 func _show_game_over() -> void:
 	ui = Ui.OVER
 	var won: bool = m.winner == MatchState.PLAYER
+	audio.stop_ambient()
+	audio.effect("you_win" if won else "you_lose")
 	var why := {"bases": "All three enemy bases destroyed." if won else "All three of your bases were destroyed.",
 		"money": "Both sides fell together; %s more money." % ("you had" if won else "the enemy had"),
 		"coin": "Coin: enemy called %s, it landed %s." % [m.coin.get("call", ""), m.coin.get("flip", "")]}
@@ -450,7 +452,7 @@ func _fly_to(side: int, seconds: float = FLY_SECONDS) -> void:
 	island.position += board.position
 	var vp := get_viewport_rect().size
 	var free := Rect2(Vector2(Hud.TOOLBAR_W + 16, 70), Vector2.ZERO)
-	free.end = Vector2(vp.x - Hud.STRIP_W - 28, vp.y - Hud.BOTTOM_H - Hud.MAP_BAR_H - 8)
+	free.end = Vector2(vp.x - Hud.STRIP_W - 28, vp.y - Hud.BOTTOM_CLEAR - 8)
 	var z := clampf(minf(free.size.x / island.size.x, free.size.y / island.size.y) * FIT_MARGIN, ZOOM_MIN, ZOOM_MAX)
 	var target := island.get_center() - (free.get_center() - vp / 2.0) / z
 	if seconds <= 0.0:
@@ -555,6 +557,7 @@ func _setup_click(hex: int) -> void:
 			return
 		setup_trial._add_building("base", hex, data, 0)
 		setup_history.append(hex)
+		audio.built("base")
 	else:
 		var err: String = setup_trial.can_build("decoy", hex, data, m.settings)
 		if err != "":
@@ -563,6 +566,7 @@ func _setup_click(hex: int) -> void:
 		setup_trial.money -= data.cost("decoy")
 		setup_trial._add_building("decoy", hex, data, 0)
 		setup_history.append(hex)
+		audio.built("decoy")
 
 
 func _setup_remove(hex: int) -> void:
@@ -996,6 +1000,7 @@ func _use_stored_research(item: String) -> void:
 		hud.add_log("[color=salmon]%s[/color]" % e)
 	elif m.sides[0].is_unlocked(item):
 		hud.add_log("Research complete: %s, with stored points." % Pieces.research_name(item))
+		audio.effect("research_complete")
 	else:
 		hud.add_log("Stored points put into %s." % Pieces.research_name(item))
 	_refresh()
@@ -1380,6 +1385,7 @@ func _run_playout() -> void:
 			key = "incoming_boat"
 		var incoming := _line_text(key).format({"n": n})
 		hud.set_alarm(true)
+		audio.effect("siren")
 		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
 		await _wait(hud.alarm_seconds(ALARM_TURNS))
 		hud.announce(incoming, "", 0.0, false, _line_character(key))
@@ -1731,6 +1737,7 @@ func _log_event(ev: Dictionary) -> void:
 		"research_done":
 			if mine:
 				hud.add_log("[color=lightgreen]Research complete: %s.[/color]" % String(ev["item"]).capitalize())
+				audio.effect("research_complete")
 		"destroyed":
 			if mine:
 				hud.add_log("[color=salmon]Our %s was destroyed.[/color]" % Pieces.display_name(String(ev["building"])))

@@ -32,6 +32,24 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.volume_db = -6.0
 	add_child(_music)
+	# Every button clicks: those there now and any made later.
+	get_tree().node_added.connect(_hook_button)
+	_hook_all.call_deferred(get_tree().root)
+
+
+func _hook_all(n: Node) -> void:
+	_hook_button(n)
+	for c in n.get_children():
+		_hook_all(c)
+
+
+func _hook_button(n: Node) -> void:
+	if n is BaseButton and not n.pressed.is_connected(_click):
+		n.pressed.connect(_click)
+
+
+func _click() -> void:
+	effect("click")
 
 
 ## A named effect from sounds.json ("missile_fire", ...), optionally quieter.
@@ -41,9 +59,11 @@ func effect(name: String, volume_db: float = 0.0) -> void:
 		play(path, volume_db)
 
 
-## The sound for a building going up, if it has one.
+## The sound for a building going up: its own, or the shared construction
+## sound ("default").
 func built(type: String) -> void:
-	var path := String(sounds.get("build", {}).get(type, ""))
+	var b: Dictionary = sounds.get("build", {})
+	var path := String(b.get(type, b.get("default", "")))
 	if path != "":
 		play(path)
 

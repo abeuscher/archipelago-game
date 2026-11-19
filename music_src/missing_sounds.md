@@ -12,24 +12,17 @@ These moments already play a sound. Only the file is missing.
 | `cannon_shot.ogg` | A coastal cannon fires at a boat |
 | `bunker_fire.ogg` | A bunker wipes out a platoon |
 
-## Not hooked up yet
+## Sharing a sound for now
 
-These moments make no sound at present. Tell me which you want, and the file names, and I'll add them.
+These buildings have no sound of their own yet. They play the shared construction sound (`build` → `default` in `data/sounds.json`, currently `missile_build.ogg`). To give one its own sound, add a line for it under `build`.
 
-| Suggested file | When it would play |
+| Building | Name to add under `build` |
 |---|---|
-| `siren.ogg` | The incoming-missile siren before the enemy attack lands |
-| `research_done.ogg` | A research project finishes |
-| `build_anti_air.ogg` | An anti-air gun is built |
-| `build_bunker.ogg` | A bunker is built |
-| `build_coastal_cannon.ogg` | A coastal cannon is built |
-| `build_decoy.ogg` | A decoy is built |
-| `build_base.ogg` | A base is placed in setup |
-| `click.ogg` | A button click |
-| `victory.ogg` | Winning the match |
-| `defeat.ogg` | Losing the match |
-
-The five building sounds could also be one shared construction sound.
+| Anti-air gun | `anti_air` |
+| Bunker | `bunker` |
+| Coastal cannon | `coastal_cannon` |
+| Decoy | `decoy` |
+| Base (placed in setup) | `base` |
 
 ## Placeholders to replace
 
@@ -40,3 +33,7 @@ These are synthesised stand-ins made by `music_src/make_ambient.py`. You can rep
 | `ambient_ocean.wav` | The sea: a seamless loop, louder when zoomed in |
 | `ambient_island.wav` | Breeze and small birds: a seamless loop, heard mostly when zoomed in |
 | `gull_1.wav` … `gull_4.wav` | Single gull calls, played now and then; list as many as you like in `data/sounds.json` |
+
+## Done
+
+Missile launch, missile explosion, anti-air fire and hit, countdown, lab, bank, missile launcher, airport, docks, radar, repair, siren, research complete, button click, you win, you lose.

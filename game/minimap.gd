@@ -15,7 +15,6 @@ const SEA := Palette.SEA
 const LAND := Palette.LAND_TOP
 const BASE_MARK := Color(0.96, 0.96, 0.96)
 const BUILDING_MARK := Color(0.92, 0.32, 0.30)
-const BORDER := Color(1.0, 0.85, 0.2)
 const FRAME := Color(1, 1, 1, 0.9)
 const PAD := 4.0
 const REDRAW_SECONDS := 0.1
@@ -90,7 +89,6 @@ func _draw() -> void:
 		view = view.intersection(Rect2(Vector2.ONE, size - Vector2(2, 2)))
 		if view.has_area():
 			draw_rect(view, FRAME, false, 1.0)
-	draw_rect(Rect2(Vector2.ZERO, size), BORDER, false, 1.5)
 
 
 static func _scaled(poly: PackedVector2Array, origin: Vector2, s: float, off: Vector2) -> PackedVector2Array:

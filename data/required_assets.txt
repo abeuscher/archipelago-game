@@ -23,3 +23,8 @@ assets/audio/ambient_ocean.wav | Ambience: the sea, a seamless loop, louder zoom
 assets/audio/ambient_island.wav | Ambience: breeze and small birds, a seamless loop, heard mostly zoomed in (placeholder) | 13
 assets/audio/gull_1.wav | A gull call, played now and then; gull_2 to gull_4 likewise, any number can be listed in sounds.json (placeholder) | 13
 assets/audio/anti_aircraft_hit.ogg | Anti-air bringing down a missile or transport | 13
+assets/audio/siren.ogg | The incoming-attack siren | 13
+assets/audio/research_complete.ogg | A research project finishing | 13
+assets/audio/click.ogg | Any button click | 13
+assets/audio/you_win.ogg | Winning the match | 13
+assets/audio/you_lose.ogg | Losing the match | 13

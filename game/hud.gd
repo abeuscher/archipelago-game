@@ -5,14 +5,15 @@
 ##   the next-round earnings button and the log history button.
 ##   Right side, toward the middle: the strip of research beakers and base
 ##   buttons, all the same size.
-##   Bottom: info box, then the minimap at the right, both raised
-##   MAP_BAR_H off the bottom; the rotate and zoom buttons sit beneath the
-##   minimap.
+##   Bottom right: the radar monitor (the minimap, with coloured keys for
+##   rotate and zoom) in the corner and the comms set (the info screen) to
+##   its left, in the research mainframe's beige plastic (device_panel.gd).
 ## Plus the research panel, tips, the Esc menu, the end-of-game overlay and
 ## the debug panel (the ` key).
 extends CanvasLayer
 
 const Minimap = preload("res://game/minimap.gd")
+const DevicePanel = preload("res://game/device_panel.gd")
 const SevenSeg = preload("res://game/seven_seg.gd")
 const StripButton = preload("res://game/strip_button.gd")
 const ToolButton = preload("res://game/tool_button.gd")
@@ -71,15 +72,17 @@ var _debug_money: Button
 var _debug_fog: CheckBox
 
 const TOOLBAR_W := 260
-const INFO_W := 420
+const INFO_W := 400           ## the comms screen
+const INFO_H := 150
 const MINIMAP_W := 230
-const MINIMAP_H := 250        ## taller than wide: the islands are stacked north and south
-const BOTTOM_H := 170
+const MINIMAP_H := 220        ## a little taller than wide: the islands are stacked north and south
+const RADAR_W := MINIMAP_W + 34   ## the radar monitor round the minimap
+const RADAR_H := MINIMAP_H + 100
+const BOTTOM_CLEAR := INFO_H + 40 ## screen height the comms set takes at the bottom
 const PANEL_METAL := Color(0.47, 0.48, 0.43)
 const PANEL_EDGE := Color(0.20, 0.20, 0.18)
 const TRAY := Color(0.20, 0.21, 0.20)
 const PORTRAIT_SLOT_H := 160  ## the character's space above the alarm light
-const MAP_BAR_H := 44         ## gap under the minimap and info box, holding the map controls
 const STRIP_W := 64
 const FLASH_SECONDS := 4.0
 const FLASH_MAX := 4
@@ -249,7 +252,7 @@ func _ready() -> void:
 	_log_panel.offset_left = -STRIP_W - 24 - 400
 	_log_panel.offset_right = -STRIP_W - 24
 	_log_panel.offset_top = 80
-	_log_panel.offset_bottom = -MINIMAP_H - MAP_BAR_H - 8
+	_log_panel.offset_bottom = -RADAR_H - 16
 	_log_panel.visible = false
 	root.add_child(_log_panel)
 	_log = RichTextLabel.new()
@@ -278,65 +281,43 @@ func _ready() -> void:
 	_strip_title_text.add_theme_font_size_override("font_size", 15)
 	_strip_title.add_child(_strip_title_text)
 
-	# Info box, bottom middle (left of the minimap).
-	var info_panel := PanelContainer.new()
-	info_panel.anchor_left = 1.0
-	info_panel.anchor_right = 1.0
-	info_panel.anchor_top = 1.0
-	info_panel.anchor_bottom = 1.0
-	info_panel.offset_left = -MINIMAP_W - INFO_W - 24
-	info_panel.offset_right = -MINIMAP_W - 16
-	info_panel.offset_top = -BOTTOM_H - MAP_BAR_H
-	info_panel.offset_bottom = -MAP_BAR_H
-	root.add_child(info_panel)
-	var ih := HBoxContainer.new()
-	info_panel.add_child(ih)
+	# Bottom right: the radar monitor (the minimap, with the map keys under
+	# it) in the corner, and the comms set (the info screen) to its left.
 	_info = RichTextLabel.new()
 	_info.bbcode_enabled = true
 	_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_info.add_theme_font_override("normal_font", DevicePanel.font(500))
+	_info.add_theme_font_override("bold_font", DevicePanel.font(700))
+	_info.add_theme_font_size_override("normal_font_size", 14)
+	_info.add_theme_font_size_override("bold_font_size", 15)
+	_info.add_theme_color_override("default_color", DevicePanel.TEXT)
+	var ih := HBoxContainer.new()
+	ih.add_theme_constant_override("separation", 8)
 	ih.add_child(_info)
 	var iscroll := ScrollContainer.new()
-	iscroll.custom_minimum_size = Vector2(170, 0)
+	iscroll.custom_minimum_size = Vector2(160, 0)
 	iscroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	ih.add_child(iscroll)
 	_info_actions = VBoxContainer.new()
 	_info_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	iscroll.add_child(_info_actions)
 
-	# Minimap, bottom right.
 	minimap = Minimap.new()
-	minimap.anchor_left = 1.0
-	minimap.anchor_right = 1.0
-	minimap.anchor_top = 1.0
-	minimap.anchor_bottom = 1.0
-	minimap.offset_left = -MINIMAP_W - 8
-	minimap.offset_right = -8
-	minimap.offset_top = -MINIMAP_H - MAP_BAR_H
-	minimap.offset_bottom = -MAP_BAR_H
+	minimap.custom_minimum_size = Vector2(MINIMAP_W, MINIMAP_H)
 	minimap.tooltip_text = "Click or drag to move the view. This is how you look at the other island."
-	root.add_child(minimap)
+	var keys: Array = []
+	for k in [["rotate_left", "Rotate left (Q)", func(): rotate_requested.emit(-1)],
+			["rotate_right", "Rotate right (E)", func(): rotate_requested.emit(1)],
+			["zoom_out", "Zoom out", func(): zoom_requested.emit(-1)],
+			["zoom_in", "Zoom in", func(): zoom_requested.emit(1)]]:
+		keys.append(_map_key(k[0], k[1], k[2]))
+	var radar := DevicePanel.radar(minimap, keys)
+	_corner(radar, 8)
+	root.add_child(radar)
 
-	# Map controls beneath the minimap: rotate, then zoom.
-	var bar := HBoxContainer.new()
-	bar.anchor_left = 1.0
-	bar.anchor_right = 1.0
-	bar.anchor_top = 1.0
-	bar.anchor_bottom = 1.0
-	bar.offset_left = -MINIMAP_W - 8
-	bar.offset_right = -8
-	bar.offset_top = -MAP_BAR_H + 4
-	bar.offset_bottom = -4
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_theme_constant_override("separation", 6)
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(bar)
-	_map_button(bar, "rotate_left", "Rotate left (Q)", func(): rotate_requested.emit(-1))
-	_map_button(bar, "rotate_right", "Rotate right (E)", func(): rotate_requested.emit(1))
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(14, 0)
-	bar.add_child(gap)
-	_map_button(bar, "zoom_out", "Zoom out", func(): zoom_requested.emit(-1))
-	_map_button(bar, "zoom_in", "Zoom in", func(): zoom_requested.emit(1))
+	var comms := DevicePanel.comms(ih, Vector2(INFO_W, INFO_H))
+	_corner(comms, 8 + RADAR_W + 10)
+	root.add_child(comms)
 
 	# Hover text that follows the mouse over the board.
 	_hover = PanelContainer.new()
@@ -491,10 +472,28 @@ func set_resources(money: int, fuel: int, research: int, money_next: int = -1) -
 	_research_val.text = "+%d" % research
 
 
-func _map_button(parent: Control, kind: String, tip: String, action: Callable) -> void:
+## A chunky coloured key on the radar for rotating or zooming the view.
+func _map_key(kind: String, tip: String, action: Callable) -> Button:
 	var ib := IconButton.new(kind, tip)
+	ib.ink = Color(0.12, 0.11, 0.10)
+	DevicePanel.style_key(ib, DevicePanel.KEY_COLORS[kind])
 	ib.pressed.connect(action)
-	parent.add_child(ib)
+	return ib
+
+
+## Pins a device to the bottom-right corner, `right` pixels in from the
+## right edge; it grows up and left to its own size.
+static func _corner(c: Control, right: float) -> void:
+	c.anchor_left = 1.0
+	c.anchor_right = 1.0
+	c.anchor_top = 1.0
+	c.anchor_bottom = 1.0
+	c.offset_left = -right
+	c.offset_right = -right
+	c.offset_top = -8
+	c.offset_bottom = -8
+	c.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	c.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
 
 # --- Resource panel --------------------------------------------------------
@@ -870,6 +869,7 @@ func clear_info_actions() -> void:
 	for c in _info_actions.get_children():
 		_info_actions.remove_child(c)
 		c.queue_free()
+	_info_actions.get_parent().visible = false   # the text gets the whole screen
 
 
 func add_info_action(text: String, action: Callable, disabled: bool = false, tooltip: String = "") -> void:
@@ -878,15 +878,31 @@ func add_info_action(text: String, action: Callable, disabled: bool = false, too
 	b.disabled = disabled
 	b.tooltip_text = tooltip
 	b.focus_mode = Control.FOCUS_NONE
+	# Terminal buttons on the comms screen.
+	b.add_theme_font_override("font", DevicePanel.font(700))
+	b.add_theme_font_size_override("font_size", 13)
+	b.add_theme_color_override("font_color", DevicePanel.TEXT)
+	b.add_theme_color_override("font_hover_color", Color(1, 1, 0.9))
+	b.add_theme_color_override("font_disabled_color", DevicePanel.DIM_TEXT.darkened(0.3))
+	var screen := DevicePanel.SCREEN
+	b.add_theme_stylebox_override("normal", DevicePanel.box(screen.lightened(0.06), DevicePanel.DIM_TEXT, 1, 4, [8, 4, 8, 4]))
+	b.add_theme_stylebox_override("hover", DevicePanel.box(screen.lightened(0.14), DevicePanel.TEXT, 1, 4, [8, 4, 8, 4]))
+	b.add_theme_stylebox_override("pressed", DevicePanel.box(screen.darkened(0.2), DevicePanel.TEXT, 1, 4, [8, 4, 8, 4]))
+	b.add_theme_stylebox_override("disabled", DevicePanel.box(screen, DevicePanel.DIM_TEXT.darkened(0.4), 1, 4, [8, 4, 8, 4]))
 	b.pressed.connect(action)
 	_info_actions.add_child(b)
+	_info_actions.get_parent().visible = true
 
 
 func add_info_text(text: String) -> void:
 	var l := Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	l.add_theme_font_override("font", DevicePanel.font(500))
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", DevicePanel.DIM_TEXT)
 	_info_actions.add_child(l)
+	_info_actions.get_parent().visible = true
 
 
 ## Text beside the mouse; "" hides it.

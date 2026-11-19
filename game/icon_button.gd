@@ -7,6 +7,7 @@ const SIZE := Vector2(40, 36)
 const INK := Color(0.9, 0.93, 0.96)
 
 var icon_kind: String = ""   ## "rotate_left", "rotate_right", "zoom_in", "zoom_out", "undo", "start"
+var ink: Color = INK         ## icon colour (dark on the coloured map keys)
 
 
 func _init(kind: String = "", tip: String = "") -> void:
@@ -17,7 +18,8 @@ func _init(kind: String = "", tip: String = "") -> void:
 
 
 func _draw() -> void:
-	draw_icon(self, icon_kind, size / 2.0, INK if not disabled else Color(0.45, 0.47, 0.5))
+	var c := size / 2.0 + (Vector2(0, 1) if button_pressed or (is_hovered() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)) else Vector2(0, -1))
+	draw_icon(self, icon_kind, c, ink if not disabled else Color(0.45, 0.47, 0.5))
 
 
 static func draw_icon(ci: CanvasItem, kind: String, c: Vector2, ink: Color) -> void:

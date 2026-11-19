@@ -9,9 +9,16 @@
     "repair": "assets/audio/repair.ogg",
     "transport_engine": "assets/audio/transport_engine.ogg",
     "cannon_shot": "assets/audio/cannon_shot.ogg",
-    "bunker_fire": "assets/audio/bunker_fire.ogg"
+    "bunker_fire": "assets/audio/bunker_fire.ogg",
+    "siren": "assets/audio/siren.ogg",
+    "research_complete": "assets/audio/research_complete.ogg",
+    "click": "assets/audio/click.ogg",
+    "you_win": "assets/audio/you_win.ogg",
+    "you_lose": "assets/audio/you_lose.ogg"
   },
   "build": {
+    "_note": "A building without its own sound plays default, the shared construction sound.",
+    "default": "assets/audio/missile_build.ogg",
     "lab": "assets/audio/lab.ogg",
     "bank": "assets/audio/bank.ogg",
     "basic_launcher": "assets/audio/missile_build.ogg",
