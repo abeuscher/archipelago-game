@@ -514,7 +514,6 @@ func set_resources(money: int, fuel: int, research: int, money_next: int = -1) -
 	_money_val.text = str(money)
 	_money_next.visible = money_next >= 0
 	_money_next.text = "(+%d)" % maxi(money_next, 0)
-	_money_next.tooltip_text = "Next round: %d" % (money + maxi(money_next, 0))
 	_fuel_val.text = str(fuel)
 	_research_val.text = "+%d" % research
 
@@ -545,13 +544,12 @@ static func _corner(c: Control, right: float) -> void:
 
 # --- Resource panel --------------------------------------------------------
 
-const RES_CAPTION := Color(0.62, 0.68, 0.76)
 const RES_VALUE := Color(0.97, 0.98, 1.0)
 const RES_NEXT := Color(0.55, 0.85, 0.55)
 
 
-## A compact strip: three stats, each a small-caps caption over a bold
-## value with its icon (coin, barrel, beaker), split by dividers.
+## A compact strip: three stats, each an icon (coin, barrel, flask) and a
+## bold value, split by dividers.
 func _build_resources() -> Control:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -568,7 +566,7 @@ func _build_resources() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	panel.add_child(row)
-	var money := _stat(row, "Money", "money", "Money to build and repair with. Next round's income is in brackets.")
+	var money := _stat(row, "Money", "money")
 	_money_val = money[0]
 	_money_next = Label.new()
 	_money_next.add_theme_font_size_override("font_size", 13)
@@ -577,33 +575,20 @@ func _build_resources() -> Control:
 	_money_next.mouse_filter = Control.MOUSE_FILTER_PASS
 	money[1].add_child(_money_next)
 	row.add_child(_divider())
-	_fuel_val = _stat(row, "Fuel", "fuel", "Fuel launches missiles.")[0]
+	_fuel_val = _stat(row, "Fuel", "fuel")[0]
 	row.add_child(_divider())
-	_research_val = _stat(row, "Research", "research", "Research points your labs make each round.")[0]
+	_research_val = _stat(row, "Research", "research")[0]
 	return panel
 
 
-## Adds one stat block; returns [value label, value row].
-func _stat(parent: Control, caption: String, key: String, tip: String) -> Array:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 0)
-	box.tooltip_text = tip
-	box.mouse_filter = Control.MOUSE_FILTER_PASS
-	parent.add_child(box)
-	var cap := RichTextLabel.new()
-	cap.bbcode_enabled = true
-	cap.fit_content = true
-	cap.scroll_active = false
-	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
-	cap.mouse_filter = Control.MOUSE_FILTER_PASS
-	cap.add_theme_color_override("default_color", RES_CAPTION)
-	cap.add_theme_font_override("normal_font", tracked_font(1))
-	cap.text = small_caps(caption, 12, 9)
-	box.add_child(cap)
+## Adds one stat: its icon and value, named only in the tooltip. Returns
+## [value label, value row].
+func _stat(parent: Control, caption: String, key: String) -> Array:
 	var vrow := HBoxContainer.new()
 	vrow.add_theme_constant_override("separation", 5)
-	vrow.mouse_filter = Control.MOUSE_FILTER_PASS
-	box.add_child(vrow)
+	vrow.tooltip_text = caption
+	vrow.mouse_filter = Control.MOUSE_FILTER_STOP
+	parent.add_child(vrow)
 	vrow.add_child(ResourceIcon.new(key))
 	var val := Label.new()
 	val.add_theme_font_override("font", bold_font())
@@ -617,7 +602,7 @@ func _stat(parent: Control, caption: String, key: String, tip: String) -> Array:
 static func _divider() -> Control:
 	var d := ColorRect.new()
 	d.color = Color(0.25, 0.29, 0.34)
-	d.custom_minimum_size = Vector2(1, 30)
+	d.custom_minimum_size = Vector2(1, 22)
 	d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return d
