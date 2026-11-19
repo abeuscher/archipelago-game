@@ -6,7 +6,7 @@ Every line the characters say, grouped by speaker. Each clip is named on the lef
 - **[n]** marks a number that changes during play. The game plays that speaker's number clip there (see *Numbers* in each speaker's section). Where a number falls in the middle of a line, the line is split into pieces recorded separately: `pilot_006a`, `pilot_006b`, and so on.
 - Made by `music_src/make_voice_parts.py` from `data/dialogue.json`. Clip numbers are kept in `voice_ids.json`, so a line keeps its name when lines are added.
 
-Clips: Admiral 3, Ginger 111, Pilot 156, Mechanic 3, Scientist 2.
+Clips: Admiral 3, Ginger 112, Pilot 156, Mechanic 3, Scientist 2.
 
 ---
 
@@ -71,6 +71,8 @@ General! **[n]** enemy missiles incoming!  (in pieces)
 **
 
 **ginger_010**  General - we have limited time to fortify our base each round before the enemy attacks. Make sure to keep an eye on the countdown timer!
+
+**ginger_011**  General, we have no offensive weapons. Are you sure you want to advance to the attack phase?
 
 ### Numbers
 

@@ -48,5 +48,6 @@
   "report:our_soldiers_lost:many": "pilot_030",
   "report:enemy_soldiers_lost:one": "pilot_031",
   "report:enemy_soldiers_lost:many": "pilot_032",
-  "say:build_timeout": "ginger_010"
+  "say:build_timeout": "ginger_010",
+  "say:no_weapons_confirm": "ginger_011"
 }

@@ -74,6 +74,10 @@ var _strip_title_text: Label
 var _hover: PanelContainer
 var _hover_text: Label
 var _overlay: PanelContainer
+var _confirm: Control            ## a yes/no question in the middle of the screen
+var _confirm_text: Label
+var _confirm_yes: Callable
+var _confirm_no: Callable
 var _overlay_text: Label
 var _overlay_buttons: HBoxContainer
 var _debug: PanelContainer
@@ -381,6 +385,52 @@ func _ready() -> void:
 	announcer.tip_dismissed.connect(func(id: String, forever: bool): tip_dismissed.emit(id, forever))
 	announcer.announcement_dismissed.connect(func(id: String, forever: bool): tip_dismissed.emit(id, forever))
 	root.add_child(announcer)
+
+	# Confirmation box: a small beige unit with the question on its screen
+	# and YES / NO keys. Holds the clock while it is up.
+	var cfill := Control.new()
+	cfill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cfill.mouse_filter = Control.MOUSE_FILTER_STOP   # nothing behind it can be clicked
+	cfill.visible = false
+	root.add_child(cfill)
+	var ccenter := CenterContainer.new()
+	ccenter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cfill.add_child(ccenter)
+	var cunit := PanelContainer.new()
+	cunit.add_theme_stylebox_override("panel", DevicePanel.box(DevicePanel.BEZEL, DevicePanel.BEZEL_EDGE, 4, 18, [16, 12, 16, 14]))
+	ccenter.add_child(cunit)
+	var ccol := VBoxContainer.new()
+	ccol.add_theme_constant_override("separation", 12)
+	cunit.add_child(ccol)
+	var cplate := DevicePanel._plate("CONFIRM")
+	ccol.add_child(cplate)
+	_confirm_text = Label.new()
+	_confirm_text.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_confirm_text.custom_minimum_size = Vector2(380, 0)
+	_confirm_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_confirm_text.add_theme_font_override("font", DevicePanel.font(600))
+	_confirm_text.add_theme_font_size_override("font_size", 17)
+	_confirm_text.add_theme_color_override("font_color", DevicePanel.TEXT)
+	ccol.add_child(DevicePanel._screen(_confirm_text, 18))
+	var ckeys := HBoxContainer.new()
+	ckeys.alignment = BoxContainer.ALIGNMENT_CENTER
+	ckeys.add_theme_constant_override("separation", 18)
+	ccol.add_child(ckeys)
+	for spec in [["YES", Color(0.42, 0.80, 0.38), true], ["NO", Color(0.90, 0.36, 0.22), false]]:
+		var kb := Button.new()
+		kb.text = spec[0]
+		kb.focus_mode = Control.FOCUS_NONE
+		kb.custom_minimum_size = Vector2(120, 44)
+		_key_button(kb, spec[1])
+		kb.add_theme_font_size_override("font_size", 18)
+		var yes: bool = spec[2]
+		kb.pressed.connect(func():
+			_confirm.visible = false
+			var cb: Callable = _confirm_yes if yes else _confirm_no
+			if cb.is_valid():
+				cb.call())
+		ckeys.add_child(kb)
+	_confirm = cfill
 
 	# Centre overlay for the coin flip and the end of the game.
 	_overlay = PanelContainer.new()
@@ -1049,7 +1099,20 @@ func debug_visible() -> bool:
 ## A window over the map is open (log, research, next-round projection or
 ## an end-of-game overlay): the mouse wheel shouldn't zoom the map then.
 func modal_open() -> bool:
-	return _log_panel.visible or research_panel.visible or _earn_panel.visible or _overlay.visible
+	return _log_panel.visible or research_panel.visible or _earn_panel.visible or _overlay.visible or _confirm.visible
+
+
+## A yes/no question in a box of its own (not a character's speech): YES
+## calls on_yes, NO calls on_no. The clock holds while it is up.
+func confirm(text: String, on_yes: Callable, on_no: Callable = Callable()) -> void:
+	_confirm_text.text = text
+	_confirm_yes = on_yes
+	_confirm_no = on_no
+	_confirm.visible = true
+
+
+func confirm_visible() -> bool:
+	return _confirm.visible
 
 
 func overlay_visible() -> bool:

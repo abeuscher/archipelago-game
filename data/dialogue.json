@@ -130,6 +130,10 @@
       "character": "ginger",
       "text": "General - we have limited time to fortify our base each round before the enemy attacks. Make sure to keep an eye on the countdown timer!"
     },
+    "no_weapons_confirm": {
+      "character": "ginger",
+      "text": "General, we have no offensive weapons. Are you sure you want to advance to the attack phase?"
+    },
     "boat_spotted": {
       "character": "ginger",
       "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."

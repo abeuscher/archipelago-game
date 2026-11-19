@@ -312,6 +312,19 @@ func _end_build() -> void:
 	_refresh()
 
 
+## The Done button. The first time it is pressed with nothing that can fire,
+## a yes/no box asks whether to go on to the attack (once ever, kept with the
+## finished tips). The clock running out goes on without asking.
+func _done_pressed() -> void:
+	var key := "no_weapons_confirm"
+	if ui == Ui.BUILD and _next_free_launcher() < 0 and not prefs["tips_done"].has(key) and lines.has(key):
+		prefs["tips_done"].append(key)
+		_save_prefs()
+		hud.confirm(_line_text(key), _end_build)
+		return
+	_end_build()
+
+
 ## The first time the build clock runs out, Ginger reminds the player to
 ## watch it (once ever, kept with the finished tips; only with tips on).
 ## Said as targeting starts, holding its clock. Not for the targeting clock.
@@ -415,7 +428,7 @@ func _set_clock(seconds: int) -> void:
 
 
 func _process(delta: float) -> void:
-	var clock_ticking: bool = clock_running and not hud.overlay_visible() and not _tip_holds_clock()
+	var clock_ticking: bool = clock_running and not hud.overlay_visible() and not hud.confirm_visible() and not _tip_holds_clock()
 	audio.pause_effect("countdown", not clock_ticking)   # the countdown holds when the clock does
 	if clock_ticking:
 		var warn := float(audio.sounds.get("countdown_seconds", 5))
@@ -1020,7 +1033,7 @@ func _build_toolbar(st) -> void:
 					(func(): hud.show_notice(Hud.NOTICE_MONEY)) if broke else pick,
 					not unlocked or at_limit, tool == type, _building_tooltip(type), broke, true, tag)
 			hud.add_spacer()
-			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now", "", true)
+			hud.add_tool_button("Done", _done_pressed, false, false, "End the build and repair phase now", "", true)
 		Ui.TARGETING:
 			hud.add_fuel_planner(st.fuel, _fuel_planned())
 			var launchers: Array = _attackers(st)
