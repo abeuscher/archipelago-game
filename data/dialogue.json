@@ -28,7 +28,7 @@
       "id": "research_intro",
       "character": "scientist",
       "when": "research_open",
-      "text": "Ah, General, welcome to the lab! Each lab works on one project at a time and adds its research points to it every round. Starting a project costs money up front; the screen shows how long it will take. More labs mean more projects at once, and a lab without a project of its own helps the oldest one along."
+      "text": "Ah, General! Welcome to the research lab! One project per lab. Research ticks along each round. More labs, more projects! Idle labs help existing projects go faster."
     },
     {
       "id": "repair",
@@ -59,7 +59,7 @@
     },
     {
       "id": "research_radar",
-      "character": "mechanic",
+      "character": "scientist",
       "when": "radar_not_started",
       "text": "General, I'd research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to pick the research."
     },
