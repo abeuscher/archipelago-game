@@ -6,7 +6,7 @@ Every line the characters say, grouped by speaker. Each clip is named on the lef
 - **[n]** marks a number that changes during play. The game plays that speaker's number clip there (see *Numbers* in each speaker's section). Where a number falls in the middle of a line, the line is split into pieces recorded separately: `pilot_006a`, `pilot_006b`, and so on.
 - Made by `music_src/make_voice_parts.py` from `data/dialogue.json`. Clip numbers are kept in `voice_ids.json`, so a line keeps its name when lines are added.
 
-Clips: Admiral 3, Ginger 112, Pilot 156, Mechanic 3, Scientist 2.
+Clips: Admiral 3, Ginger 112, Pilot 156, Mechanic 2, Scientist 2.
 
 ---
 
@@ -675,8 +675,6 @@ One clip per number, said on its own in the voice of the lines above, named for 
 **mechanic_001**  Careful, General! We've got some damage on the ground. Damaged buildings can be repaired for 30% of their original cost.
 
 **mechanic_002**  General, they keep hitting the same launcher. Repairs won't hold while they're aiming at it. Build a new one somewhere they haven't seen.
-
-**mechanic_003**  General, the number on a possible base counts the hits it's taken. A base falls at 2 hits. A decoy falls at 1, and then we'll know it was a fake.
 
 ---
 

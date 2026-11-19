@@ -79,13 +79,6 @@
       "arrow": "weapons"
     },
     {
-      "id": "suspected_base",
-      "character": "mechanic",
-      "when": "suspected_base_seen",
-      "text": "General, the number on a possible base counts the hits it's taken. A base falls at {base_hits} hits. A decoy falls at {decoy_hits}, and then we'll know it was a fake.",
-      "arrow": "hex:suspected_base"
-    },
-    {
       "id": "fuel",
       "character": "pilot",
       "when": "fuel_short",
