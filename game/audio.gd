@@ -25,6 +25,12 @@ var _call_player: AudioStreamPlayer
 var _call_wait := 0.0
 var _ambient_fade := 0.0          # 0..1, eases the ambience in when it starts
 
+var _theme: AudioStreamPlayer     # the main theme (sounds.json "theme")
+var _theme_wanted := false        # the game is in a phase that has it
+var _theme_level := 0.0           # 0..1, how far faded in
+var _theme_resting := false       # taking a break between plays
+var _theme_timer := 0.0           # seconds left of this play or rest
+
 
 func _ready() -> void:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SOUNDS_PATH))
@@ -146,6 +152,7 @@ func set_closeness(c: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_theme(delta)
 	if not _ambient_on:
 		return
 	_ambient_fade = minf(1.0, _ambient_fade + delta / 2.5)
@@ -174,6 +181,51 @@ func _process(delta: float) -> void:
 func _ambient_db(spec: Dictionary) -> float:
 	var db := lerpf(float(spec.get("far_db", -20)), float(spec.get("near_db", -12)), _closeness)
 	return lerpf(SILENT_DB, db, _ambient_fade)
+
+
+# --- Main theme ------------------------------------------------------------------
+
+## Whether the phase wants the main theme. It fades in or out, never cuts,
+## and picks up where it left off when it comes back.
+func set_theme(on: bool) -> void:
+	_theme_wanted = on
+	if not on or _theme != null:
+		return
+	var cfg: Dictionary = sounds.get("theme", {})
+	var stream := _load(String(cfg.get("file", "")))
+	if stream == null:
+		return
+	_set_loop(stream)
+	_theme = AudioStreamPlayer.new()
+	_theme.stream = stream
+	_theme.volume_db = SILENT_DB
+	add_child(_theme)
+	_theme.play()
+	_theme_resting = false
+	_theme_timer = _theme_range("play_seconds", [150, 240])
+
+
+func _update_theme(delta: float) -> void:
+	if _theme == null:
+		return
+	var cfg: Dictionary = sounds.get("theme", {})
+	# Plays for a while, then rests a while, then plays again.
+	_theme_timer -= delta
+	if _theme_timer <= 0.0:
+		_theme_resting = not _theme_resting
+		_theme_timer = _theme_range("rest_seconds" if _theme_resting else "play_seconds",
+			[45, 90] if _theme_resting else [150, 240])
+	var target := 1.0 if _theme_wanted and not _theme_resting else 0.0
+	var step := delta / maxf(float(cfg.get("fade_seconds", 4.0)), 0.1)
+	_theme_level = move_toward(_theme_level, target, step)
+	# Faded right out, it holds its place; faded in again, it carries on.
+	_theme.stream_paused = _theme_level <= 0.0 and target <= 0.0
+	_theme.volume_db = float(cfg.get("volume_db", -12)) + linear_to_db(maxf(_theme_level * _theme_level, 0.0001))
+
+
+func _theme_range(key: String, fallback: Array) -> float:
+	var r: Array = sounds.get("theme", {}).get(key, fallback)
+	return randf_range(float(r[0]), float(r[1]))
 
 
 # --- Music ---------------------------------------------------------------------

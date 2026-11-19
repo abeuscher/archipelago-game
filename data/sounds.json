@@ -30,14 +30,30 @@
   "ambient": {
     "_note": "Plays under the island view in every phase, and on the title screen. Each loop has a volume when zoomed right out (far_db) and right in (near_db). Calls are single sounds played now and then, a random one each time, every_seconds apart (shortest, longest).",
     "loops": {
-      "ocean": { "file": "assets/audio/ambient_ocean.wav", "far_db": -22, "near_db": -14 },
-      "island": { "file": "assets/audio/ambient_island.wav", "far_db": -42, "near_db": -17 }
+      "ocean": {
+        "file": "assets/audio/ambient_ocean.wav",
+        "far_db": -22,
+        "near_db": -14
+      },
+      "island": {
+        "file": "assets/audio/ambient_island.wav",
+        "far_db": -42,
+        "near_db": -17
+      }
     },
     "calls": {
-      "files": ["assets/audio/gull_1.wav", "assets/audio/gull_2.wav", "assets/audio/gull_3.wav", "assets/audio/gull_4.wav"],
+      "files": [
+        "assets/audio/gull_1.wav",
+        "assets/audio/gull_2.wav",
+        "assets/audio/gull_3.wav",
+        "assets/audio/gull_4.wav"
+      ],
       "far_db": -30,
       "near_db": -15,
-      "every_seconds": [12, 30]
+      "every_seconds": [
+        12,
+        30
+      ]
     },
     "title_closeness": 0.4
   },
@@ -48,5 +64,19 @@
     "battle": "assets/music/battle_theme.ogg"
   },
   "_countdown_note": "The countdown sound starts this many seconds before the build clock runs out.",
-  "countdown_seconds": 5
+  "countdown_seconds": 5,
+  "theme": {
+    "_note": "The main theme: plays in setup and the build and repair phase, fades out for targeting and the attack, and comes back where it left off. Not all the time: it plays for play_seconds, then rests (silent) for rest_seconds, each picked at random in its range. Every change fades over fade_seconds.",
+    "file": "assets/music/main_theme.ogg",
+    "volume_db": -12,
+    "fade_seconds": 4.0,
+    "play_seconds": [
+      150,
+      240
+    ],
+    "rest_seconds": [
+      45,
+      90
+    ]
+  }
 }

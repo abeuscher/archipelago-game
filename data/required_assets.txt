@@ -13,6 +13,7 @@ assets/audio/airport.ogg | An airport going up | 13
 assets/audio/dock.ogg | Docks going up | 13
 assets/audio/radar.ogg | A radar going up | 13
 assets/audio/transport_engine.ogg | A transport taking off (optional) | 10
+assets/music/main_theme.ogg | Main theme: setup and build and repair, with rests, fading in and out; loops | 13
 assets/music/intro_theme.ogg | Intro theme (not played at present), loops | 13
 assets/music/build_theme.ogg | Build theme (not played at present), loops | 13
 assets/music/battle_theme.ogg | Battle theme (not played at present), loops | 13

@@ -201,6 +201,7 @@ func _enter_setup() -> void:
 	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
 	audio.start_ambient()
+	audio.set_theme(true)   # the main theme, in setup and build and repair
 	_set_clock(0)
 	var strongholds := SideState.strongholds_per_side(data)
 	if strongholds > 0:
@@ -266,6 +267,7 @@ func _start_round() -> void:
 		m.build_action(MatchState.ENEMY, a)
 	hud.set_alarm(false)
 	ui = Ui.BUILD
+	audio.set_theme(true)
 	tool = ""
 	tips_snoozed = []
 	orders = []   # last round's aim markers don't carry over
@@ -286,6 +288,7 @@ func _end_build() -> void:
 	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
 		m.set_launch_orders(MatchState.ENEMY, [])
+	audio.set_theme(false)   # fades out for targeting and the attack
 	if _next_free_launcher() < 0:
 		# Nothing to fire: our attack turn is skipped.
 		hud.show_notice(Hud.NOTICE_NO_WEAPONS)
@@ -364,6 +367,7 @@ func _show_game_over() -> void:
 	ui = Ui.OVER
 	var won: bool = m.winner == MatchState.PLAYER
 	audio.stop_ambient()
+	audio.set_theme(false)
 	audio.effect("you_win" if won else "you_lose")
 	var why := {"bases": "All three enemy bases destroyed." if won else "All three of your bases were destroyed.",
 		"money": "Both sides fell together; %s more money." % ("you had" if won else "the enemy had"),
