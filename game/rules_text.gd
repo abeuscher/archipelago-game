@@ -40,6 +40,12 @@ static func values(data, build_clock: int, targeting_clock: int) -> Dictionary:
 		"building_list": _buildings(data),
 		"missile_list": _missiles(data),
 		"research_list": _research(data),
+		"transport_fuel": int(data.missile("transport")["fuel"]),
+		"transport_money": int(data.missile("transport").get("money", 0)),
+		"transport_replace": int(data.section("troops")["transport_replace_cost"]),
+		"march": int(data.section("troops")["platoon_march"]),
+		"march_total": int(data.section("troops")["platoon_march"]) + 1,
+		"bunker_range": int(data.section("troops")["bunker_range"]),
 	}
 
 
@@ -67,6 +73,8 @@ static func _missiles(data) -> String:
 	var out: Array = []
 	for name in data.section("missiles"):
 		var m: Dictionary = data.missile(name)
+		if m.has("carries"):
+			continue   # the transport is described under Troops
 		var bits: Array = ["%d fuel" % int(m["fuel"])]
 		if int(m["damage_max"]) > 0:
 			bits.append("%d to %d damage" % [int(m["damage_min"]), int(m["damage_max"])])

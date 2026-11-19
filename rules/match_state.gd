@@ -115,6 +115,8 @@ func build_action(side: int, action: Dictionary) -> String:
 			e = st.repair(int(action["hex"]), data)
 		"research":
 			e = st.start_research(int(action["lab"]), String(action["item"]), data)
+		"replace_carrier":
+			e = st.replace_carrier(int(action["hex"]), data)
 		_:
 			e = "Unknown action"
 	if e == "":

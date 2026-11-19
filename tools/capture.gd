@@ -46,6 +46,57 @@ func check_still_up() -> void:
 	print("warning still up after 1.4 s: ", main.hud.announcing())
 
 
+## Troops: give the player an airport, aim a drop at an enemy base, attack,
+## and catch the transport, the parachutes and the march.
+func _troops() -> void:
+	var st = main.m.sides[0]
+	st.unlocked["airport"] = true
+	st.money += 300
+	st.fuel += 20
+	var port_hex: int = _free_hexes()[40]
+	st._add_building("airport", port_hex, main.data, main.m.round_number)
+	main._refresh()
+	main._end_build()
+	await create_timer(1.2).timeout
+	var enemy = main.m.sides[1]
+	var target: int = enemy.of_role(main.data, "base")[0].hex
+	var g = enemy.island.grid
+	var next := -1
+	for d in 6:
+		var n: int = g.step(target, d)
+		if n >= 0 and enemy.island.is_land(n):
+			next = n
+			break
+	main.active_launcher = port_hex
+	main._target_click(target)
+	main._refresh()
+	await _shot("21a_drop_landing_chosen")
+	main._target_click(next)
+	main._refresh()
+	await _shot("21b_drop_planned")
+	main._attack()
+	var got := {}
+	while main.ui == main.Ui.PLAYOUT:
+		if main.hud.announcing():
+			main.hud.announcer._ok.pressed.emit()
+		var fx = main.effects
+		if not got.has("plane") and not fx.planes.is_empty() and main.viewing == 1:
+			got["plane"] = true
+			await create_timer(0.6).timeout
+			await _shot("22_transport")
+		elif not got.has("chutes") and not fx.chutes.is_empty():
+			got["chutes"] = true
+			await create_timer(0.5).timeout
+			await _shot("23_parachutes")
+		elif not got.has("squad") and not fx.squads.is_empty():
+			got["squad"] = true
+			await create_timer(0.5).timeout
+			await _shot("24_platoon_march")
+		await process_frame
+	await create_timer(0.3).timeout
+	await _shot("25_after_drop")
+
+
 func _free_hexes() -> Array:
 	var free: Array = []
 	for h in main.m.sides[0].island.land_hexes():
@@ -176,4 +227,7 @@ func _run() -> void:
 	main.prefs["show_grid"] = true
 	main._apply_grid()
 	await _shot("20_grid_on")
+	main.prefs["show_grid"] = false
+	main._apply_grid()
+	await _troops()
 	quit()

@@ -8,11 +8,12 @@ const NAMES := {
 	"base": "Base", "decoy": "Decoy", "suspected_base": "Potential base",
 	"bank": "Bank", "refinery": "Refinery", "lab": "Lab",
 	"basic_launcher": "Missile launcher", "anti_air": "Anti-air", "radar": "Radar",
-	"ballistic_launcher": "Ballistic launcher",
+	"ballistic_launcher": "Ballistic launcher", "airport": "Airport", "bunker": "Bunker",
 }
 const SHORT := {
 	"base": "BASE", "decoy": "BASE", "suspected_base": "?", "bank": "$", "refinery": "F",
 	"lab": "R", "basic_launcher": "M", "anti_air": "AA", "radar": "RD", "ballistic_launcher": "BM",
+	"airport": "AP", "bunker": "BK",
 }
 const COLORS := {
 	"base": Color(0.85, 0.85, 0.9), "decoy": Color(0.85, 0.85, 0.9),
@@ -20,8 +21,10 @@ const COLORS := {
 	"bank": Color(0.95, 0.80, 0.25), "refinery": Color(0.85, 0.45, 0.20), "lab": Color(0.45, 0.75, 0.95),
 	"basic_launcher": Color(0.85, 0.25, 0.25), "anti_air": Color(0.30, 0.75, 0.40),
 	"radar": Color(0.70, 0.45, 0.90), "ballistic_launcher": Color(0.60, 0.15, 0.15),
+	"airport": Color(0.62, 0.62, 0.92), "bunker": Color(0.62, 0.62, 0.58),
 }
-const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile"}
+const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile",
+	"transport": "Air transport"}
 ## One-line descriptions for tooltips and the research panel. Numbers are
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
@@ -34,6 +37,8 @@ const BUILDING_TEXT := {
 	"anti_air": "Shoots at incoming missiles aimed near it. Uses no fuel.",
 	"radar": "Anti-air inside its range hits far more often. Range grows with height.",
 	"ballistic_launcher": "Fires one ballistic missile a round: less damage, wider blast.",
+	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near.",
+	"bunker": "Wipes out enemy platoons that land or march within range.",
 }
 const RESEARCH_NAMES := {
 	"radar": "Radar", "scouting_missile": "Scouting missile", "anti_air_capacity": "Anti-air capacity",
@@ -68,6 +73,9 @@ const SHEET_FOR := {
 	"basic_launcher": "missile_launcher", "ballistic_launcher": "ballistic_launcher",
 	"anti_air": "anti_air", "radar": "radar",
 }
+## Buildings drawn as placeholder blocks until their sprite sheets arrive
+## (docs/troop_assets.md).
+const ART_PENDING := ["airport", "bunker", "docks", "coastal_cannon"]
 ## Sheets with a separate frame set for a launcher that has fired.
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
 ## Sheets with a <name>_damaged version: hit and not yet repaired.
@@ -90,6 +98,8 @@ static func sprite_meta() -> Dictionary:
 
 
 static func sheet(name: String) -> Texture2D:
+	if name == "":
+		return null   # no art yet: the caller draws a placeholder
 	if not _sheets.has(name):
 		_sheets[name] = Textures.load_texture(SPRITE_DIR + name + ".png")
 	return _sheets[name]

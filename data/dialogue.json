@@ -95,6 +95,10 @@
     "incoming_many": {
       "character": "ginger",
       "text": "General! {n} enemy missiles incoming!"
+    },
+    "incoming_troops": {
+      "character": "ginger",
+      "text": "General! Enemy transport inbound! They're dropping troops on us!"
     }
   }
 }

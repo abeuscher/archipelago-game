@@ -21,9 +21,12 @@ static func resolve(m) -> Array:
 				"missile": String(o["missile"]), "target": int(o["target"]),
 				"intercepted": false,
 			}
+			if o.has("dir"):
+				ms["dir"] = int(o["dir"])
 			next_id += 1
 			missiles[s].append(ms)
 			m.sides[s].fuel -= int(data.missile(ms["missile"])["fuel"])
+			m.sides[s].money -= int(data.missile(ms["missile"]).get("money", 0))
 			m.stats[s]["fired"] += 1
 			m.stats[s]["fired_" + ms["missile"]] = int(m.stats[s].get("fired_" + ms["missile"], 0)) + 1
 			events.append({"type": "launch", "side": s, "id": ms["id"], "launcher": ms["launcher"],
@@ -93,6 +96,12 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 			if hit:
 				ms["intercepted"] = true
 				m.stats[attacker]["intercepted"] += 1
+				if data.missile(ms["missile"]).has("carries"):
+					# A transport shot down is lost; its airport needs a new one.
+					var port = att.building_at(int(ms["launcher"]))
+					if port != null:
+						port.carrier_lost = true
+					events.append({"type": "carrier_lost", "side": attacker, "id": ms["id"], "launcher": ms["launcher"]})
 			break   # No missile is engaged more than once a round.
 
 	var elev: Dictionary = data.section("elevation")
@@ -103,6 +112,9 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		if ms["intercepted"]:
 			continue
 		var mdef: Dictionary = data.missile(ms["missile"])
+		if mdef.has("carries"):
+			_platoon(m, attacker, ms, events, pending, reveals)
+			continue
 		var impact: int = ms["target"]
 		if mdef.has("seeks_with") and att.is_unlocked(String(mdef["seeks_with"])) and def.building_at(impact) == null:
 			var dest := _seek(m, def, impact)
@@ -138,6 +150,59 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		events.append({"type": "impact", "side": attacker, "id": ms["id"], "missile": ms["missile"],
 			"hex": impact, "damaged": damaged, "revealed": seen})
 		m.note_bombed(defender, impact)
+
+
+## A platoon lands on its target hex and marches platoon_march more hexes
+## in its direction. It can step down but not up (unless platoon_can_climb);
+## the sea or the edge of the space ends the march. Landing on the sea loses
+## it. On each hex it destroys whatever stands there, unless an active
+## bunker is within bunker_range, which wipes it out on that hex. Every hex
+## it reaches is revealed, and so is the bunker that stops it.
+static func _platoon(m, attacker: int, ms: Dictionary, events: Array, pending: Dictionary, reveals: Array) -> void:
+	var data = m.data
+	var defender := 1 - attacker
+	var def = m.sides[defender]
+	var isl = def.island
+	var grid = isl.grid
+	var tc: Dictionary = data.section("troops")
+	var reach := int(tc["platoon_march"])
+	var climb := bool(tc["platoon_can_climb"])
+	var bunker_range := int(tc["bunker_range"])
+	var bunkers: Array = def.of_role(data, "bunker").filter(func(b): return def.weapon_active(b))
+	var ev := {"type": "platoon", "side": attacker, "id": ms["id"], "target": ms["target"], "dir": int(ms.get("dir", 0)),
+		"path": [], "destroyed": [], "stopped_by": -1, "lost_at_sea": false}
+	var here: int = ms["target"]
+	if not isl.is_land(here):
+		ev["lost_at_sea"] = true
+		reveals.append(here)
+		events.append(ev)
+		return
+	m.note_bombed(defender, here)
+	for step in reach + 1:
+		if step > 0:
+			var nxt: int = grid.step(here, int(ev["dir"]))
+			if nxt < 0 or not isl.is_land(nxt):
+				break
+			if not climb and isl.level[nxt] > isl.level[here]:
+				break
+			here = nxt
+		ev["path"].append(here)
+		reveals.append(here)
+		var stopper := -1
+		for bk in bunkers:
+			if grid.distance(bk.hex, here) <= bunker_range:
+				stopper = bk.hex
+				break
+		if stopper >= 0:
+			ev["stopped_by"] = stopper
+			reveals.append(stopper)
+			break
+		if def.building_at(here) != null:
+			var p: Dictionary = pending.get(here, {"damage": 0, "hits": 0.0})
+			p["destroy"] = true
+			pending[here] = p
+			ev["destroyed"].append(here)
+	events.append(ev)
 
 
 ## Motion sensor: from an empty hex, move to the nearest building within the
@@ -183,7 +248,9 @@ static func _apply_damage(m, defender: int, pending: Dictionary, events: Array) 
 		var destroyed := false
 		# Any hit on a building under repair cancels the repair.
 		b.repairing = false
-		if data.is_base_like(b.type):
+		if bool(p.get("destroy", false)):
+			destroyed = true   # overrun by a platoon
+		elif data.is_base_like(b.type):
 			var bdef: Dictionary = data.building(b.type)
 			b.hits += float(p["hits"])
 			if b.hits >= float(bdef["hits_to_destroy"]):

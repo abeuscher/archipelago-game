@@ -86,6 +86,7 @@ const NOTICE_MONEY := "Out of money. Build more banks."
 const NOTICE_FUEL := "Out of fuel. Build more refineries."
 const NOTICE_SILO := "Missile silo damaged. Repair during build phase."
 const NOTICE_NO_WEAPONS := "Player has no weapons to attack with."
+const NOTICE_TRANSPORT := "Transport lost. Replace it during the build phase."
 
 
 func _ready() -> void:

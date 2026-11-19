@@ -187,3 +187,26 @@ func test_strong_ai_keeps_adding_launchers() -> void:
 			m.resolve_playout()
 		if not m.is_over():
 			check(m.sides[1].count_role(d, "launcher") >= 3, "at least 3 launchers by round 10 (seed %d)" % seed_in)
+
+
+func test_strong_ai_drops_troops_on_a_known_base() -> void:
+	const StrongAI = preload("res://ai/strong_ai.gd")
+	var m = flat_match()
+	var d = m.data
+	var st = m.sides[1]
+	st.unlocked["airport"] = true
+	st.fuel = 30
+	st.money = 200
+	var port = put(m, 1, "airport", 3, 3)
+	var base_hex: int = m.sides[0].of_role(d, "base")[0].hex
+	m.record_sighting(1, base_hex)
+	m.begin_round()
+	m.end_build_phase()
+	var ai = StrongAI.new(1, d, 5)
+	var orders: Array = ai.choose_targets(m.view_for(1))
+	var drops: Array = orders.filter(func(o): return o["missile"] == "transport")
+	eq(drops.size(), 1, "one drop")
+	eq(int(drops[0]["launcher"]), port.hex, "from the airport")
+	eq(int(drops[0]["target"]), base_hex, "on the known base")
+	check(int(drops[0]["dir"]) >= 0 and int(drops[0]["dir"]) <= 5, "with a direction")
+	ok(m.set_launch_orders(1, orders), "orders are legal")

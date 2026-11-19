@@ -444,21 +444,26 @@ func remove_building(hex: int, data) -> void:
 
 # --- Launch checks ---------------------------------------------------------
 
-## orders: Array of {"launcher": hex, "missile": String, "target": hex}.
+## orders: Array of {"launcher": hex, "missile": String, "target": hex},
+## plus "dir" (an index into HexGrid.AXIAL_DIRS, the march direction) for a
+## transport. A launcher here is a missile launcher or an airport.
 ## `target_count` is the number of hexes in the opposing space.
 func validate_launches(orders: Array, data, target_count: int) -> String:
 	var used := {}
 	var total_fuel := 0
+	var total_money := 0
 	for o in orders:
 		var hex := int(o["launcher"])
 		var b = buildings.get(hex)
-		if b == null or data.role(b.type) != "launcher":
+		if b == null or not (data.role(b.type) in LAUNCH_ROLES):
 			return "No launcher there"
 		if used.has(hex):
 			return "Launcher already has an order"
 		used[hex] = true
 		if not weapon_active(b):
 			return "Launcher is out of action"
+		if b.carrier_lost:
+			return "Transport lost"
 		var m := String(o["missile"])
 		if not data.building(b.type)["missiles"].has(m):
 			return "That launcher cannot fire that missile"
@@ -467,9 +472,45 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 		var t := int(o["target"])
 		if t < 0 or t >= target_count:
 			return "Target off the map"
+		if data.missile(m).has("carries"):
+			var d := int(o.get("dir", -1))
+			if d < 0 or d > 5:
+				return "Choose a direction to march"
 		total_fuel += int(data.missile(m)["fuel"])
+		total_money += int(data.missile(m).get("money", 0))
 	if total_fuel > fuel:
 		return "Not enough fuel"
+	if total_money > money:
+		return "Not enough money"
+	return ""
+
+
+const LAUNCH_ROLES := ["launcher", "airport"]
+
+
+func launch_money(orders: Array, data) -> int:
+	var total := 0
+	for o in orders:
+		total += int(data.missile(String(o["missile"])).get("money", 0))
+	return total
+
+
+func can_replace_carrier(hex: int, data) -> String:
+	var b = buildings.get(hex)
+	if b == null or not b.carrier_lost:
+		return "No transport to replace"
+	if money < int(data.section("troops")["transport_replace_cost"]):
+		return "Not enough money"
+	return ""
+
+
+## Buys a new transport for an airport whose last one was shot down.
+func replace_carrier(hex: int, data) -> String:
+	var e := can_replace_carrier(hex, data)
+	if e != "":
+		return e
+	money -= int(data.section("troops")["transport_replace_cost"])
+	buildings[hex].carrier_lost = false
 	return ""
 
 

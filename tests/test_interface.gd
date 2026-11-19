@@ -252,7 +252,7 @@ func test_every_building_has_a_sprite_sheet() -> void:
 		if tex != null:
 			eq(tex.get_width(), int(meta["frame_width"]) * 6, "six frames wide: " + n)
 	for type in data().section("buildings"):
-		check(Pieces.SHEET_FOR.has(type), "sheet for building " + type)
+		check(Pieces.SHEET_FOR.has(type) or Pieces.ART_PENDING.has(type), "sheet for building " + type)
 
 
 func test_small_caps_caption() -> void:

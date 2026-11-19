@@ -55,11 +55,14 @@
       "lab",
       "bank",
       "radar",
+      "bunker",
       "basic_launcher",
       "anti_air",
       "bank",
       "refinery",
-      "basic_launcher"
+      "basic_launcher",
+      "airport",
+      "bunker"
     ],
     "build_order_plain": [
       "basic_launcher",
@@ -77,6 +80,8 @@
     "research_order": [
       "radar",
       "scouting_missile",
+      "airport",
+      "bunker",
       "motion_sensor",
       "anti_air_capacity"
     ],
@@ -150,7 +155,28 @@
     ],
     "fuel_reserve_rounds": 4,
     "skip_blocked_research": true,
-    "_note_growth": "After the build order, late_cycle repeats for as long as money allows. A refinery is skipped while stored fuel covers fuel_reserve_rounds rounds of firing every launcher. Another launcher is bought when fuel income plus a fuel_reserve_rounds share of the stored fuel pays for firing them all each round. With skip_blocked_research, an item waiting on research is passed over instead of holding the money."
+    "_note_growth": "After the build order, late_cycle repeats for as long as money allows. A refinery is skipped while stored fuel covers fuel_reserve_rounds rounds of firing every launcher. Another launcher is bought when fuel income plus a fuel_reserve_rounds share of the stored fuel pays for firing them all each round. With skip_blocked_research, an item waiting on research is passed over instead of holding the money.",
+    "troops": {
+      "_note": "How the strong AI uses troops. A drop goes ahead only if the value of what the march would overrun, divided by (1 + known anti-air covering the landing hex), reaches min_value. Values are per building type as the AI sees it; bunker_weights rank where to put bunkers.",
+      "min_value": 6.0,
+      "values": {
+        "suspected_base": 10.0,
+        "decoy": 0.0,
+        "basic_launcher": 4.0,
+        "ballistic_launcher": 4.0,
+        "airport": 4.0,
+        "anti_air": 3.0,
+        "radar": 2.0,
+        "default": 1.0
+      },
+      "bunker_weights": {
+        "base": 4.0,
+        "decoy": 0.5,
+        "launcher": 1.5,
+        "airport": 1.5,
+        "default": 0.5
+      }
+    }
   },
   "batch": {
     "default_matches": 200,

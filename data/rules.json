@@ -34,20 +34,30 @@
     "basic_launcher":     { "role": "launcher", "cost": 60, "hp": 50, "weapon": true, "missiles": ["basic", "scouting"] },
     "anti_air":           { "role": "anti_air", "cost": 40, "hp": 50, "weapon": true },
     "radar":              { "role": "radar",    "cost": 50, "hp": 30, "requires": "radar" },
-    "ballistic_launcher": { "role": "launcher", "cost": 90, "hp": 50, "weapon": true, "missiles": ["ballistic"], "requires": "ballistic_launcher" }
+    "ballistic_launcher": { "role": "launcher", "cost": 90, "hp": 50, "weapon": true, "missiles": ["ballistic"], "requires": "ballistic_launcher" },
+    "airport":            { "role": "airport",  "cost": 100, "hp": 60, "weapon": true, "missiles": ["transport"], "requires": "airport" },
+    "bunker":             { "role": "bunker",   "cost": 50, "hp": 80, "weapon": true, "requires": "bunker" }
   },
 
   "missiles": {
     "basic":     { "fuel": 3, "damage_min": 30, "damage_max": 50, "blast_radius": 0, "view_radius": 1, "base_hits": 1.0, "seeks_with": "motion_sensor" },
     "scouting":  { "fuel": 1, "damage_min": 0,  "damage_max": 0,  "blast_radius": -1, "view_radius": 2, "base_hits": 0.0, "requires": "scouting_missile" },
-    "ballistic": { "fuel": 5, "damage_min": 15, "damage_max": 25, "blast_radius": 1, "view_radius": 1, "base_hits": 0.5 }
+    "ballistic": { "fuel": 5, "damage_min": 15, "damage_max": 25, "blast_radius": 1, "view_radius": 1, "base_hits": 0.5 },
+    "transport": { "fuel": 6, "money": 40, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "carries": "platoon" }
+  },
+
+  "troops": {
+    "platoon_march": 2,
+    "platoon_can_climb": false,
+    "bunker_range": 2,
+    "transport_replace_cost": 40
   },
 
   "research": {
     "radar":              { "cost": 30, "points": 6,  "tab": "buildings" },
     "ballistic_launcher": { "cost": 60, "points": 14, "tab": "buildings" },
-    "airport":            { "cost": 80, "points": 18, "tab": "buildings", "available": false },
-    "bunker":             { "cost": 40, "points": 10, "tab": "buildings", "available": false },
+    "airport":            { "cost": 80, "points": 18, "tab": "buildings" },
+    "bunker":             { "cost": 40, "points": 10, "tab": "buildings" },
     "docks":              { "cost": 50, "points": 12, "tab": "buildings", "available": false },
     "coastal_cannon":     { "cost": 40, "points": 10, "tab": "buildings", "available": false },
     "scouting_missile":   { "cost": 20, "points": 4,  "tab": "upgrades" },

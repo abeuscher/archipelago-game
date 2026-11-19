@@ -40,6 +40,7 @@ var _msg = null                   ## message on screen, or null
 var _left: float = 0.0            ## seconds before an announcement closes itself
 var _portraits: Dictionary = {}   ## character id -> Texture2D
 var _speaker: String = ""
+var _face_tween: Tween
 
 var _spot: Control
 var _face: Control
@@ -243,14 +244,17 @@ func _show_msg() -> void:
 		_face.visible = true
 		_face.scale = Vector2(0.05, 0.05)
 		_box.visible = false
-		var t := _face.create_tween()
-		t.tween_property(_face, "scale", Vector2.ONE, POP_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_callback(_pop_bubble)
+		_kill_face_tween()
+		_face_tween = _face.create_tween()
+		_face_tween.tween_property(_face, "scale", Vector2.ONE, POP_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_face_tween.tween_callback(_pop_bubble)
 	else:
 		_pop_bubble()
 
 
 func _pop_bubble() -> void:
+	if _msg == null:
+		return   # closed while the character was still popping in
 	_layout()
 	_box.visible = true
 	_box.scale = Vector2(0.7, 0.7)
@@ -260,11 +264,18 @@ func _pop_bubble() -> void:
 	t.tween_property(_box, "modulate:a", 1.0, BUBBLE_POP_SECONDS)
 
 
+func _kill_face_tween() -> void:
+	if _face_tween != null and _face_tween.is_valid():
+		_face_tween.kill()
+
+
 func _hide_all() -> void:
 	_box.visible = false
 	_spot.visible = false
 	if _face.visible:
-		var t := _face.create_tween()
+		_kill_face_tween()
+		_face_tween = _face.create_tween()
+		var t := _face_tween
 		t.tween_property(_face, "scale", Vector2(0.05, 0.05), POP_SECONDS * 0.7).set_ease(Tween.EASE_IN)
 		t.tween_callback(func():
 			if _msg == null:

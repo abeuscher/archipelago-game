@@ -38,7 +38,7 @@ Controls:
 
 The screen follows section 14 of the spec:
 
-- **Left toolbar.** Buildings during build and repair. During targeting: the fuel planner, your launchers, Undo and Attack. The timer is at the bottom.
+- **Left toolbar.** Buildings during build and repair. During targeting: the fuel planner, your launchers and airports, Undo and Attack. To aim a troop drop, select the airport, click the landing hex, then a hex next to it for the direction of the march. The timer is at the bottom.
 - **Right strip.** A beaker for each research project, then a button for each base showing its hits left. Click a beaker to open the research panel. Click a base to jump to it.
 - **Research.** Select a lab and press "Research...", or click a beaker.
 - **Ginger.** Speaks tips and announcements (round starts, incoming attacks) from the left toolbar. A tip dims the screen around what it is about.

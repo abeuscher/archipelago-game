@@ -27,6 +27,70 @@ const TRAIL_LENGTH := 70.0
 
 var missiles: Array = []
 var flashes: Array = []
+var planes: Array = []
+var chutes: Array = []
+var squads: Array = []
+var _clock: float = 0.0
+
+
+class Aircraft extends RefCounted:
+	var ground: Vector2
+	var alt: float
+	var heading: float
+	var color: Color
+
+
+class Chute extends RefCounted:
+	var ground: Vector2
+	var alt: float
+	var color: Color
+	var phase: float
+
+
+class Squad extends RefCounted:
+	var ground: Vector2
+	var color: Color
+
+
+## Placeholder troop art until the sprites arrive (docs/troop_assets.md).
+func add_plane(ground: Vector2, alt: float, heading: float, color: Color) -> Aircraft:
+	var p := Aircraft.new()
+	p.ground = ground
+	p.alt = alt
+	p.heading = heading
+	p.color = color
+	planes.append(p)
+	return p
+
+
+func remove_plane(p) -> void:
+	planes.erase(p)
+
+
+func add_chute(ground: Vector2, alt: float, color: Color) -> Chute:
+	var c := Chute.new()
+	c.ground = ground
+	c.alt = alt
+	c.color = color
+	c.phase = randf() * TAU
+	chutes.append(c)
+	return c
+
+
+func remove_chute(c) -> void:
+	chutes.erase(c)
+
+
+func add_squad(ground: Vector2, color: Color) -> Squad:
+	var s := Squad.new()
+	s.ground = ground
+	s.color = color
+	squads.append(s)
+	return s
+
+
+func remove_squad(s) -> void:
+	squads.erase(s)
 
 
 func add_missile(ground: Vector2, alt: float, color: Color) -> Missile:
@@ -75,11 +139,15 @@ func _flash(kind: String, pos: Vector2, radius: float, color: Color, duration: f
 func clear() -> void:
 	missiles.clear()
 	flashes.clear()
+	planes.clear()
+	chutes.clear()
+	squads.clear()
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
-	if missiles.is_empty() and flashes.is_empty():
+	_clock += delta
+	if missiles.is_empty() and flashes.is_empty() and planes.is_empty() and chutes.is_empty() and squads.is_empty():
 		return
 	for f in flashes.duplicate():
 		f.t += delta
@@ -90,6 +158,12 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	for s in squads:
+		_draw_squad(s)
+	for c in chutes:
+		_draw_chute(c)
+	for p in planes:
+		_draw_plane(p)
 	for m in missiles:
 		if m.last_alt >= 0.0 and not is_equal_approx(m.alt, m.last_alt):
 			m.falling = m.alt < m.last_alt
@@ -131,6 +205,51 @@ func _draw() -> void:
 				draw_line(f.pos, f.to, col, 2.0)
 			"text":
 				draw_string(font, f.pos + Vector2(-40, -20 - 30 * k), f.text, HORIZONTAL_ALIGNMENT_CENTER, 80, 16, col)
+
+
+func _draw_plane(p) -> void:
+	draw_colored_polygon(_ellipse(p.ground, 20.0, 7.0), Color(0, 0, 0, 0.25))
+	var c: Vector2 = p.ground - Vector2(0, p.alt)
+	var shape := PackedVector2Array([Vector2(26, 0), Vector2(14, -4), Vector2(4, -4), Vector2(-2, -24), Vector2(-9, -24), Vector2(-6, -4),
+		Vector2(-18, -4), Vector2(-24, -11), Vector2(-28, -11), Vector2(-25, 0), Vector2(-28, 11), Vector2(-24, 11), Vector2(-18, 4),
+		Vector2(-6, 4), Vector2(-9, 24), Vector2(-2, 24), Vector2(4, 4), Vector2(14, 4)])
+	var pts := PackedVector2Array()
+	for v in shape:
+		pts.append(c + v.rotated(p.heading))
+	draw_colored_polygon(pts, p.color.darkened(0.25))
+	var closed := pts.duplicate()
+	closed.append(pts[0])
+	draw_polyline(closed, Color(0.1, 0.09, 0.08), 1.5, true)
+
+
+func _draw_chute(c) -> void:
+	var sway := sin(_clock * 3.0 + c.phase) * 4.0
+	var feet: Vector2 = c.ground - Vector2(0, c.alt)
+	var top := feet + Vector2(sway, -16)
+	if c.alt > 1.0:
+		var canopy := PackedVector2Array()
+		for k in 9:
+			var a := PI + PI * k / 8.0
+			canopy.append(top + Vector2(cos(a) * 9.0, sin(a) * 6.0))
+		draw_colored_polygon(canopy, Color(0.95, 0.95, 0.9))
+		draw_polyline(canopy, Color(0.2, 0.2, 0.2), 1.0, true)
+		draw_line(top + Vector2(-9, 0), feet + Vector2(0, -5), Color(0.2, 0.2, 0.2, 0.7), 1.0)
+		draw_line(top + Vector2(9, 0), feet + Vector2(0, -5), Color(0.2, 0.2, 0.2, 0.7), 1.0)
+	_soldier(feet, c.color)
+
+
+func _draw_squad(s) -> void:
+	for k in 8:
+		var off := Vector2(float(k % 4) * 7.0 - 10.5, float(k / 4) * 6.0 - 3.0)
+		var bob := sin(_clock * 10.0 + k) * 0.8
+		_soldier(s.ground + off + Vector2(0, bob), s.color)
+
+
+## A tiny soldier, feet at p.
+func _soldier(p: Vector2, col: Color) -> void:
+	draw_rect(Rect2(p + Vector2(-1.5, -6), Vector2(3, 6)), col.darkened(0.35))
+	draw_circle(p + Vector2(0, -7.5), 1.8, Color(0.95, 0.8, 0.65))
+	draw_rect(Rect2(p + Vector2(-1.5, -6), Vector2(3, 6)), Color(0.1, 0.1, 0.1, 0.6), false, 0.6)
 
 
 static func _ellipse(c: Vector2, rx: float, ry: float) -> PackedVector2Array:

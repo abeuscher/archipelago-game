@@ -171,6 +171,11 @@ func choose_build(view) -> Array:
 			if b.type == type and st.can_repair(b.hex, data) == "":
 				st.repair(b.hex, data)
 				actions.append({"action": "repair", "hex": b.hex})
+	# A transport shot down is replaced as soon as there is money for it.
+	for port in st.of_role(data, "airport"):
+		if st.can_replace_carrier(port.hex, data) == "":
+			st.replace_carrier(port.hex, data)
+			actions.append({"action": "replace_carrier", "hex": port.hex})
 	for lab in st.of_role(data, "lab"):
 		if st.project_for_lab(lab.id) != null:
 			continue
@@ -302,6 +307,21 @@ func _place_strong(st, type: String, view) -> int:
 					if g.distance(h, a.hex) <= r:
 						s += 3.0
 				return s + 0.1 * st.island.level[h])
+		"bunker":
+			# Where it covers the most of what matters, bases above all.
+			var reach := int(data.section("troops")["bunker_range"])
+			var w2: Dictionary = cfg["troops"]["bunker_weights"]
+			var bunkers: Array = st.of_role(data, "bunker")
+			return _choose(free, func(h):
+				var s: float = common.call(h)
+				for b in st.buildings.values():
+					if g.distance(h, b.hex) <= reach:
+						var covered := 0
+						for bk in bunkers:
+							if g.distance(bk.hex, b.hex) <= reach:
+								covered += 1
+						s += float(w2.get(data.role(b.type), w2["default"])) / (1.0 + covered)
+				return s)
 		"decoy":
 			var centre := _land_centre(st.island)
 			return _choose(free, func(h): return common.call(h) + 2.0 - 0.2 * g.distance(h, centre))
@@ -463,6 +483,23 @@ func choose_targets(view) -> Array:
 		wish.append_array(guard)
 		wish.append_array(weapon_list.filter(func(h): return not aa_known.has(h)))
 
+	# Troop drops first: they are the strongest single strike.
+	var money: int = st.money
+	for port in st.of_role(data, "airport"):
+		if not st.weapon_active(port) or port.carrier_lost:
+			continue
+		var t: Dictionary = data.missile("transport")
+		if int(t["fuel"]) > fuel or int(t.get("money", 0)) > money:
+			continue
+		var plan := _plan_drop(know, cover)
+		if plan.is_empty():
+			continue
+		orders.append({"launcher": port.hex, "missile": "transport", "target": plan["target"], "dir": plan["dir"]})
+		fuel -= int(t["fuel"])
+		money -= int(t.get("money", 0))
+		for h in plan["path"]:
+			while wish.has(h):
+				wish.erase(h)
 	for b in shots:
 		var target := -1
 		var missile := ""
@@ -499,6 +536,63 @@ func choose_targets(view) -> Array:
 		orders.append({"launcher": b.hex, "missile": missile, "target": target})
 		fuel -= cost
 	return orders
+
+
+## The best troop drop on what we know: every known building as a landing
+## hex, every direction, the march followed over known ground (unknown
+## hexes count as passable at the same height), stopping where a known
+## bunker would wipe it out. Scored by what it would overrun, discounted by
+## known anti-air over the landing hex. {} if nothing reaches min_value.
+func _plan_drop(know: Dictionary, cover: Callable) -> Dictionary:
+	var g := _enemy_grid
+	var tc: Dictionary = data.section("troops")
+	var ai_t: Dictionary = cfg["troops"]
+	var vals: Dictionary = ai_t["values"]
+	var reach := int(tc["platoon_march"])
+	var bunker_range := int(tc["bunker_range"])
+	var climb := bool(tc["platoon_can_climb"])
+	var bunkers: Array = []
+	for h in know:
+		var b = know[h].get("building")
+		if b != null and String(b["type"]) == "bunker" and (not b["disabled"] or b["repairing"]):
+			bunkers.append(h)
+	var guarded := func(h: int) -> bool:
+		for bk in bunkers:
+			if g.distance(bk, h) <= bunker_range:
+				return true
+		return false
+	var best := {}
+	var best_score := float(ai_t["min_value"])
+	for start in know:
+		var e: Dictionary = know[start]
+		if e.get("building") == null or not bool(e["land"]) or guarded.call(start):
+			continue
+		for dir in 6:
+			var path: Array = [start]
+			var here: int = start
+			for k in reach:
+				var n: int = g.step(here, dir)
+				if n < 0:
+					break
+				var en = know.get(n)
+				if en != null and not bool(en["land"]):
+					break
+				if en != null and not climb and int(en["level"]) > int(know[here]["level"] if know.has(here) else 0):
+					break
+				if guarded.call(n):
+					break
+				path.append(n)
+				here = n
+			var score := 0.0
+			for h in path:
+				var b = know.get(h, {}).get("building")
+				if b != null:
+					score += float(vals.get(String(b["type"]), vals["default"]))
+			score /= 1.0 + float(cover.call(start))
+			if score > best_score:
+				best_score = score
+				best = {"target": start, "dir": dir, "path": path}
+	return best
 
 
 ## For a missile with a wide blast: aim at the neighbour of `target` (or the

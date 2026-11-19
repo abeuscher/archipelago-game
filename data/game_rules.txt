@@ -22,6 +22,10 @@ A base falls at {base_hits} hits and a decoy at {decoy_hits}. A basic missile co
 [font_size=20][b]Anti-air and radar[/b][/font_size]
 Anti-air shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round ({aa_engagements_up} with research). It hits {acc}% of the time, or {acc_radar}% inside a radar's range. Radar reaches {radar_ranges} hexes from the base, middle and top level.
 
+[font_size=20][b]Troops[/b][/font_size]
+An airport (research it first) sends one air transport a round, for {transport_fuel} fuel and {transport_money} money. Aim it with two clicks: the landing hex, then a hex next to it for the direction of the march. Anti-air can shoot the transport down like a missile; a lost transport costs {transport_replace} money to replace, in the build and repair phase, before that airport can launch again.
+The platoon lands and marches {march} more hexes in a straight line, {march_total} in all, destroying whatever stands on each, a base included. Platoons can jump down a height step but can't climb one; the sea or the edge of the island ends the march, and a platoon that lands in the sea is lost. A bunker wipes out a platoon that lands or marches within {bunker_range} hexes of it. Every hex a platoon reaches is revealed.
+
 [font_size=20][b]Damage and repair[/b][/font_size]
 Buildings have hit points, and missile damage is rolled. A damaged weapon is out of action until it is repaired; other buildings work at half strength while damaged. A repair costs {repair_pct}% of the building's price and takes the building out of action for that round; it is back to full the round after. Bases and decoys can't be repaired.
 

@@ -67,6 +67,18 @@ func distance(a: int, b: int) -> int:
 	return (absi(d.x) + absi(d.x + d.y) + absi(d.y)) / 2
 
 
+## The hex one step from `index` in direction d (an index into
+## AXIAL_DIRS), or -1 off the space.
+func step(index: int, d: int) -> int:
+	return axial_to_index(_axial[index] + AXIAL_DIRS[posmod(d, 6)])
+
+
+## The direction (index into AXIAL_DIRS) from a to its neighbour b, or -1
+## if they aren't neighbours.
+func direction_to(a: int, b: int) -> int:
+	return AXIAL_DIRS.find(_axial[b] - _axial[a])
+
+
 func neighbors(index: int) -> PackedInt32Array:
 	return _neighbors[index]
 

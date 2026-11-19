@@ -59,6 +59,7 @@ var setup_trial                     ## SideState copy used to preview setup
 var setup_history: Array = []       ## hexes placed during setup, oldest first, for Undo
 var orders: Array = []
 var active_launcher: int = -1
+var pending_drop: Dictionary = {}   ## transport aimed but no direction yet: {"launcher", "target"}
 var missile_choice: Dictionary = {} ## launcher hex -> missile type
 var selected: Vector2i = Vector2i(-1, -1)   ## (side, hex)
 var hovered: Vector2i = Vector2i(-1, -1)
@@ -238,6 +239,7 @@ func _end_build() -> void:
 	tool = ""
 	orders = []
 	missile_choice = {}
+	pending_drop = {}
 	selected = Vector2i(-1, -1)
 	active_launcher = _next_free_launcher()
 	_fly_to(1)
@@ -459,11 +461,13 @@ func _click(side: int, hex: int) -> void:
 				_target_click(hex)
 			else:
 				var b = m.sides[0].building_at(hex)
-				if b != null and data.role(b.type) == "launcher":
-					if m.sides[0].weapon_active(b):
-						active_launcher = b.hex
-					else:
+				if b != null and data.role(b.type) in SideLaunchRoles:
+					if not m.sides[0].weapon_active(b):
 						hud.show_notice(Hud.NOTICE_SILO)
+					elif b.carrier_lost:
+						hud.show_notice(Hud.NOTICE_TRANSPORT)
+					else:
+						active_launcher = b.hex
 				selected = Vector2i(side, hex)
 		_:
 			selected = Vector2i(side, hex)
@@ -480,6 +484,8 @@ func _rules_error(e: String) -> void:
 			hud.show_notice(Hud.NOTICE_FUEL)
 		"Launcher is out of action":
 			hud.show_notice(Hud.NOTICE_SILO)
+		"Transport lost":
+			hud.show_notice(Hud.NOTICE_TRANSPORT)
 		_:
 			hud.add_log("[color=salmon]%s[/color]" % e)
 
@@ -531,17 +537,34 @@ func _target_click(hex: int) -> void:
 	if active_launcher < 0:
 		hud.add_log("No launcher free. Undo an order or end with Attack.")
 		return
+	var mt := _missile_for(active_launcher)
+	var order := {"launcher": active_launcher, "missile": mt, "target": hex}
+	if data.missile(mt).has("carries"):
+		# Two clicks: the landing hex, then a neighbouring hex for the march.
+		var g = m.sides[1].island.grid
+		if pending_drop.is_empty() or int(pending_drop["launcher"]) != active_launcher:
+			pending_drop = {"launcher": active_launcher, "target": hex}
+			hud.add_log("Now click a hex next to the landing point to choose which way the platoon marches.")
+			return
+		var dir: int = g.direction_to(int(pending_drop["target"]), hex)
+		if dir < 0:
+			pending_drop["target"] = hex   # a new landing point
+			return
+		order["target"] = int(pending_drop["target"])
+		order["dir"] = dir
 	var new_orders := orders.filter(func(o): return o["launcher"] != active_launcher)
-	new_orders.append({"launcher": active_launcher, "missile": _missile_for(active_launcher), "target": hex})
+	new_orders.append(order)
 	var e: String = m.set_launch_orders(MatchState.PLAYER, new_orders)
 	if e != "":
 		_rules_error(e)
 		return
 	orders = new_orders
+	pending_drop = {}
 	active_launcher = _next_free_launcher()
 
 
 func _undo() -> void:
+	pending_drop = {}
 	if orders.is_empty():
 		return
 	var last: Dictionary = orders.pop_back()
@@ -583,10 +606,18 @@ func _next_free_launcher() -> int:
 	var used := {}
 	for o in orders:
 		used[o["launcher"]] = true
-	for b in m.sides[0].of_role(data, "launcher"):
-		if m.sides[0].weapon_active(b) and not used.has(b.hex):
+	for b in _attackers(m.sides[0]):
+		if m.sides[0].weapon_active(b) and not b.carrier_lost and not used.has(b.hex):
 			return b.hex
 	return -1
+
+
+const SideLaunchRoles := ["launcher", "airport"]
+
+
+## Everything that can attack: missile launchers, then airports.
+func _attackers(st) -> Array:
+	return st.of_role(data, "launcher") + st.of_role(data, "airport")
 
 
 func _fuel_planned() -> int:
@@ -612,8 +643,14 @@ func _refresh() -> void:
 	if ui == Ui.TARGETING and active_launcher >= 0:
 		own_board.selected = active_launcher
 	enemy_board.markers = {}
+	enemy_board.drops = []
 	for o in orders:
-		enemy_board.markers[o["target"]] = Color(1, 0.25, 0.2)
+		if o.has("dir"):
+			enemy_board.drops.append({"target": int(o["target"]), "dir": int(o["dir"])})
+		else:
+			enemy_board.markers[o["target"]] = Color(1, 0.25, 0.2)
+	if not pending_drop.is_empty():
+		enemy_board.drops.append({"target": int(pending_drop["target"]), "dir": -1})
 	_update_placement_hints(own_state)
 	_update_ranges(own_state)
 	hud.minimap.queue_redraw()
@@ -687,6 +724,8 @@ func _update_ranges(st) -> void:
 		"radar":
 			if not st.out_for_repair(b, data):
 				own_board.range_rings = [{"hexes": g.within(b.hex, st.radar_range(b, data)), "color": Color(0.8, 0.5, 1.0, 0.7)}]
+		"bunker":
+			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("troops")["bunker_range"])), "color": Color(0.85, 0.85, 0.75, 0.7)}]
 
 
 func _building_tooltip(type: String) -> String:
@@ -754,7 +793,7 @@ func _build_toolbar(st) -> void:
 		Ui.TARGETING:
 			hud.add_fuel_planner(st.fuel, _fuel_planned())
 			hud.add_label("Weapons")
-			var launchers: Array = st.of_role(data, "launcher")
+			var launchers: Array = _attackers(st)
 			if launchers.is_empty():
 				hud.add_label("No launchers. Build one in the build and repair phase.", true)
 			for b in launchers:
@@ -764,15 +803,28 @@ func _build_toolbar(st) -> void:
 					hud.add_piece_button(b.type, name, "", "Under repair" if b.repairing else "Out of action",
 						func(): hud.show_notice(Hud.NOTICE_SILO), false, false, "Repair it in the build and repair phase.", true)
 					continue
+				if b.carrier_lost:
+					hud.add_piece_button(b.type, name, "", "Transport lost",
+						func(): hud.show_notice(Hud.NOTICE_TRANSPORT), false, false, "Replace the transport in the build and repair phase.", true)
+					continue
 				var mt := _missile_for(b.hex)
 				var aimed := false
 				for o in orders:
 					if o["launcher"] == b.hex:
 						aimed = true
-				var note: String = Pieces.MISSILE_NAMES.get(mt, mt) + ("  · aimed" if aimed else "")
-				hud.add_piece_button(b.type, name, "%d fuel" % int(data.missile(mt)["fuel"]), note,
+				var mdef: Dictionary = data.missile(mt)
+				var troop := mdef.has("carries")
+				var note: String = Pieces.MISSILE_NAMES.get(mt, mt)
+				if troop:
+					note += ", %d money" % int(mdef.get("money", 0))
+				if aimed:
+					note += "  · aimed"
+				elif troop and int(pending_drop.get("launcher", -1)) == b.hex:
+					note += "  · pick direction"
+				hud.add_piece_button(b.type, name, "%d fuel" % int(mdef["fuel"]), note,
 					func(): active_launcher = hx; _refresh(), false, active_launcher == b.hex,
-					"Select this launcher, then click an enemy hex to aim it.")
+					"Select it, click the landing hex, then a hex next to it for the march direction." if troop
+					else "Select this launcher, then click an enemy hex to aim it.")
 				var options: Array = data.building(b.type)["missiles"].filter(func(x): return st.missile_unlocked(x, data))
 				if options.size() > 1:
 					hud.add_tool_button("Switch missile", func(): _cycle_missile(hx), false, false,
@@ -1055,6 +1107,13 @@ func _building_detail_lines(st, b) -> Array:
 				if st.missile_unlocked(mt, data):
 					names.append(Pieces.MISSILE_NAMES.get(mt, mt))
 			out.append("Fires: %s" % ", ".join(names))
+		"airport":
+			var t: Dictionary = data.missile("transport")
+			out.append("One air transport a round: %d fuel, %d money" % [int(t["fuel"]), int(t.get("money", 0))])
+			if b.carrier_lost:
+				out.append("[color=salmon]Transport lost: replace it to launch again[/color]")
+		"bunker":
+			out.append("Wipes out platoons within %d hexes" % int(data.section("troops")["bunker_range"]))
 		"lab":
 			var p = st.project_for_lab(b.id)
 			var oldest = st.oldest_project()
@@ -1084,6 +1143,17 @@ func _info_actions_for(st, b) -> void:
 			_refresh()
 		var err: String = st.can_repair(b.hex, data)
 		hud.add_info_action("Repair (%d)" % cost, do_repair, err != "", err)
+	if b.carrier_lost:
+		var hx2: int = b.hex
+		var cost2 := int(data.section("troops")["transport_replace_cost"])
+		var err2: String = st.can_replace_carrier(b.hex, data)
+		hud.add_info_action("Replace transport (%d)" % cost2, func():
+			var e: String = m.build_action(MatchState.PLAYER, {"action": "replace_carrier", "hex": hx2})
+			if e != "":
+				_rules_error(e)
+			else:
+				hud.add_log("New transport ready.")
+			_refresh(), err2 != "", err2)
 	if data.role(b.type) == "lab":
 		# Only a lab without a project of its own can start one.
 		var lab_id: int = b.id
@@ -1145,6 +1215,7 @@ func _run_playout() -> void:
 	own_board.set_tiles(pre_own)
 	enemy_board.set_tiles(pre_enemy)
 	enemy_board.markers = {}
+	enemy_board.drops = []
 	var events: Array = m.resolve_playout()
 	# What our strikes will have revealed, applied hex by hex as they land.
 	var post_enemy: Array = _enemy_tiles()
@@ -1171,6 +1242,8 @@ func _run_playout() -> void:
 		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
 		var key := "incoming_one" if n == 1 else "incoming_many"
+		if launches[1].any(func(e): return data.missile(String(e["missile"])).has("carries")):
+			key = "incoming_troops"
 		var incoming := _line_text(key).format({"n": n})
 		hud.set_alarm(true)
 		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
@@ -1179,25 +1252,31 @@ func _run_playout() -> void:
 		while hud.announcing():
 			await get_tree().process_frame
 		await _wait(0.25)
+		var longest := 0.0
 		for k in launches[1].size():
-			_strike(own_board, m.sides[0].island, by_id[launches[1][k]["id"]], int(launches[1][k]["target"]), Color(1, 0.4, 0.4), k * 0.35)
-		await _wait(1.4 + launches[1].size() * 0.35)
+			longest = maxf(longest, _land(own_board, m.sides[0].island, launches[1][k], by_id, Color(1, 0.4, 0.4), k * 0.35, []))
+		await _wait(longest)
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
+			_log_event(ev)
+		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost"]:
 			_log_event(ev)
 
 	# Our strikes land on the enemy island.
 	if not launches[0].is_empty():
 		_fly_to(1, 0.6)
 		await _wait(0.7)
+		var longest := 0.0
 		for k in launches[0].size():
-			_strike(enemy_board, null, by_id[launches[0][k]["id"]], int(launches[0][k]["target"]), Color(1, 0.9, 0.5), k * 0.35, post_enemy)
-		await _wait(1.4 + launches[0].size() * 0.35)
+			longest = maxf(longest, _land(enemy_board, null, launches[0][k], by_id, Color(1, 0.9, 0.5), k * 0.35, post_enemy))
+		await _wait(longest)
 	enemy_board.set_tiles(_enemy_tiles())
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
+			_log_event(ev)
+		elif ev.get("side", -1) == 0 and ev["type"] in ["platoon", "carrier_lost"]:
 			_log_event(ev)
 		elif ev["type"] in ["game_over", "coin_flip_needed"]:
 			_log_event(ev)
@@ -1230,6 +1309,98 @@ func _rise(board, hex: int, color: Color, delay: float, offset: Vector2 = Vector
 	t.tween_property(ms, "alt", 700.0, 0.8).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	await t.finished
 	effects.remove_missile(ms)
+
+
+## Plays one launch arriving: a missile strike, or a transport drop. Starts
+## it and returns how long it will take, so the caller can wait for all.
+func _land(board, isl, launch: Dictionary, by_id: Dictionary, color: Color, delay: float, reveal_tiles: Array) -> float:
+	var info: Dictionary = by_id.get(launch["id"], {})
+	if data.missile(String(launch["missile"])).has("carries"):
+		_drop(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
+		var path: Array = info.get("platoon", {}).get("path", [])
+		return delay + DROP_SECONDS + MARCH_SECONDS * path.size() + 0.6
+	_strike(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
+	return delay + 1.4
+
+
+const DROP_SECONDS := 2.2      ## transport flying in and the parachutes coming down
+const MARCH_SECONDS := 0.45    ## a platoon moving one hex
+
+
+## A transport flies in from the attacker's side, may be shot down, drops
+## its platoon by parachute, then the platoon marches along its path:
+## buildings it overruns explode, and a bunker in range wipes it out.
+func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float, reveal_tiles: Array = []) -> void:
+	await _wait(delay)
+	var ground: Vector2 = board.position + board.tile_center(target)
+	var from := Vector2(0, 1) if board == enemy_board else Vector2(0, -1)   # the attacker's island side
+	var alt := 150.0
+	var plane = effects.add_plane(ground + from * 650.0, alt, (-from).angle(), color)
+	var t := create_tween()
+	t.tween_property(plane, "ground", ground, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await t.finished
+	if info.has("engage"):
+		var eng: Dictionary = info["engage"]
+		var src: Vector2 = board.position + board.tile_center(int(eng["anti_air"])) - Vector2(0, 20) if isl != null else ground + Vector2(-60, 30)
+		effects.tracer(src, ground - Vector2(0, alt))
+		await _wait(0.15)
+		if eng["hit"]:
+			effects.burst(ground - Vector2(0, alt))
+			effects.explosion(ground - Vector2(0, alt), 26.0, Color(1.0, 0.55, 0.15))
+			effects.remove_plane(plane)
+			return
+	# Eight parachutes, while the plane flies on and away.
+	var chutes: Array = []
+	for k in 8:
+		var off := Vector2(float(k % 4) * 9.0 - 13.5, float(k / 4) * 6.0 - 3.0)
+		chutes.append(effects.add_chute(ground + off, alt - 10.0 - k * 3.0, color))
+	var away := create_tween()
+	away.tween_property(plane, "ground", ground - from * 650.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	away.tween_callback(func(): effects.remove_plane(plane))
+	var fall := create_tween().set_parallel(true)
+	for c in chutes:
+		fall.tween_property(c, "alt", 0.0, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await fall.finished
+	for c in chutes:
+		effects.remove_chute(c)
+	var p: Dictionary = info.get("platoon", {})
+	if p.is_empty():
+		return
+	if bool(p["lost_at_sea"]):
+		effects.explosion(ground, 18.0, Color(0.6, 0.85, 1.0))
+		effects.float_text(ground, "Lost at sea", Color(0.8, 0.9, 1.0))
+		return
+	var squad = effects.add_squad(ground, color)
+	var path: Array = p["path"]
+	for i in path.size():
+		var h: int = int(path[i])
+		var pos: Vector2 = board.position + board.tile_center(h)
+		if i > 0:
+			var mv := create_tween()
+			mv.tween_property(squad, "ground", pos, MARCH_SECONDS)
+			await mv.finished
+		if not reveal_tiles.is_empty():
+			board.tiles[h] = reveal_tiles[h]
+		else:
+			board.tiles[h]["enemy_seen"] = true
+		board.queue_redraw()
+		if i == path.size() - 1 and int(p["stopped_by"]) >= 0:
+			var bk := int(p["stopped_by"])
+			if not reveal_tiles.is_empty():
+				board.tiles[bk] = reveal_tiles[bk]
+			effects.tracer(board.position + board.tile_center(bk) - Vector2(0, 14), pos - Vector2(0, 6))
+			await _wait(0.12)
+			effects.burst(pos - Vector2(0, 6))
+			effects.float_text(pos, "Wiped out", Color(1, 1, 1))
+			effects.remove_squad(squad)
+			return
+		if p["destroyed"].has(h):
+			effects.explosion(pos, 32.0, Color(1.0, 0.55, 0.15))
+			if reveal_tiles.is_empty() and board.tiles[h].get("building") != null:
+				board.tiles[h]["destroyed"] = String(board.tiles[h]["building"]["type"])
+				board.tiles[h]["building"] = null
+	await _wait(0.3)
+	effects.remove_squad(squad)
 
 
 ## One incoming missile: falls toward its aimed hex, may be engaged by
@@ -1322,6 +1493,18 @@ func _log_event(ev: Dictionary) -> void:
 			hud.add_log(("Our %s was damaged." if mine else "Enemy %s damaged.") % Pieces.display_name(String(ev["building"])))
 		"decoy_revealed":
 			hud.add_log("Our decoy has been exposed." if mine else "[color=lightgreen]That base was a decoy.[/color]")
+		"platoon":
+			var n_kill: int = ev["destroyed"].size()
+			if bool(ev["lost_at_sea"]):
+				hud.add_log("Our platoon was lost at sea." if mine else "An enemy platoon was lost at sea.")
+			elif int(ev["stopped_by"]) >= 0:
+				hud.add_log(("Our platoon was wiped out by a bunker" if mine else "[color=lightgreen]Our bunker wiped out an enemy platoon") +
+					(" after destroying %d." % n_kill if n_kill > 0 else ".") + ("" if mine else "[/color]"))
+			else:
+				hud.add_log(("[color=lightgreen]Our platoon destroyed %d building%s.[/color]" if mine else "[color=salmon]An enemy platoon destroyed %d building%s.[/color]")
+					% [n_kill, "" if n_kill == 1 else "s"])
+		"carrier_lost":
+			hud.add_log("[color=salmon]Our transport was shot down.[/color]" if mine else "[color=lightgreen]Enemy transport shot down.[/color]")
 		"coin_flip_needed":
 			hud.add_log("Both sides lost their last base. Money is equal: coin flip.")
 		"coin_flip":

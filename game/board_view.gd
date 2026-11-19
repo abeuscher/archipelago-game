@@ -16,6 +16,7 @@ var iso: Iso
 var hover: int = -1
 var selected: int = -1
 var markers: Dictionary = {}      ## hex -> Color, e.g. planned targets
+var drops: Array = []             ## planned troop drops: {"target", "dir" (-1 while still choosing)}
 var range_rings: Array = []       ## [{"hexes": PackedInt32Array, "color": Color}]
 var placement_ok: Dictionary = {} ## hex -> true where the current tool may place
 var show_hits: bool = false       ## draw hit counts on suspected bases
@@ -168,6 +169,8 @@ func _draw() -> void:
 
 	if _has_fog:
 		_draw_fog_overlay()
+	for dr in drops:
+		_draw_drop(int(dr["target"]), int(dr["dir"]))
 	for h in markers:
 		var t3: Dictionary = tiles[h]
 		var mc := iso.top_center(h, _lvl(t3), _land(t3))
@@ -196,6 +199,38 @@ func _draw_land_edges(i: int, top: PackedVector2Array, lvl: int) -> void:
 func edge_neighbor(i: int, k: int) -> int:
 	var d: Vector2i = DIRS_BY_ANGLE[posmod(1 + k - iso.rotation_step, 6)]
 	return iso.grid.axial_to_index(iso.grid.axial_of(i) + d)
+
+
+const DROP_COLOR := Color(0.80, 0.55, 1.0)
+
+
+## A planned troop drop: a ring on the landing hex and an arrow along the
+## march (three hexes). With no direction yet, a dashed ring only.
+func _draw_drop(target: int, dir: int) -> void:
+	var t: Dictionary = tiles[target]
+	var c := iso.top_center(target, _lvl(t), _land(t))
+	draw_arc(c, 13.0, 0, TAU, 24, DROP_COLOR, 2.5, true)
+	draw_circle(c, 4.0, DROP_COLOR)
+	if dir < 0:
+		for k in 8:
+			var a := TAU * k / 8.0
+			draw_line(c + Vector2(cos(a), sin(a) * Iso.SQUASH) * 18.0, c + Vector2(cos(a), sin(a) * Iso.SQUASH) * 24.0, DROP_COLOR, 2.0, true)
+		return
+	var pts := PackedVector2Array([c])
+	var h := target
+	for k in 2:
+		var n: int = iso.grid.step(h, dir)
+		if n < 0:
+			break
+		h = n
+		var tn: Dictionary = tiles[h]
+		pts.append(iso.top_center(h, _lvl(tn), _land(tn)))
+	draw_polyline(pts, DROP_COLOR, 3.0, true)
+	if pts.size() >= 2:
+		var tip := pts[pts.size() - 1]
+		var back := (pts[pts.size() - 2] - tip).normalized()
+		var side := back.orthogonal()
+		draw_colored_polygon(PackedVector2Array([tip - back * 4.0, tip + back * 12.0 + side * 7.0, tip + back * 12.0 - side * 7.0]), DROP_COLOR)
 
 
 ## A known sea hex next to known land is drawn as shallow water.
