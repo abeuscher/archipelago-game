@@ -38,6 +38,40 @@ REPORT_WHEN = "Battle summary, after the opening line. Only the lines for what h
 NUMBERED = {"{n}": "n", "{money}": "money", "{fuel}": "fuel", "{research}": "research"}   # gap labels
 
 
+# Who says numbers that change during play, and which number clips they need.
+NUMBER_CLIPS = {
+    "admiral": {"from": 1, "to": 100,
+                "note": "The battle summary counts missiles, buildings and soldiers (soldiers go up in eights). "
+                        "Past 100 the summary shows the number in the text only."},
+    "ginger": {"from": 1, "to": 100,
+               "note": "Her warning counts incoming missiles. Past 100 it shows in the text only."},
+    "pilot": {"from": 0, "to": 99, "hundreds": True,
+              "note": "The income report. A number over 99 is said as its hundreds clip then the rest: "
+                      "345 is `pilot_n300` + `pilot_n045` (\"three hundred\" + \"forty-five\"); 300 is just `pilot_n300`."},
+}
+
+ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
+TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+
+
+def words_for(v):
+    if v < 20:
+        return ONES[v]
+    if v < 100:
+        return TENS[v // 10] + ("" if v % 10 == 0 else "-" + ONES[v % 10])
+    if v % 100 == 0 and v < 1000:
+        return ONES[v // 100] + " hundred"
+    return str(v)
+
+
+def number_list(rng):
+    nums = list(range(rng["from"], rng["to"] + 1))
+    if rng.get("hundreds"):
+        nums += [h * 100 for h in range(1, 10)]
+    return nums
+
+
 def load(path):
     with open(os.path.join(ROOT, path), encoding="utf-8") as f:
         return json.load(f)
@@ -103,47 +137,75 @@ def main():
            "`[character]_[3 digits]`, e.g. `admiral_001.ogg`.", "",
            "- Numbers that come from the rules (seconds, percentages) are filled in as the game says them today. "
            "If a rule changes, that line needs re-recording.",
-           "- **[n]** marks a number that changes during play. See *Numbers* at the end.",
+           "- **[n]** marks a number that changes during play. The game plays that speaker's number clip there "
+           "(see *Numbers* in each speaker's section). Where a number falls in the middle of a line, the line is "
+           "split into pieces recorded separately: `pilot_006a`, `pilot_006b`, and so on.",
            "- Made by `music_src/make_voice_parts.py` from `data/dialogue.json`. Clip numbers are kept in "
            "`voice_ids.json`, so a line keeps its name when lines are added.", ""]
+    sections = []
     counts = []
     for who in ORDER + sorted(set(by_who) - set(ORDER)):
         if who not in by_who:
             continue
-        counts.append("%s %d" % (who.capitalize(), len(by_who[who])))
-    out.append("Clips: " + ", ".join(counts) + ".")
-    out.append("")
-    for who in ORDER + sorted(set(by_who) - set(ORDER)):
-        if who not in by_who:
-            continue
-        out.append("---")
-        out.append("")
-        out.append("## %s" % who.upper())
-        out.append("")
+        body = []
+        n_clips = 0
         last_when = None
         for clip, key, text, when in by_who[who]:
             said = re.sub(r"\{(\w+)\}", lambda m: values.get(m.group(1), "{%s}" % m.group(1)), text)
-            for ph in NUMBERED:
-                said = said.replace(ph, "**[%s]**" % NUMBERED[ph])
             if when != last_when:
-                out.append("*%s*" % when)
-                out.append("")
+                body.append("*%s*" % when)
+                body.append("")
                 last_when = when
-            out.append("**%s**  %s" % (clip, said))
-            out.append("")
-    out += ["---", "", "## Numbers", "",
-            "Some lines say a number that changes during play. Three ways to handle them, line by line:", "",
-            "1. **Record each number as its own clip** for that speaker and play them in the gap: "
-            "e.g. `admiral_n02` ... `admiral_n20` for *two* to *twenty* (the battle summary says up to twenty "
-            "in words). Ginger's missile count needs the same, roughly two to ten.",
-            "2. **Record a version without the number**: e.g. \"General, several enemy missiles incoming!\" "
-            "and keep the number on screen only.",
-            "3. **Leave that line as text only** and voice the rest.", "",
-            "The Pilot's income report (money, fuel, research) has numbers into the hundreds, so option 2 or 3 "
-            "suits it best; we can reword it when you get there.", ""]
+            pieces = re.split(r"(\{\w+\})", said)
+            gaps = [p for p in pieces if p in NUMBERED]
+            words = [p.strip() for p in pieces if p not in NUMBERED]
+            inner = [w for w in words[1:-1]] if len(words) > 2 else []
+            if not gaps:
+                body.append("**%s**  %s" % (clip, said))
+                n_clips += 1
+            elif len(gaps) == 1 and (words[0] == "" or words[-1] == ""):
+                # The number at the start or end: one clip for the rest.
+                shown = said.replace(gaps[0], "**[%s]**" % NUMBERED[gaps[0]])
+                body.append("**%s**  %s" % (clip, shown))
+                body.append("")
+                body.append("> Record without the number: \"%s\"" % " ".join(w for w in words if w))
+                n_clips += 1
+            else:
+                # Numbers in the middle: a piece for each run of words.
+                shown = said
+                for g in gaps:
+                    shown = shown.replace(g, "**[%s]**" % NUMBERED[g], 1)
+                body.append("%s  (in pieces)" % shown)
+                body.append("")
+                letter = 0
+                for k, p in enumerate(pieces):
+                    if p in NUMBERED:
+                        body.append("> *(%s number)*" % NUMBERED[p])
+                    elif p.strip() != "":
+                        body.append("> **%s%s**  %s" % (clip, "abcdefghij"[letter], p.strip()))
+                        letter += 1
+                        n_clips += 1
+                    body.append(">")
+                body.pop()
+            body.append("")
+        rng = NUMBER_CLIPS.get(who)
+        if rng is not None:
+            nums = number_list(rng)
+            body += ["### Numbers", "",
+                     "One clip per number, said on its own in the voice of the lines above, "
+                     "named for its value: `%s_n024` says \"twenty-four\". %s" % (who, rng["note"]), ""]
+            for v in nums:
+                body.append("**%s_n%03d**  %s" % (who, v, words_for(v)))
+                body.append("")
+            n_clips += len(nums)
+        counts.append("%s %d" % (who.capitalize(), n_clips))
+        sections += ["---", "", "## %s" % who.upper(), ""] + body
+    out.append("Clips: " + ", ".join(counts) + ".")
+    out.append("")
+    out += sections
     with open(OUT_PATH, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out))
-    print("wrote", OUT_PATH, "with", sum(len(v) for v in by_who.values()), "clips")
+    print("wrote", OUT_PATH, "-", ", ".join(counts))
 
 
 if __name__ == "__main__":
