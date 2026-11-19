@@ -32,6 +32,7 @@ signal announcement_dismissed(id: String, forever: bool)
 var slot: Control                 ## the portrait space in the toolbar
 var _laid_out_for: Rect2 = Rect2()   ## the portrait space as it was when last laid out
 var anchor_rect: Callable         ## anchor name -> Rect2 on screen (empty if not shown)
+var speak: Callable               ## line ("tip:<id>", or "" to stop) -> plays its recording, if any
 var characters: Dictionary = {}
 var default_character: String = ""
 
@@ -248,6 +249,8 @@ func _show_msg() -> void:
 	_spot.mouse_filter = Control.MOUSE_FILTER_STOP if pause else Control.MOUSE_FILTER_IGNORE
 	_spot.queue_redraw()
 	_layout()
+	if speak.is_valid():
+		speak.call("tip:" + String(tip["id"]) if is_tip else String(_msg.get("voice", "")))
 	var pop_face := not _face.visible or who != _speaker
 	_speaker = who
 	_face.queue_redraw()
@@ -281,6 +284,8 @@ func _kill_face_tween() -> void:
 
 
 func _hide_all() -> void:
+	if speak.is_valid():
+		speak.call("")   # closed before the line finished
 	_box.visible = false
 	_spot.visible = false
 	if _face.visible:

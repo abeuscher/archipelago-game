@@ -8,6 +8,7 @@
 extends Node
 
 const SOUNDS_PATH := "res://data/sounds.json"
+const VOICE_PATH := "res://data/voice.json"
 const MUSIC_FADE := 0.8
 const AMBIENT_GLIDE := 3.0   ## how quickly ambient volumes follow the zoom, per second
 const SILENT_DB := -60.0
@@ -25,6 +26,9 @@ var _call_player: AudioStreamPlayer
 var _call_wait := 0.0
 var _ambient_fade := 0.0          # 0..1, eases the ambience in when it starts
 
+var voice: Dictionary = {}        # data/voice.json: spoken line -> recording
+var _voice: AudioStreamPlayer     # the line being spoken
+
 var _theme: AudioStreamPlayer     # the main theme (sounds.json "theme")
 var _theme_wanted := false        # the game is in a phase that has it
 var _theme_level := 0.0           # 0..1, how far faded in
@@ -35,6 +39,10 @@ var _theme_timer := 0.0           # seconds left of this play or rest
 func _ready() -> void:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SOUNDS_PATH))
 	sounds = parsed if parsed is Dictionary else {}
+	parsed = JSON.parse_string(FileAccess.get_file_as_string(VOICE_PATH)) if FileAccess.file_exists(VOICE_PATH) else null
+	voice = parsed if parsed is Dictionary else {}
+	_voice = AudioStreamPlayer.new()
+	add_child(_voice)
 	_music = AudioStreamPlayer.new()
 	_music.volume_db = -6.0
 	add_child(_music)
@@ -102,6 +110,20 @@ func play(path: String, volume_db: float = 0.0) -> void:
 	p.volume_db = volume_db + float(sounds.get("effects_db", 0.0))   # the effects' overall level
 	p.stream_paused = false
 	p.play()
+
+
+## Speaks a line ("tip:place_bases") if it has a recording, cutting off any
+## line still being spoken; "" just stops speaking.
+func speak(line: String) -> void:
+	_voice.stop()
+	var stream := _load(String(voice.get("lines", {}).get(line, ""))) if line != "" else null
+	if stream == null:
+		return
+	if stream is AudioStreamOggVorbis:
+		stream.loop = false
+	_voice.stream = stream
+	_voice.volume_db = float(voice.get("volume_db", 0.0))
+	_voice.play()
 
 
 ## The main volume, 0 (silent) to 1 (full), on the master bus.

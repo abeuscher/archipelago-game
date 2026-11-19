@@ -121,6 +121,7 @@ func _ready() -> void:
 
 	hud = Hud.new()
 	add_child(hud)
+	hud.announcer.speak = audio.speak   # tips play their recorded line, if there is one
 	hud.minimap.setup(own_board, enemy_board, ocean, camera)
 	# The comms slider is the main volume, kept with the settings.
 	Audio.set_master_volume(float(prefs["volume"]))
