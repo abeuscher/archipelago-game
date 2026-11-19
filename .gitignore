@@ -4,3 +4,7 @@
 batch_results/
 /exports/
 export_presets.cfg
+
+# Editor settings and raw sound sources (copies used by the game are in assets/audio)
+.vscode/
+music_src/sound_fx/
