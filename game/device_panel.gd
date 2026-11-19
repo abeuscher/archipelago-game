@@ -96,6 +96,7 @@ static func title_plate() -> Array:
 	plate.add_child(col)
 	var round_l := _label("", 13)
 	round_l.add_theme_color_override("font_color", PLATE_INK.lightened(0.3))
+	round_l.visible = false   # unused for now; shown, it would push the title down
 	col.add_child(round_l)
 	var phase := Label.new()
 	phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
