@@ -62,3 +62,5 @@ Direction rows are E, SE, SW, W, NW, NE. Colours for each side are in `SIDES` at
 Write a function that returns `pad() + ...` using `prism`, `tube`, `box` and `beam`, then register it in `BUILDINGS`. For the damaged version, add a `damaged` branch that breaks the main feature and returns `wreck(parts, hit_point, seed)`. Units: 1.0 is the hex centre-to-vertex distance before `BUILDING_SCALE`; weapons face +x; z is up.
 
 Colour rule: the pad rim stays black. Red, yellow and orange are reserved for hex outlines, so keep them off the base of a structure. They are fine higher up.
+
+A model can take a `cam_yaw` argument to keep a part facing the camera in every view; the bank's flag does this.

@@ -1,7 +1,7 @@
 ## Title screen: an island behind the game's title, with Start and Options.
 ## The island is a picture if assets/title/title.png exists; otherwise a
-## generated island drawn in the map style, drifting slowly. Plays the intro
-## theme. Save and load, and single map and campaign modes, come later.
+## generated island drawn in the map style, drifting slowly. Plays the
+## island ambience. Save and load, and single map and campaign modes, come later.
 extends Node2D
 
 const GameData = preload("res://rules/game_data.gd")
@@ -36,7 +36,8 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Palette.SEA)
 	audio = Audio.new()
 	add_child(audio)
-	audio.music("intro")
+	audio.start_ambient()
+	audio.set_closeness(float(audio.sounds.get("ambient", {}).get("title_closeness", 0.4)))
 
 	var ui := CanvasLayer.new()
 	add_child(ui)

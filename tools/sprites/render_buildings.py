@@ -26,6 +26,7 @@ To add a building: write a function returning a list of parts and register it
 in BUILDINGS at the bottom.
 """
 import argparse
+import inspect
 import json
 import math
 import os
@@ -283,26 +284,49 @@ def radar(damaged=False):
     return m
 
 
-def bank(damaged=False):
+BANK_FLAG = "#1f5a36"
+BANK_SIGN = "#9be8a8"
+
+
+def bank(damaged=False, cam_yaw=0):
+    """Six-sided pillared building with a dollar-sign flag. cam_yaw (degrees) is
+    the camera yaw of the view being rendered; the flag is turned to face it."""
+    stone = "#f2f0e8"
     m = pad()
-    m += box((1.0, .84, .06), "#c9c5b8", (0, 0, .15))
-    m += box((.74, .6, .36), "#e3dfd2", (-.06, 0, .36))
+    m += prism(6, .74, .74, .12, .17, "#cfccc0", rot=90)
+    m += prism(6, .67, .67, .17, .22, "#dedbd0", rot=90)
+    m += prism(6, .42, .42, .22, .76, "#e6e3d9", rot=90)
+    m += box((.03, .16, .32), GUNMETAL, (.37, 0, .38))
+    corners = [(.57 * math.cos(math.radians(90 + 60 * i)),
+                .57 * math.sin(math.radians(90 + 60 * i))) for i in range(6)]
+    for i, at in enumerate(corners):
+        if damaged and i == 1:
+            m += prism(8, .065, .06, .22, .4, "#ffffff", at=at)
+        elif damaged and i == 4:
+            m += tube(8, .06, .055, .5, "#ffffff", (at[0] * .75, at[1] * .75, .28), yaw=200)
+        else:
+            m += prism(8, .065, .055, .22, .76, "#ffffff", at=at)
+    m += prism(6, .68, .68, .76, .82, stone, rot=90)
+    flag = prism(4, .02, .02, 0, .53, GUNMETAL)
+    flag += box((.42, .02, .28), BANK_FLAG, (.23, 0, .38))
+    for z in (.085, 0, -.085):
+        flag += box((.14, .012, .034), BANK_SIGN, (.23, -.016, .38 + z))
+    flag += box((.036, .012, .1), BANK_SIGN, (.178, -.016, .4225))
+    flag += box((.036, .012, .1), BANK_SIGN, (.282, -.016, .3375))
+    flag += box((.03, .012, .25), BANK_SIGN, (.23, -.016, .38))
+
+    def mount(pos, tilt):
+        return [([_xf(p, tilt, -cam_yaw, pos) for p in face], col) for face, col in flag]
+
     if damaged:
-        for y in (-.27, .09):
-            m += prism(8, .04, .04, .18, .54, WHITE, at=(.4, y))
-        m += prism(8, .04, .04, .18, .3, WHITE, at=(.4, .27))
-        m += beam((.3, -.2, .2), (.47, .12, .2), .07, WHITE)
-        m += box((.6, .78, .04), "#c9c5b8", (-.18, 0, .56))
-        m += box((.3, .4, .04), "#c9c5b8", (.3, -.19, .56))
-        m += tube(3, 1, 1, .52, GOLD, (-.48, 0, 0), lift=.655, off=90, sy=.45, sz=.15)
-        m += box((.04, .14, .22), GUNMETAL, (.315, 0, .29))
-        return wreck(m, (.22, .12, .56), 5)
-    for y in (-.27, -.09, .09, .27):
-        m += prism(8, .04, .04, .18, .54, WHITE, at=(.4, y))
-    m += box((.96, .78, .04), "#c9c5b8", (0, 0, .56))
-    m += tube(3, 1, 1, .96, GOLD, (-.48, 0, 0), lift=.655, off=90, sy=.45, sz=.15)
-    m += box((.04, .14, .22), GUNMETAL, (.315, 0, .29))
-    return m
+        m += prism(6, .64, .46, .82, .88, "#cfccc0", rot=90)
+        m += prism(6, .46, .46, .88, .885, "#1d1b1a", rot=90)
+        m += box((.4, .34, .05), "#cfccc0", (-.12, .1, .93), pitch=22, yaw=35)
+        out = wreck(m, (-.05, -.05, .88), 5)
+        return out + mount((.12, 0, .86), -24)
+    m += prism(6, .64, .3, .82, .93, "#cfccc0", rot=90)
+    m += prism(6, .3, .24, .93, .97, stone, rot=90)
+    return m + mount((0, 0, .97), 0)
 
 
 def refinery(damaged=False):
@@ -530,7 +554,7 @@ BUILDINGS = {
     "ballistic_launcher_damaged": lambda: ballistic_launcher(damaged=True),
     "anti_air_damaged": lambda: anti_air(damaged=True),
     "radar_damaged": lambda: radar(damaged=True),
-    "bank_damaged": lambda: bank(damaged=True),
+    "bank_damaged": lambda cam_yaw=0: bank(damaged=True, cam_yaw=cam_yaw),
     "refinery_damaged": lambda: refinery(damaged=True),
     "lab_damaged": lambda: lab(damaged=True),
     "base_damaged": lambda: base(damaged=True),
@@ -680,9 +704,13 @@ def main():
     contact = Image.new("RGBA", (label_w + cam.fw * 6, cam.fh * len(names)), (28, 36, 51, 255))
     draw = ImageDraw.Draw(contact)
     for row, name in enumerate(names):
-        parts = BUILDINGS[name]()
+        model = BUILDINGS[name]
+        faces_camera = "cam_yaw" in inspect.signature(model).parameters
+        parts = None if faces_camera else model()
         sheet = Image.new("RGBA", (cam.fw * 6, cam.fh), (0, 0, 0, 0))
         for v in range(6):
+            if faces_camera:      # models with a camera-facing part are rebuilt per view
+                parts = model(cam_yaw=math.degrees(cam.yaw(v)))
             frame = cam.render(parts, v, outline=not args.no_outline)
             sheet.paste(frame, (v * cam.fw, 0))
             if args.frames:

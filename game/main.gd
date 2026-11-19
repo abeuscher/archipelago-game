@@ -163,7 +163,7 @@ func _enter_setup() -> void:
 	hud.set_alarm(false)
 	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
-	audio.music("build")
+	audio.start_ambient()
 	_set_clock(0)
 	hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
 	_refresh()
@@ -216,7 +216,6 @@ func _start_round() -> void:
 	selected = Vector2i(-1, -1)
 	_fly_to(0)
 	hud.set_phase("Build and repair", m.round_number)
-	audio.music("build")
 	_set_clock(int(prefs["build_clock_seconds"]))
 	_refresh()
 
@@ -247,7 +246,6 @@ func _end_build() -> void:
 	active_launcher = _next_free_launcher()
 	_fly_to(1)
 	hud.set_phase("Targeting", m.round_number)
-	audio.music("battle")
 	_set_clock(int(prefs["targeting_clock_seconds"]))
 	_refresh()
 
@@ -313,6 +311,8 @@ func _process(delta: float) -> void:
 				_end_build()
 			elif ui == Ui.TARGETING:
 				_attack()   # orders placed so far are launched
+	# The ambience swells as the view moves in and fades as it pulls out.
+	audio.set_closeness(inverse_lerp(log(ZOOM_MIN), log(ZOOM_MAX), log(camera.zoom.x)))
 	var pan := Vector2(Input.get_axis("ui_left", "ui_right"), Input.get_axis("ui_up", "ui_down"))
 	if pan != Vector2.ZERO:
 		_stop_flight()
@@ -1465,6 +1465,7 @@ func _ashore_anim(board, isl, ev: Dictionary, info: Dictionary, color: Color, de
 	await t.finished
 	if info.has("boat_sunk"):
 		effects.explosion(ground, 26.0, Color(0.7, 0.85, 1.0))
+		audio.effect("missile_explode", -6.0)
 		effects.float_text(ground, "Sunk", Color(0.85, 0.92, 1.0))
 		effects.sea_boats.erase(bt)
 		return
@@ -1519,6 +1520,7 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 		if eng["hit"]:
 			effects.burst(ground - Vector2(0, alt))
 			effects.explosion(ground - Vector2(0, alt), 26.0, Color(1.0, 0.55, 0.15))
+			audio.effect("missile_explode", -4.0)
 			effects.remove_plane(plane)
 			return
 	# Eight parachutes, while the plane flies on and away.
@@ -1584,6 +1586,7 @@ func _march(board, p: Dictionary, ground: Vector2, color: Color, side: String, r
 		if p["destroyed"].has(h):
 			await _wait(0.25)   # a moment of fighting on the hex
 			effects.explosion(pos, 32.0, Color(1.0, 0.55, 0.15))
+			audio.effect("missile_explode", -4.0)
 			if reveal_tiles.is_empty() and board.tiles[h].get("building") != null:
 				board.tiles[h]["destroyed"] = String(board.tiles[h]["building"]["type"])
 				board.tiles[h]["building"] = null
@@ -1615,6 +1618,7 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 		await _wait(0.15)
 		if eng["hit"]:
 			effects.burst(ground - Vector2(0, ms.alt))
+			audio.effect("missile_explode", -8.0)
 			effects.remove_missile(ms)
 			return
 	t = create_tween()
@@ -1631,6 +1635,7 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 	var imp: Dictionary = info.get("impact", {})
 	var is_scout: bool = String(imp.get("missile", "")) == "scouting"
 	effects.explosion(ground, 18.0 if is_scout else 40.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
+	audio.effect("missile_explode", -10.0 if is_scout else 0.0)
 	for h in imp.get("revealed", []):
 		if not reveal_tiles.is_empty():
 			board.tiles[int(h)] = reveal_tiles[int(h)]

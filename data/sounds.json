@@ -1,7 +1,8 @@
 {
-  "_note": "Sounds and music the game plays, by moment. Paths are under res://. A file that doesn't exist is simply silent. Music loops.",
+  "_note": "Sounds the game plays, by moment. Paths are under res://. A file that doesn't exist is simply silent. Volumes are in dB (0 = as recorded, -6 = about half as loud).",
   "effects": {
-    "missile_fire": "assets/audio/missile_fire.ogg",
+    "missile_fire": "assets/audio/missile_launch.ogg",
+    "missile_explode": "assets/audio/missile_explode.ogg",
     "anti_air_fire": "assets/audio/anti_air_fire.ogg",
     "countdown_tick": "assets/audio/countdown_tick.ogg",
     "repair": "assets/audio/repair_work_crew.ogg",
@@ -10,15 +11,30 @@
     "bunker_fire": "assets/audio/bunker_fire.ogg"
   },
   "build": {
-    "lab": "assets/audio/build_lab.ogg",
-    "bank": "assets/audio/build_bank.ogg",
+    "lab": "assets/audio/lab.ogg",
+    "bank": "assets/audio/bank.ogg",
     "basic_launcher": "assets/audio/build_missile.ogg",
     "ballistic_launcher": "assets/audio/build_missile.ogg",
-    "airport": "assets/audio/build_airport.ogg",
-    "docks": "assets/audio/build_docks.ogg",
-    "radar": "assets/audio/build_radar.ogg"
+    "airport": "assets/audio/airport.ogg",
+    "docks": "assets/audio/dock.ogg",
+    "radar": "assets/audio/radar.ogg"
+  },
+  "ambient": {
+    "_note": "Plays under the island view in every phase, and on the title screen. Each loop has a volume when zoomed right out (far_db) and right in (near_db). Calls are single sounds played now and then, a random one each time, every_seconds apart (shortest, longest).",
+    "loops": {
+      "ocean": { "file": "assets/audio/ambient_ocean.wav", "far_db": -22, "near_db": -14 },
+      "island": { "file": "assets/audio/ambient_island.wav", "far_db": -42, "near_db": -17 }
+    },
+    "calls": {
+      "files": ["assets/audio/gull_1.wav", "assets/audio/gull_2.wav", "assets/audio/gull_3.wav", "assets/audio/gull_4.wav"],
+      "far_db": -30,
+      "near_db": -15,
+      "every_seconds": [12, 30]
+    },
+    "title_closeness": 0.4
   },
   "music": {
+    "_note": "Not played at present: the island ambience replaced the themes. audio.music(theme) still plays these if called.",
     "intro": "assets/music/intro_theme.ogg",
     "build": "assets/music/build_theme.ogg",
     "battle": "assets/music/battle_theme.ogg"
