@@ -377,12 +377,12 @@ func _build_timeout_tip() -> void:
 	hud.announce(_line_text(key), "", 0.0, false, _line_character(key))
 
 
-## The Attack button. The first time it is pressed with weapons left
-## unaimed, Ginger warns once (the clock holds while she talks) instead of
+## The Attack button. The first time it is pressed with nothing aimed at
+## all (and something that could fire), Ginger warns once (the clock holds while she talks) instead of
 ## attacking. The clock running out attacks without asking.
 func _attack_pressed() -> void:
 	var warn := "attack_unaimed"
-	if ui == Ui.TARGETING and not prefs["tips_done"].has(warn) and _next_free_launcher(true) >= 0 and lines.has(warn):
+	if ui == Ui.TARGETING and orders.is_empty() and not prefs["tips_done"].has(warn) and _next_free_launcher(true) >= 0 and lines.has(warn):
 		prefs["tips_done"].append(warn)
 		_save_prefs()
 		hud.announce(_line_text(warn), "", 0.0, false, _line_character(warn))
