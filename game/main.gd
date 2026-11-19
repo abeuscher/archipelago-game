@@ -814,6 +814,8 @@ func _build_toolbar(st) -> void:
 				if not bool(def.get("buildable", true)):
 					continue
 				var unlocked: bool = st.building_unlocked(type, data)
+				if not unlocked:
+					continue   # appears once researched
 				var note := ""
 				var at_limit := false
 				if not unlocked:
