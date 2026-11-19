@@ -1,13 +1,11 @@
 ## Interface logic that needs no rendering: settings, tips, the earnings
-## projection, research rates, the timer readout, base button colours and
-## the battle report.
+## projection, research rates, the timer readout and the battle report.
 extends "res://tests/test_case.gd"
 
 const UserSettings = preload("res://game/user_settings.gd")
 const Tips = preload("res://game/tips.gd")
 const Earnings = preload("res://game/earnings.gd")
 const SevenSeg = preload("res://game/seven_seg.gd")
-const StripButton = preload("res://game/strip_button.gd")
 const BattleReport = preload("res://game/battle_report.gd")
 
 
@@ -172,16 +170,6 @@ func test_timer_readout() -> void:
 		check(SevenSeg.DIGITS.has(ch), "every digit drawable")
 
 
-func test_base_button_colours() -> void:
-	eq(StripButton.base_color(3.0), StripButton.GREEN, "3 left")
-	eq(StripButton.base_color(2.5), StripButton.YELLOW, "2.5 left")
-	eq(StripButton.base_color(2.0), StripButton.YELLOW, "2 left")
-	eq(StripButton.base_color(1.0), StripButton.RED, "1 left")
-	eq(StripButton.base_color(0.5), StripButton.RED, "half a hit left")
-	eq(StripButton.base_color(0.0), StripButton.DEAD, "destroyed")
-	eq(StripButton.base_color(2.0, 2.0), StripButton.GREEN, "2 of 2 left")
-	eq(StripButton.base_color(1.5, 2.0), StripButton.YELLOW, "1.5 of 2 left")
-	eq(StripButton.base_color(1.0, 2.0), StripButton.RED, "last hit left")
 
 
 func test_tips_phase_change_and_snooze() -> void:

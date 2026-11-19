@@ -940,8 +940,8 @@ func _build_toolbar(st) -> void:
 			hud.add_label("Missiles in flight.", true)
 
 
-## The right-hand strip: a beaker per research project, then a button per
-## base. Destroyed bases stay as grey buttons.
+## The right-hand strip: a beaker per research project. Also sets the status
+## gauge (our bases' hits left) on the comms set.
 func _build_strip(st) -> void:
 	var items: Array = []
 	var labs: Array = st.of_role(data, "lab")
@@ -968,25 +968,7 @@ func _build_strip(st) -> void:
 	if ui == Ui.SETUP:
 		hits_left = per_side * max_hits   # bases still being placed: all to come
 	hud.status_gauge.set_hits(hits_left, per_side * max_hits)
-	for i in per_side:
-		if i < bases.size():
-			var b = bases[i]
-			var left := max_hits - float(b.hits)
-			var hx: int = b.hex
-			items.append({"kind": "base", "hits_left": left, "hits_max": max_hits,
-				"details": "Base %d: %s of %d hits left" % [i + 1, _fmt(left), int(max_hits)],
-				"action": func(): _show_own_hex(hx), "enabled": true})
-		elif ui != Ui.SETUP:
-			items.append({"kind": "base", "hits_left": 0.0, "hits_max": max_hits,
-				"details": "Base %d: destroyed" % (i + 1), "enabled": false})
 	hud.set_strip(items)
-
-
-func _show_own_hex(hex: int) -> void:
-	camera.position = own_board.position + own_board.tile_center(hex)
-	_update_viewing()
-	selected = Vector2i(0, hex)
-	_refresh()
 
 
 func _open_research(lab_id: int) -> void:

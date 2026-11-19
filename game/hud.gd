@@ -265,7 +265,7 @@ func _ready() -> void:
 	_log.scroll_following = true
 	_log_panel.add_child(_log)
 
-	# Right strip: beakers, then bases. Centred vertically.
+	# Right strip: a beaker per research project. Centred vertically.
 	_strip = VBoxContainer.new()
 	_strip.anchor_left = 1.0
 	_strip.anchor_right = 1.0
@@ -830,8 +830,8 @@ func add_fuel_planner(fuel: int, planned: int) -> void:
 
 # --- Right strip -----------------------------------------------------------
 
-## items: Array of {"kind": "beaker"|"base", "fraction", "hits_left",
-## "hits_max", "details", "action": Callable, "enabled": bool}.
+## items: Array of {"kind": "beaker", "fraction", "details",
+## "action": Callable, "enabled": bool}.
 func set_strip(items: Array) -> void:
 	for c in _strip.get_children():
 		_strip.remove_child(c)
@@ -847,8 +847,6 @@ func set_strip(items: Array) -> void:
 		var b := StripButton.new()
 		b.kind = it["kind"]
 		b.fraction = float(it.get("fraction", 0.0))
-		b.hits_left = float(it.get("hits_left", 0.0))
-		b.hits_max = float(it.get("hits_max", 3.0))
 		b.details = String(it.get("details", ""))
 		var action: Callable = it.get("action", Callable())
 		if action.is_valid():
