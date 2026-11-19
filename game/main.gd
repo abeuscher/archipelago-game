@@ -314,8 +314,8 @@ func _end_build() -> void:
 
 
 ## A map hex a tip points at, as a rect on screen: "damaged" is our first
-## building waiting for repair, "suspected_base" an enemy potential base with
-## hits on it. Empty when there is none, or it is off screen.
+## building waiting for repair, "targeted_launcher" the launcher the enemy
+## keeps hitting, "suspected_base" an enemy potential base with hits on it. Empty when there is none, or it is off screen.
 func _hex_anchor(what: String) -> Rect2:
 	var board = null
 	var hex := -1
@@ -326,6 +326,16 @@ func _hex_anchor(what: String) -> Rect2:
 				if m.sides[0].needs_repair(b, data):
 					hex = b.hex
 					break
+		"targeted_launcher":
+			# The launcher the enemy keeps hitting: out of action, hit at
+			# least twice (as the tip's condition), the most-hit first.
+			board = own_board
+			var most := 1
+			for b in m.sides[0].of_role(data, "launcher"):
+				var n := int(m.bombed[0].get(b.hex, {}).get("count", 0))
+				if b.disabled and n >= 2 and n > most:
+					most = n
+					hex = b.hex
 		"suspected_base":
 			board = enemy_board
 			for h in m.knowledge[0]:

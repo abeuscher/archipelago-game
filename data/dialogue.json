@@ -1,6 +1,6 @@
 {
   "_about": "Everything the characters say to the player, and who says it. character is an id from data/characters.json (ginger, admiral, pilot, mechanic, scientist). Edit the text freely; keep {placeholders} as they are.",
-  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control and points an arrow at it; arrow only points the arrow, without dimming. Both take: timer, tool:<building> for a toolbar building button, button:<label> for a toolbar button by its label, weapons for the first weapon in targeting, hex:damaged for our first building waiting for repair, or hex:suspected_base for an enemy potential base with hits on it. from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
+  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control and points an arrow at it; arrow only points the arrow, without dimming. Both take: timer, tool:<building> for a toolbar building button, button:<label> for a toolbar button by its label, weapons for the first weapon in targeting, hex:damaged for our first building waiting for repair, hex:targeted_launcher for the launcher the enemy keeps hitting, or hex:suspected_base for an enemy potential base with hits on it. from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
   "tips": [
     {
       "id": "place_bases",
@@ -41,7 +41,7 @@
       "id": "rebuild_launcher",
       "character": "mechanic",
       "when": "launcher_targeted",
-      "anchor": "tool:basic_launcher",
+      "anchor": "hex:targeted_launcher",
       "text": "General, they keep hitting the same launcher. Repairs won't hold while they're aiming at it. Build a new one somewhere they haven't seen."
     },
     {
