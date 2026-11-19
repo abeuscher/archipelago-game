@@ -13,6 +13,7 @@ const Icons = preload("res://game/research_icons.gd")
 const ItemButton = preload("res://game/research_item_button.gd")
 
 signal start_requested(lab_id: int, item: String)
+signal use_stored_requested(item: String)
 signal closed
 
 const BACKDROP := Color(0.05, 0.07, 0.09, 1.0)
@@ -210,7 +211,7 @@ func show_state(st, data, editable: bool) -> void:
 		note = ", UNDER REPAIR"
 	elif st.is_half_strength(lab, data):
 		note = ", DAMAGED"
-	_lab_line.text = "LAB %d (HP %d/%d, +%d PTS/ROUND%s)    MONEY %d" % [lab_index + 1, lab.hp, data.max_hp(lab.type), pts, note, st.money]
+	_lab_line.text = "LAB %d (HP %d/%d, +%d PTS/ROUND%s)    MONEY %d    STORED %d PTS" % [lab_index + 1, lab.hp, data.max_hp(lab.type), pts, note, st.money, st.stored_research]
 
 	var own = st.project_for_lab(lab.id)
 	var oldest = st.oldest_project()
@@ -221,7 +222,7 @@ func show_state(st, data, editable: bool) -> void:
 		_status.text = "NO PROJECT OF ITS OWN. HELPING:"
 		_project_block(st, data, String(oldest["item"]))
 	else:
-		_status.text = "NO ACTIVE PROJECT!"
+		_status.text = "NO ACTIVE PROJECT! POINTS EARNED ARE STORED FOR LATER."
 	if own == null:
 		var prompt := _label("START RESEARCH: _" if editable else "CHOOSE RESEARCH IN THE BUILD AND REPAIR PHASE.", 16, ALERT, true)
 		_items.add_child(prompt)
@@ -285,6 +286,18 @@ func _project_block(st, data, item: String) -> void:
 	var left := Earnings.rounds_left(st, data, item)
 	var eta := "STALLED: NO LAB IS WORKING ON IT" if left < 0 else "%d ROUND%s LEFT" % [left, "" if left == 1 else "S"]
 	col.add_child(_label("%d / %d POINTS, %s" % [int(p["progress"]), need, eta], 14, DIM_TEXT))
+	# Stored points can go into the project: enough to finish it, or all there are.
+	if st.stored_research > 0:
+		var still := need - int(p["progress"])
+		var spend := mini(still, st.stored_research)
+		var text := "> USE %d STORED POINTS: %s" % [spend, "FINISH NOW" if spend >= still else "SPEED UP"]
+		var use := _flat_button(text, func(): use_stored_requested.emit(item))
+		use.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		use.add_theme_color_override("font_color", ALERT)
+		use.add_theme_color_override("font_hover_color", TEXT)
+		use.disabled = not _editable
+		use.tooltip_text = "Research earned while no project was running is stored. Spend it here."
+		col.add_child(use)
 
 
 # --- Bits ------------------------------------------------------------------

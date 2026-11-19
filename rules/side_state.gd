@@ -16,6 +16,9 @@ var unlocked: Dictionary = {}    ## research item -> true
 ## lab_id is -1 when the lab that started it has been destroyed.
 var projects: Array = []
 var next_project_order: int = 1
+## Research points earned with no project to go into, and any left over when
+## a project finishes. Spent on a project at will to speed it up or finish it.
+var stored_research: int = 0
 var setup_done: bool = false
 
 
@@ -37,6 +40,7 @@ func duplicate_state():
 	c.unlocked = unlocked.duplicate()
 	c.projects = projects.duplicate(true)
 	c.next_project_order = next_project_order
+	c.stored_research = stored_research
 	c.setup_done = setup_done
 	return c
 
@@ -381,9 +385,38 @@ func start_research(lab_id: int, item: String, data) -> String:
 	return ""
 
 
+## Spends stored research points on a running project: as many as it still
+## needs, or all of them. A project that reaches its total finishes now.
+func can_use_stored_research(item: String, data) -> String:
+	if project_for_item(item) == null:
+		return "No such project"
+	if stored_research <= 0:
+		return "No stored research"
+	return ""
+
+
+func use_stored_research(item: String, data) -> String:
+	var e := can_use_stored_research(item, data)
+	if e != "":
+		return e
+	var p = project_for_item(item)
+	var need := int(data.research_item(item)["points"]) - int(p["progress"])
+	var spend := mini(need, stored_research)
+	stored_research -= spend
+	p["progress"] = int(p["progress"]) + spend
+	if int(p["progress"]) >= int(data.research_item(item)["points"]):
+		unlocked[item] = true
+		projects.erase(p)
+	return ""
+
+
 func _accrue_research(data, points_baseline: int) -> Array:
 	var completed: Array = []
 	if projects.is_empty():
+		# Nothing to work on: the labs' points are stored for later.
+		stored_research += points_baseline
+		for lab in of_role(data, "lab"):
+			stored_research += output_of(lab, int(data.building(lab.type)["produces"].get("research", 0)), data)
 		return completed
 	var oldest = oldest_project()
 	if oldest != null:
@@ -396,7 +429,9 @@ func _accrue_research(data, points_baseline: int) -> Array:
 		if target != null:
 			target["progress"] = int(target["progress"]) + pts
 	for p in projects.duplicate():
-		if int(p["progress"]) >= int(data.research_item(String(p["item"]))["points"]):
+		var need := int(data.research_item(String(p["item"]))["points"])
+		if int(p["progress"]) >= need:
+			stored_research += int(p["progress"]) - need   # points past the total are kept
 			unlocked[String(p["item"])] = true
 			projects.erase(p)
 			completed.append(String(p["item"]))

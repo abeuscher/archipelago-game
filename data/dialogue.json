@@ -113,6 +113,10 @@
     "boat_spotted": {
       "character": "ginger",
       "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."
+    },
+    "battle_report": {
+      "character": "admiral",
+      "text": "Battle report, General."
     }
   }
 }

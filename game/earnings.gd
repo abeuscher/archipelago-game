@@ -46,6 +46,8 @@ static func project(st, data, current_round: int) -> Dictionary:
 		out["lines"].append("%s +%d%s" % [labels[res_name], int(inc[res_name]), ("   (" + detail + ")") if detail != "" else ""])
 	if future.count_role(data, "lab") == 0 and st.projects.is_empty():
 		out["lines"].append("Research points need a lab.")
+	elif st.projects.is_empty() and int(inc["research"]) > 0:
+		out["lines"].append("No research running: the points are stored for later.")
 	for item in res["research_completed"]:
 		out["lines"].append("Research completes: %s." % String(item).replace("_", " ").capitalize())
 	return out

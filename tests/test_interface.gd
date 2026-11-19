@@ -1,5 +1,6 @@
 ## Interface logic that needs no rendering: settings, tips, the earnings
-## projection, research rates, the timer readout and base button colours.
+## projection, research rates, the timer readout, base button colours and
+## the battle report.
 extends "res://tests/test_case.gd"
 
 const UserSettings = preload("res://game/user_settings.gd")
@@ -7,6 +8,7 @@ const Tips = preload("res://game/tips.gd")
 const Earnings = preload("res://game/earnings.gd")
 const SevenSeg = preload("res://game/seven_seg.gd")
 const StripButton = preload("res://game/strip_button.gd")
+const BattleReport = preload("res://game/battle_report.gd")
 
 
 func test_settings_defaults_and_clamping() -> void:
@@ -392,3 +394,36 @@ func test_scientist_explains_research_when_it_first_opens() -> void:
 	ctx["research_open"] = true
 	r = Tips.update(tips, ctx, done, null)
 	eq(r["current"]["id"], "research_intro", "when the research screen opens")
+
+
+func test_battle_report_counts_and_skips_zeros() -> void:
+	eq(BattleReport.lines([]), [], "a quiet round gives no report")
+	var ev := [
+		# The enemy (side 1) attacks us: two missiles land, one is shot down,
+		# one transport is shot down. Hex 5 is hit twice and survives; hex 9
+		# is destroyed.
+		{"type": "impact", "side": 1, "id": 1, "damaged": [{"hex": 5, "damage": 10}, {"hex": 9, "damage": 30}]},
+		{"type": "impact", "side": 1, "id": 2, "damaged": [{"hex": 5, "damage": 10}]},
+		{"type": "engage", "side": 0, "id": 3, "hit": true},
+		{"type": "engage", "side": 0, "id": 4, "hit": true},
+		{"type": "carrier_lost", "side": 1, "id": 4},
+		{"type": "engage", "side": 0, "id": 6, "hit": false},
+		{"type": "destroyed", "side": 0, "hex": 9, "building": "bank"},
+		# We attack: one missile lands on a base without destroying it, one is
+		# shot down; our platoon is wiped out by a bunker.
+		{"type": "impact", "side": 0, "id": 10, "damaged": [{"hex": 3, "hits": 1.0}]},
+		{"type": "engage", "side": 1, "id": 11, "hit": true},
+		{"type": "platoon", "side": 0, "id": 12, "lost_at_sea": false, "stopped_by": 4, "destroyed": []},
+	]
+	eq(BattleReport.lines(ev), [
+		"Enemy missiles that hit us: 2",
+		"Our buildings damaged: 1",
+		"Our buildings destroyed: 1",
+		"Enemy missiles shot down: 1",
+		"Enemy transports shot down: 1",
+		"Our missiles that hit: 1",
+		"Our missiles shot down: 1",
+		"Enemy buildings damaged: 1",
+		"Our platoons lost: 1",
+		"Enemy platoons stopped: 1",
+	], "report lines")

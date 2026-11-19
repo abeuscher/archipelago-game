@@ -79,6 +79,12 @@ func choose_build(view) -> Array:
 				actions.append({"action": "research", "lab": lab.id, "item": item})
 				break
 
+	# Stored research goes straight into the oldest project.
+	var first = st.oldest_project()
+	if first != null and st.can_use_stored_research(String(first["item"]), data) == "":
+		st.use_stored_research(String(first["item"]), data)
+		actions.append({"action": "use_stored_research", "item": String(first["item"])})
+
 	while true:
 		var type := _next_in_order(st)
 		if type == "":

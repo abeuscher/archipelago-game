@@ -197,6 +197,46 @@ func test_research_one_lab_radar_three_rounds() -> void:
 	ok(m.build_action(0, {"action": "build", "type": "radar", "hex": hex(m, 5, 5)}))
 
 
+func test_research_stored_when_idle_then_spent() -> void:
+	var m = flat_match()
+	var lab = put(m, 0, "lab", 1, 1)
+	for i in 3:
+		play_round(m)   # round 1 pays nothing, rounds 2 and 3 pay 2 points each
+	m.begin_round()     # round 4: another 2
+	eq(m.sides[0].stored_research, 6, "idle lab's points are stored")
+	err_contains(m.build_action(0, {"action": "use_stored_research", "item": "radar"}), "No such project")
+	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "ballistic_launcher"}))
+	ok(m.build_action(0, {"action": "use_stored_research", "item": "ballistic_launcher"}))
+	eq(int(m.sides[0].project_for_item("ballistic_launcher")["progress"]), 6, "stored points speed it up")
+	eq(m.sides[0].stored_research, 0, "all spent")
+	err_contains(m.build_action(0, {"action": "use_stored_research", "item": "ballistic_launcher"}), "No stored")
+
+
+func test_research_stored_finishes_now_and_keeps_change() -> void:
+	var m = flat_match()
+	var lab = put(m, 0, "lab", 1, 1)
+	m.sides[0].stored_research = 10
+	m.begin_round()
+	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "radar"}))
+	ok(m.build_action(0, {"action": "use_stored_research", "item": "radar"}))
+	check(m.sides[0].is_unlocked("radar"), "radar finished at once")
+	eq(m.sides[0].stored_research, 4, "only what it needed was spent")
+	ok(m.build_action(0, {"action": "build", "type": "radar", "hex": hex(m, 5, 5)}), "can build it the same phase")
+
+
+func test_research_points_past_the_total_are_stored() -> void:
+	var m = flat_match()
+	var lab = put(m, 0, "lab", 1, 1)
+	m.begin_round()
+	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "radar"}))
+	m.sides[0].project_for_item("radar")["progress"] = 5
+	m.end_build_phase()
+	m.resolve_playout()
+	m.begin_round()   # +2 points: 7 of 6
+	check(m.sides[0].is_unlocked("radar"), "done")
+	eq(m.sides[0].stored_research, 1, "the extra point is stored")
+
+
 func test_research_idle_lab_helps_oldest() -> void:
 	var m = flat_match()
 	var lab1 = put(m, 0, "lab", 1, 1)

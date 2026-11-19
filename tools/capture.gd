@@ -213,6 +213,12 @@ func _run() -> void:
 	main.hud.research_panel.show_state(main.m.sides[0], main.data, true)
 	main._start_research(lab.id, "radar")
 	await _shot("07_research_started")
+	# Stored research offered on the running project (then put back).
+	main.m.sides[0].stored_research = 4
+	main._refresh()
+	await _shot("07b_stored_points")
+	main.m.sides[0].stored_research = 0
+	main._refresh()
 	main.hud.research_panel.visible = false
 	main.hud._earn_button.button_pressed = true
 	main._refresh()

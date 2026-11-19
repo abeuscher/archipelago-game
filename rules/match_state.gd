@@ -106,6 +106,7 @@ func begin_round() -> Array:
 ## action: {"action": "build", "type": String, "hex": int}
 ##       | {"action": "repair", "hex": int}
 ##       | {"action": "research", "lab": building id, "item": String}
+##       | {"action": "use_stored_research", "item": String}
 func build_action(side: int, action: Dictionary) -> String:
 	if phase != Phase.BUILD:
 		return "Not in the build and repair phase"
@@ -118,6 +119,8 @@ func build_action(side: int, action: Dictionary) -> String:
 			e = st.repair(int(action["hex"]), data)
 		"research":
 			e = st.start_research(int(action["lab"]), String(action["item"]), data)
+		"use_stored_research":
+			e = st.use_stored_research(String(action["item"]), data)
 		"replace_carrier":
 			e = st.replace_carrier(int(action["hex"]), data)
 		_:
@@ -285,6 +288,6 @@ func fingerprint() -> String:
 		var bl: Array = []
 		for b in s.buildings_sorted():
 			bl.append(b.to_dict())
-		parts.append([s.money, s.fuel, bl, s.unlocked.keys(), s.projects])
+		parts.append([s.money, s.fuel, bl, s.unlocked.keys(), s.projects, s.stored_research])
 	parts.append(knowledge)
 	return str(parts).sha256_text()

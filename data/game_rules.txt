@@ -31,7 +31,7 @@ Docks (built on the coast) send a boat with a platoon instead, for {boat_fuel} f
 Buildings have hit points, and missile damage is rolled. A damaged weapon is out of action until it is repaired; other buildings work at half strength while damaged. A repair costs {repair_pct}% of the building's price and takes the building out of action for that round; it is back to full the round after. Bases and decoys can't be repaired.
 
 [font_size=20][b]Research[/b][/font_size]
-Each lab makes {lab_points} research points a round toward its own project. Starting a project costs money; a lab without a project helps the oldest one. A project whose lab is destroyed keeps its progress.
+Each lab makes {lab_points} research points a round toward its own project. Starting a project costs money; a lab without a project helps the oldest one. A project whose lab is destroyed keeps its progress. Points made while no project is running, and any left over when a project finishes, are stored: spend them on a project in the lab to speed it up, or to finish it at once.
 {research_list}
 
 [font_size=20][b]Fog of war[/b][/font_size]

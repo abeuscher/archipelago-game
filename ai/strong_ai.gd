@@ -210,6 +210,12 @@ func choose_build(view) -> Array:
 				st.start_research(lab.id, item, data)
 				actions.append({"action": "research", "lab": lab.id, "item": item})
 				break
+
+	# Stored research goes straight into the oldest project.
+	var first = st.oldest_project()
+	if first != null and st.can_use_stored_research(String(first["item"]), data) == "":
+		st.use_stored_research(String(first["item"]), data)
+		actions.append({"action": "use_stored_research", "item": String(first["item"])})
 	# Under threat, one of each counter goes up before the usual order.
 	for t in threats:
 		if st.building_unlocked(t, data) and st.count_role(data, data.role(t)) == 0 and st.money >= data.cost(t):

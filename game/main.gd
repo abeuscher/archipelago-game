@@ -13,6 +13,7 @@ const Iso = preload("res://game/iso.gd")
 const Palette = preload("res://game/palette.gd")
 const Pieces = preload("res://game/pieces.gd")
 const Audio = preload("res://game/audio.gd")
+const BattleReport = preload("res://game/battle_report.gd")
 const Hud = preload("res://game/hud.gd")
 const UserSettings = preload("res://game/user_settings.gd")
 const Tips = preload("res://game/tips.gd")
@@ -50,6 +51,7 @@ var lines: Dictionary = {}           ## the characters' lines (dialogue.json "an
 var ui: int = Ui.SETUP
 var viewing: int = 0
 var rot: int = 0
+var battle_report: Array = []   ## lines for the end-of-round report
 var clock_left: float = 0.0
 var clock_running: bool = false
 var tool: String = ""
@@ -115,6 +117,7 @@ func _ready() -> void:
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
+	hud.research_panel.use_stored_requested.connect(_use_stored_research)
 	hud.research_panel.closed.connect(_refresh)
 	hud.esc_menu.setup(data.settings, prefs)
 	_update_rules_text()
@@ -138,17 +141,27 @@ func _seed_from_args() -> int:
 	return int(Time.get_unix_time_from_system() * 1000.0) & 0x7FFFFFFF
 
 
-## Our island at the origin, the enemy's straight north across a channel of
-## CHANNEL_ROWS rows of sea, for the current rotation. Both centres sit on
-## the shared hex lattice (see iso.gd), so the sea lines up with both.
+## Both islands lie on one plane: ours at the origin, the enemy's straight
+## north of it across a channel of CHANNEL_ROWS rows of sea in the base view.
+## Rotating the view turns the whole plane about our island, so the enemy
+## island swings round with it. Both centres sit on the shared hex lattice
+## (see iso.gd), which a 60-degree turn maps onto itself, so the sea lines up
+## with both in every view.
 func _layout_boards() -> void:
 	own_board.position = Vector2.ZERO
+	# The gap is measured in the base view, where the enemy is due north.
+	var steps_now: int = own_board.iso.rotation_step
+	own_board.iso.rotation_step = 0
+	enemy_board.iso.rotation_step = 0
 	var own_top: float = -own_board.iso.plane_extent().position.y
 	var enemy_bottom: float = enemy_board.iso.plane_extent().end.y
+	own_board.iso.rotation_step = steps_now
+	enemy_board.iso.rotation_step = steps_now
 	var need := own_top + enemy_bottom + (CHANNEL_ROWS + 1) * Iso.ROW_H
 	# Straight north on the lattice is axial (1, -2): two rows up per step.
 	var steps := ceili(need / (2.0 * Iso.ROW_H))
-	enemy_board.position = Vector2(0, -steps * 2.0 * Iso.ROW_H * Iso.SQUASH)
+	var offset := Vector2(0, -steps * 2.0 * Iso.ROW_H).rotated(rot * PI / 3.0)   # on the board plane
+	enemy_board.position = Vector2(offset.x, offset.y * Iso.SQUASH)
 	ocean.rebuild([own_board, enemy_board])
 
 
@@ -161,6 +174,7 @@ func _enter_setup() -> void:
 	setup_history = []
 	setup_mode = "base"
 	hud.set_alarm(false)
+	_reset_rotation()
 	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
 	audio.start_ambient()
@@ -214,6 +228,7 @@ func _start_round() -> void:
 	tips_snoozed = []
 	orders = []   # last round's aim markers don't carry over
 	selected = Vector2i(-1, -1)
+	_reset_rotation()
 	_fly_to(0)
 	hud.set_phase("Build and repair", m.round_number)
 	_set_clock(int(prefs["build_clock_seconds"]))
@@ -245,6 +260,7 @@ func _end_build() -> void:
 	pending_drop = {}
 	selected = Vector2i(-1, -1)
 	active_launcher = _next_free_launcher()
+	_reset_rotation()
 	_fly_to(1)
 	hud.set_phase("Targeting", m.round_number)
 	_set_clock(int(prefs["targeting_clock_seconds"]))
@@ -256,6 +272,7 @@ func _attack() -> void:
 		return
 	_set_clock(0)
 	ui = Ui.PLAYOUT
+	_reset_rotation()
 	hud.set_phase("Playout", m.round_number)
 	_refresh()
 	_run_playout()
@@ -269,6 +286,12 @@ func _after_playout() -> void:
 	elif m.is_over():
 		_show_game_over()
 	else:
+		# The round's battle report, if anything happened; the next round's
+		# clock waits for it.
+		if not battle_report.is_empty():
+			hud.announce(_line_text("battle_report") + "\n" + "\n".join(battle_report), "", 0.0, false,
+				_line_character("battle_report"))
+			hud.add_log("Battle report: " + "; ".join(battle_report) + ".", false)
 		_start_round()
 
 
@@ -396,6 +419,18 @@ func _rotate(dir: int) -> void:
 	_focus(center_side)
 
 
+## Every phase starts in the base view: our island at the bottom, the
+## enemy's at the top.
+func _reset_rotation() -> void:
+	if rot == 0:
+		return
+	rot = 0
+	own_board.set_rotation_step(0)
+	enemy_board.set_rotation_step(0)
+	_layout_boards()
+	_focus(viewing)
+
+
 ## Centres the view on an island at once, keeping the zoom.
 func _focus(side: int) -> void:
 	_stop_flight()
@@ -439,10 +474,9 @@ func _on_minimap(world_pos: Vector2) -> void:
 	_update_viewing()
 
 
-## Which island the view is over: north of the channel's middle is the enemy's.
+## Which island the view is over: whichever centre is nearer.
 func _update_viewing() -> void:
-	var mid: float = (own_board.position.y + enemy_board.position.y) / 2.0
-	viewing = 1 if camera.position.y < mid else 0
+	viewing = 1 if camera.position.distance_squared_to(enemy_board.position) < camera.position.distance_squared_to(own_board.position) else 0
 
 
 func _cancel() -> void:
@@ -709,8 +743,11 @@ func _show_boats() -> void:
 func _channel_point(s: int, target: int) -> Vector2:
 	var dest_board = enemy_board if s == 0 else own_board
 	var dest: Vector2 = dest_board.position + dest_board.tile_center(target)
-	var mid: float = (own_board.position.y + enemy_board.position.y) / 2.0
-	return Vector2(dest.x, mid)
+	# The point on the channel's middle line level with the target, whichever
+	# way the view is turned.
+	var mid: Vector2 = (own_board.position + enemy_board.position) / 2.0
+	var across: Vector2 = (enemy_board.position - own_board.position).normalized()
+	return dest - across * (dest - mid).dot(across)
 
 
 func _sea_boat(s: int, target: int):
@@ -948,6 +985,19 @@ func _start_research(lab_id: int, item: String) -> void:
 		hud.add_log("[color=salmon]%s[/color]" % e)
 	else:
 		hud.add_log("Research started: %s." % Pieces.research_name(item))
+	_refresh()
+
+
+func _use_stored_research(item: String) -> void:
+	if ui != Ui.BUILD:
+		return
+	var e: String = m.build_action(MatchState.PLAYER, {"action": "use_stored_research", "item": item})
+	if e != "":
+		hud.add_log("[color=salmon]%s[/color]" % e)
+	elif m.sides[0].is_unlocked(item):
+		hud.add_log("Research complete: %s, with stored points." % Pieces.research_name(item))
+	else:
+		hud.add_log("Stored points put into %s." % Pieces.research_name(item))
 	_refresh()
 
 
@@ -1372,6 +1422,7 @@ func _run_playout() -> void:
 			_log_event(ev)
 	await _wait(0.8)
 	effects.clear()
+	battle_report = BattleReport.lines(events)
 	ui = Ui.BUILD   # placeholder until the next phase sets itself
 	_after_playout()
 
@@ -1394,15 +1445,16 @@ func _aa_sound() -> void:
 	audio.effect("anti_air_fire")
 
 
-## Our transport takes off from its airport and climbs away north toward
-## the enemy, at the same time as the missiles go up.
+## Our transport takes off from its airport and climbs away toward the
+## enemy, at the same time as the missiles go up.
 func _take_off(hex: int, delay: float) -> void:
 	await _wait(delay)
 	audio.effect("transport_engine")
 	var start: Vector2 = own_board.position + own_board.tile_center(hex)
-	var plane = effects.add_plane(start, 4.0, Vector2(0, -1).angle(), Color(1, 0.9, 0.5), "player")
+	var toward: Vector2 = (enemy_board.position - own_board.position).normalized()
+	var plane = effects.add_plane(start, 4.0, toward.angle(), Color(1, 0.9, 0.5), "player")
 	var t := create_tween().set_parallel(true)
-	t.tween_property(plane, "ground", start + Vector2(0, -620), 1.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.tween_property(plane, "ground", start + toward * 620.0, 1.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.tween_property(plane, "alt", 150.0, 1.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await t.finished
 	effects.remove_plane(plane)
@@ -1506,7 +1558,8 @@ const MARCH_SECONDS := 0.45    ## a platoon moving one hex
 func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float, reveal_tiles: Array = []) -> void:
 	await _wait(delay)
 	var ground: Vector2 = board.position + board.tile_center(target)
-	var from := Vector2(0, 1) if board == enemy_board else Vector2(0, -1)   # the attacker's island side
+	var attacker = own_board if board == enemy_board else enemy_board
+	var from: Vector2 = (attacker.position - board.position).normalized()   # the attacker's island side
 	var side := "player" if board == enemy_board else "enemy"
 	var alt := 150.0
 	var plane = effects.add_plane(ground + from * 650.0, alt, (-from).angle(), color, side)
