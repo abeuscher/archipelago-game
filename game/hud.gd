@@ -487,9 +487,10 @@ static func _button_box(bg: Color, border: Color) -> StyleBoxFlat:
 # --- Top bar ---------------------------------------------------------------
 
 func set_phase(phase_name: String, round_number: int) -> void:
-	_round.text = phase_name.to_upper().replace(" AND ", " & ")
-	_round_no.text = "ROUND %d" % round_number if round_number > 0 else ""
-	_round_no.visible = round_number > 0
+	# The plate shows the round once play starts (the toolbar names the
+	# phase), and the phase only before round 1 (setup).
+	_round.text = "ROUND %d" % round_number if round_number > 0 else phase_name.to_upper()
+	_round_no.visible = false
 	_tool_title.text = phase_name.to_upper().replace(" AND ", " & ")
 
 

@@ -77,9 +77,9 @@ static func comms(content: Control, screen_size: Vector2, gauge: Control, slider
 	return unit
 
 
-## The phase title at the top middle: a screwed-on beige plate with the
-## phase in big dark letters and the round in small ones above it. Returns
-## [plate, round label, phase label].
+## The title at the top middle: a screwed-on beige plate in big dark
+## letters (the round, or SETUP before round 1). The small line above is
+## kept hidden. Returns [plate, small label, title label].
 static func title_plate() -> Array:
 	var plate := PanelContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -104,7 +104,7 @@ static func title_plate() -> Array:
 	heavy.variation_embolden = 1.1
 	heavy.spacing_glyph = 2
 	phase.add_theme_font_override("font", heavy)
-	phase.add_theme_font_size_override("font_size", 34)
+	phase.add_theme_font_size_override("font_size", 29)
 	phase.add_theme_color_override("font_color", PLATE_INK)
 	phase.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.4))
 	phase.add_theme_constant_override("shadow_offset_x", 0)
