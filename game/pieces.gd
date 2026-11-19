@@ -78,6 +78,16 @@ const SHEET_FOR := {
 	"anti_air": "anti_air", "radar": "radar",
 	"airport": "airport", "bunker": "bunker", "docks": "docks", "coastal_cannon": "coastal_cannon",
 }
+## Toolbar tile colours, one per building, so a tile reads without its name.
+const TILE_COLORS := {
+	"decoy": Color(0.66, 0.68, 0.70), "bank": Color(0.80, 0.64, 0.72), "refinery": Color(0.96, 0.84, 0.42),
+	"lab": Color(0.56, 0.84, 0.82), "basic_launcher": Color(0.96, 0.58, 0.28), "anti_air": Color(0.58, 0.80, 0.42),
+	"radar": Color(0.56, 0.78, 0.96), "ballistic_launcher": Color(0.88, 0.42, 0.36), "airport": Color(0.74, 0.72, 0.94),
+	"bunker": Color(0.76, 0.66, 0.50), "docks": Color(0.42, 0.74, 0.86), "coastal_cannon": Color(0.95, 0.70, 0.30),
+	"base": Color(0.86, 0.86, 0.82),
+}
+
+
 ## Buildings drawn as placeholder blocks until their sprite sheets arrive
 ## (docs/troop_assets.md).
 const ART_PENDING := []
@@ -132,7 +142,7 @@ static func is_hit(b: Dictionary) -> bool:
 ## top face). `view` is the board rotation step. Returns false if the sheet
 ## is missing, so the caller can fall back to the placeholder.
 static func draw_sheet(ci: CanvasItem, name: String, c: Vector2, view: int, scale: float = 1.0,
-		modulate: Color = Color.WHITE) -> bool:
+		modulate: Color = Color.WHITE) -> bool:  # modulate tints the frame
 	var tex := sheet(name)
 	var meta := sprite_meta()
 	if tex == null or meta.is_empty():

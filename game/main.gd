@@ -807,7 +807,7 @@ func _build_toolbar(st) -> void:
 			hud.add_spacer()
 			hud.add_tool_button("Undo", _setup_undo, setup_history.is_empty(), false, "Take back the last piece placed", "undo")
 			hud.add_tool_button("Start", _start_setup_game, placed != per_side, false,
-				"Begin round 1" if placed == per_side else "Place all %d bases first" % per_side, "start")
+				"Begin round 1" if placed == per_side else "Place all %d bases first" % per_side, "start", true)
 		Ui.BUILD:
 			for type in data.building_types():
 				var def: Dictionary = data.building(type)
@@ -826,11 +826,12 @@ func _build_toolbar(st) -> void:
 				var t: String = type
 				var broke: bool = unlocked and not at_limit and st.money < data.cost(type)
 				var pick := func(): tool = t; selected = Vector2i(-1, -1); _refresh()
+				var tag := "LOCKED" if not unlocked else ("LIMIT" if at_limit else "")
 				hud.add_piece_button(type, Pieces.display_name(type), str(data.cost(type)), note,
 					(func(): hud.show_notice(Hud.NOTICE_MONEY)) if broke else pick,
-					not unlocked or at_limit, tool == type, _building_tooltip(type), broke, true)
+					not unlocked or at_limit, tool == type, _building_tooltip(type), broke, true, tag)
 			hud.add_spacer()
-			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now")
+			hud.add_tool_button("Done", _end_build, false, false, "End the build and repair phase now", "", true)
 		Ui.TARGETING:
 			hud.add_fuel_planner(st.fuel, _fuel_planned())
 			hud.add_label("Weapons")
@@ -873,7 +874,7 @@ func _build_toolbar(st) -> void:
 						"Change what this launcher fires")
 			hud.add_spacer()
 			hud.add_tool_button("Undo", _undo, orders.is_empty(), false, "Take back the last order. Free.", "undo")
-			hud.add_tool_button("Attack", _attack, false, false, "Launch the orders placed and end targeting")
+			hud.add_tool_button("Attack", _attack, false, false, "Launch the orders placed and end targeting", "", true)
 		Ui.PLAYOUT:
 			hud.add_label("Missiles in flight.", true)
 

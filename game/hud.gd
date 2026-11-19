@@ -75,6 +75,9 @@ const INFO_W := 420
 const MINIMAP_W := 230
 const MINIMAP_H := 250        ## taller than wide: the islands are stacked north and south
 const BOTTOM_H := 170
+const PANEL_METAL := Color(0.47, 0.48, 0.43)
+const PANEL_EDGE := Color(0.20, 0.20, 0.18)
+const TRAY := Color(0.20, 0.21, 0.20)
 const PORTRAIT_SLOT_H := 160  ## the character's space above the alarm light
 const MAP_BAR_H := 44         ## gap under the minimap and info box, holding the map controls
 const STRIP_W := 64
@@ -99,21 +102,33 @@ func _ready() -> void:
 	add_child(root)
 
 	# Left toolbar.
+	# An olive metal panel: a name plate, a dark tray holding the tools, then
+	# the character's space, the alarm light and the timer.
 	var left := PanelContainer.new()
 	left.anchor_bottom = 1.0
 	left.offset_right = TOOLBAR_W
+	left.add_theme_stylebox_override("panel", _plate_box(PANEL_METAL, PANEL_EDGE, 3, 10, 10))
 	root.add_child(left)
 	var lv := VBoxContainer.new()
 	lv.add_theme_constant_override("separation", 8)
 	left.add_child(lv)
+	var plate := PanelContainer.new()
+	plate.add_theme_stylebox_override("panel", _plate_box(Color(0.84, 0.82, 0.72), PANEL_EDGE, 2, 6, 4))
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	lv.add_child(plate)
 	_tool_title = Label.new()
 	_tool_title.add_theme_font_override("font", bold_font())
-	_tool_title.add_theme_font_size_override("font_size", 20)
-	lv.add_child(_tool_title)
+	_tool_title.add_theme_font_size_override("font_size", 16)
+	_tool_title.add_theme_color_override("font_color", Color(0.16, 0.15, 0.12))
+	plate.add_child(_tool_title)
+	var tray := PanelContainer.new()
+	tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tray.add_theme_stylebox_override("panel", _plate_box(TRAY, Color(0.12, 0.12, 0.11), 3, 8, 6))
+	lv.add_child(tray)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	lv.add_child(scroll)
+	tray.add_child(scroll)
 	_tools = VBoxContainer.new()
 	_tools.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tools.add_theme_constant_override("separation", 4)
@@ -447,7 +462,7 @@ static func _button_box(bg: Color, border: Color) -> StyleBoxFlat:
 
 func set_phase(phase_name: String, round_number: int) -> void:
 	_round.text = phase_name if round_number <= 0 else "Round %d · %s" % [round_number, phase_name]
-	_tool_title.text = phase_name
+	_tool_title.text = phase_name.to_upper().replace(" AND ", " & ")
 
 
 ## seconds < 0 means the clock is off or not running: a plain black box.
@@ -697,10 +712,22 @@ func add_spacer(h: float = 8.0) -> void:
 
 
 ## icon: an IconButton icon kind ("undo", "start") drawn at the left.
+## primary: the big red button that moves the game on (Start, Done, Attack).
 func add_tool_button(text: String, action: Callable, disabled: bool = false, pressed: bool = false, tooltip: String = "",
-		icon: String = "") -> Button:
+		icon: String = "", primary: bool = false) -> Button:
 	var b := Button.new()
 	b.text = text
+	if primary:
+		b.text = text.to_upper()
+		b.custom_minimum_size = Vector2(0, 44)
+		b.add_theme_font_size_override("font_size", 18)
+		b.add_theme_color_override("font_color", Color(1, 0.96, 0.9))
+		b.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+		b.add_theme_color_override("font_disabled_color", Color(0.75, 0.68, 0.66))
+		b.add_theme_stylebox_override("normal", _red_box(Color(0.86, 0.30, 0.20)))
+		b.add_theme_stylebox_override("hover", _red_box(Color(0.94, 0.40, 0.28)))
+		b.add_theme_stylebox_override("pressed", _red_box(Color(0.70, 0.22, 0.14)))
+		b.add_theme_stylebox_override("disabled", _red_box(Color(0.48, 0.30, 0.27)))
 	if icon != "":
 		var glyph := Control.new()
 		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -722,15 +749,41 @@ func add_tool_button(text: String, action: Callable, disabled: bool = false, pre
 
 
 ## A button with a piece icon: piece_type may be "" for none.
+static func _red_box(bg: Color) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = Color(0.32, 0.08, 0.05)
+	s.set_border_width_all(2)
+	s.border_width_bottom = 4
+	s.set_corner_radius_all(8)
+	s.content_margin_left = 14
+	s.content_margin_right = 14
+	s.content_margin_top = 6
+	s.content_margin_bottom = 6
+	return s
+
+
+static func _plate_box(bg: Color, edge: Color, width: int, radius: int, margin: int) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.border_color = edge
+	s.set_border_width_all(width)
+	s.set_corner_radius_all(radius)
+	s.set_content_margin_all(margin)
+	return s
+
+
 ## dimmed: drawn greyed out but still clickable, so the action can explain
 ## why it can't be done.
 ## compact: a tile in a two-across grid (consecutive compact buttons share
 ## one grid).
 func add_piece_button(piece_type: String, title: String, detail: String, note: String, action: Callable,
-		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false, compact: bool = false) -> void:
+		disabled: bool, pressed: bool, tooltip: String, dimmed: bool = false, compact: bool = false, tag: String = "") -> void:
 	var b := ToolButton.new()
 	b.dimmed = dimmed
 	b.compact = compact
+	b.broke = dimmed
+	b.tag = tag
 	b.piece_type = piece_type
 	b.title = title
 	b.detail = detail
@@ -741,7 +794,9 @@ func add_piece_button(piece_type: String, title: String, detail: String, note: S
 	b.tooltip_text = tooltip
 	b.pressed.connect(action)
 	if compact:
-		b.custom_minimum_size = Vector2(0, 76)
+		b.custom_minimum_size = Vector2(0, 74)
+		if note != "":
+			b.tooltip_text = (title + " — " + note + "\n" + tooltip) if tooltip != "" else title + " — " + note
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var grid: GridContainer = null
 		var n := _tools.get_child_count()
