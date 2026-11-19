@@ -77,6 +77,114 @@ static func comms(content: Control, screen_size: Vector2, gauge: Control, slider
 	return unit
 
 
+## The phase title at the top middle: a screwed-on beige plate with the
+## phase in big dark letters and the round in small ones above it. Returns
+## [plate, round label, phase label].
+static func title_plate() -> Array:
+	var plate := PanelContainer.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var st := box(BEZEL, BEZEL_EDGE, 4, 12, [34, 6, 34, 8])
+	st.border_width_bottom = 6
+	st.shadow_color = Color(0, 0, 0, 0.35)
+	st.shadow_size = 4
+	st.shadow_offset = Vector2(0, 3)
+	plate.add_theme_stylebox_override("panel", st)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", -2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(col)
+	var round_l := _label("", 13)
+	round_l.add_theme_color_override("font_color", PLATE_INK.lightened(0.3))
+	col.add_child(round_l)
+	var phase := Label.new()
+	phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var heavy := FontVariation.new()
+	heavy.base_font = ThemeDB.fallback_font
+	heavy.variation_embolden = 1.1
+	heavy.spacing_glyph = 2
+	phase.add_theme_font_override("font", heavy)
+	phase.add_theme_font_size_override("font_size", 34)
+	phase.add_theme_color_override("font_color", PLATE_INK)
+	phase.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.4))
+	phase.add_theme_constant_override("shadow_offset_x", 0)
+	phase.add_theme_constant_override("shadow_offset_y", 2)
+	col.add_child(phase)
+	# A screw in each corner of the plate.
+	plate.draw.connect(func():
+		var w := plate.size.x
+		var h := plate.size.y
+		for p in [Vector2(14, 13), Vector2(w - 14, 13), Vector2(14, h - 15), Vector2(w - 14, h - 15)]:
+			plate.draw_circle(p, 5.0, BEZEL_EDGE)
+			plate.draw_circle(p, 3.8, Color(0.68, 0.66, 0.58))
+			plate.draw_line(p + Vector2(-2.6, -1.3), p + Vector2(2.6, 1.3), BEZEL_EDGE, 1.3))
+	return [plate, round_l, phase]
+
+
+## The log monitor: a name plate with a red CLOSE button, the screen
+## holding `content`, and a row of lights beneath.
+static func log_unit(content: Control, on_close: Callable) -> PanelContainer:
+	var unit := PanelContainer.new()
+	unit.add_theme_stylebox_override("panel", box(BEZEL, BEZEL_EDGE, 3, 18, [14, 10, 14, 10]))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	unit.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	v.add_child(head)
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(72, 0)
+	head.add_child(spacer)
+	var plate := _plate("LOG / RECORDS")
+	plate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(plate)
+	head.add_child(close_button(on_close))
+	var scr := _screen(content, 14)
+	scr.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(scr)
+	var foot := HBoxContainer.new()
+	foot.alignment = BoxContainer.ALIGNMENT_CENTER
+	foot.add_child(_leds(LEDS))
+	v.add_child(foot)
+	return unit
+
+
+## The red pill-shaped CLOSE button of the mainframe screens.
+static func close_button(on_close: Callable) -> Button:
+	var close := Button.new()
+	close.text = "CLOSE"
+	close.focus_mode = Control.FOCUS_NONE
+	close.custom_minimum_size = Vector2(72, 30)
+	close.add_theme_font_override("font", font(700))
+	close.add_theme_font_size_override("font_size", 13)
+	close.add_theme_color_override("font_color", Color(1, 0.95, 0.9))
+	close.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	var edge := Color(0.35, 0.10, 0.06)
+	close.add_theme_stylebox_override("normal", box(Color(0.88, 0.32, 0.18), edge, 3, 15, [8, 3, 8, 3]))
+	close.add_theme_stylebox_override("hover", box(Color(0.96, 0.42, 0.24), edge, 3, 15, [8, 3, 8, 3]))
+	close.add_theme_stylebox_override("pressed", box(Color(0.70, 0.24, 0.14), edge, 3, 15, [8, 3, 8, 3]))
+	close.pressed.connect(on_close)
+	return close
+
+
+## A small book drawn on a key, for the log button.
+static func book_icon() -> Control:
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.draw.connect(func():
+		var m := c.size / 2.0
+		var cover := Rect2(m + Vector2(-9, -11), Vector2(18, 21))
+		c.draw_rect(cover.grow(1.5), PLATE_INK)
+		c.draw_rect(cover, Color(0.55, 0.25, 0.12))
+		c.draw_rect(Rect2(cover.position + Vector2(3, 0), Vector2(15, 18)), Color(0.96, 0.93, 0.84))
+		c.draw_rect(Rect2(cover.position + Vector2(3, 0), Vector2(15, 18)), PLATE_INK, false, 1.0)
+		c.draw_rect(Rect2(cover.position, Vector2(4, cover.size.y)), Color(0.42, 0.18, 0.08))
+		for y in [5.0, 9.0, 13.0]:
+			c.draw_line(cover.position + Vector2(7, y), cover.position + Vector2(15, y), Color(0.55, 0.52, 0.45), 1.2))
+	return c
+
+
 ## A chunky plastic key in its colour, sunk a little when pressed.
 static func style_key(b: Button, color: Color) -> void:
 	var edge := color.darkened(0.45)

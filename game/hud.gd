@@ -52,7 +52,9 @@ var _money_val: Label
 var _money_next: Label
 var _fuel_val: Label
 var _research_val: Label
-var _round: Label
+var _round: Label          ## the phase, big on the title plate
+var _round_no: Label       ## "ROUND 2", small above it
+var _log_badge: Control    ## unread count on the log key
 var _flash: VBoxContainer
 var _notice: PanelContainer
 var _notice_text: Label
@@ -186,15 +188,30 @@ func _ready() -> void:
 	_earn_button.focus_mode = Control.FOCUS_NONE
 	_earn_button.tooltip_text = "Show what next round's income will be"
 	_earn_button.toggled.connect(_toggle_earnings)
-	_small_button(_earn_button)
+	_key_button(_earn_button, Color(0.42, 0.80, 0.38))
+	_earn_button.custom_minimum_size = Vector2(116, 38)
 	trb.add_child(_earn_button)
 	_log_button = Button.new()
-	_log_button.text = "Log"
 	_log_button.toggle_mode = true
 	_log_button.focus_mode = Control.FOCUS_NONE
 	_log_button.tooltip_text = "Read back the game log"
 	_log_button.toggled.connect(_toggle_log)
-	_small_button(_log_button)
+	_key_button(_log_button, Color(0.98, 0.58, 0.22))
+	_log_button.custom_minimum_size = Vector2(44, 38)
+	_log_button.add_child(DevicePanel.book_icon())
+	_log_badge = Control.new()
+	_log_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_log_badge.position = Vector2(30, -8)
+	_log_badge.size = Vector2(22, 18)
+	_log_badge.visible = false
+	_log_badge.draw.connect(func():
+		var t := str(_unread) if _unread < 100 else "99+"
+		var f := bold_font()
+		var w := maxf(18.0, f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0)
+		var r := Rect2(Vector2(0, 0), Vector2(w, 18))
+		_log_badge.draw_style_box(DevicePanel.box(Color(0.85, 0.15, 0.12), Color(0.3, 0.05, 0.04), 2, 9, [0, 0, 0, 0]), r)
+		_log_badge.draw_string(f, Vector2(5, 13.5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1)))
+	_log_button.add_child(_log_badge)
 	trb.add_child(_log_button)
 	_earn_panel = PanelContainer.new()
 	_earn_panel.visible = false
@@ -217,11 +234,10 @@ func _ready() -> void:
 	var topr := HBoxContainer.new()
 	topr.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.add_child(topr)
-	_round = Label.new()
-	_round.add_theme_font_size_override("font_size", 20)
-	_round.custom_minimum_size = Vector2(320, 0)
-	_round.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	topr.add_child(_round)
+	var title: Array = DevicePanel.title_plate()
+	_round_no = title[1]
+	_round = title[2]
+	topr.add_child(title[0])
 	_notice = PanelContainer.new()
 	_notice.visible = false
 	_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -248,20 +264,36 @@ func _ready() -> void:
 	top.add_child(_flash)
 
 	# Log history, right side, left of the strip. Hidden until asked for.
-	_log_panel = PanelContainer.new()
-	_log_panel.anchor_left = 1.0
-	_log_panel.anchor_right = 1.0
-	_log_panel.anchor_bottom = 1.0
-	_log_panel.offset_left = -STRIP_W - 24 - 400
-	_log_panel.offset_right = -STRIP_W - 24
-	_log_panel.offset_top = 80
-	_log_panel.offset_bottom = -RADAR_H - 16
-	_log_panel.visible = false
-	root.add_child(_log_panel)
+	var log_col := VBoxContainer.new()
+	log_col.add_theme_constant_override("separation", 6)
+	var log_head := Label.new()
+	log_head.text = "TRANSMISSIONS"
+	log_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	log_head.add_theme_font_override("font", DevicePanel.font(700))
+	log_head.add_theme_font_size_override("font_size", 18)
+	log_head.add_theme_color_override("font_color", ResearchPanel.ALERT)
+	log_col.add_child(log_head)
 	_log = RichTextLabel.new()
 	_log.bbcode_enabled = true
 	_log.scroll_following = true
-	_log_panel.add_child(_log)
+	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log.add_theme_font_override("normal_font", DevicePanel.font(500))
+	_log.add_theme_font_override("bold_font", DevicePanel.font(800))
+	_log.add_theme_font_size_override("normal_font_size", 14)
+	_log.add_theme_font_size_override("bold_font_size", 14)
+	_log.add_theme_color_override("default_color", DevicePanel.TEXT)
+	log_col.add_child(_log)
+	_log_panel = DevicePanel.log_unit(log_col, func(): _log_button.button_pressed = false)
+	_log_panel.anchor_left = 0.5
+	_log_panel.anchor_right = 0.5
+	_log_panel.anchor_top = 0.5
+	_log_panel.anchor_bottom = 0.5
+	_log_panel.offset_left = -330
+	_log_panel.offset_right = 330
+	_log_panel.offset_top = -230
+	_log_panel.offset_bottom = 190
+	_log_panel.visible = false
+	root.add_child(_log_panel)
 
 	# Right strip: a beaker per research project. Centred vertically.
 	_strip = VBoxContainer.new()
@@ -455,7 +487,9 @@ static func _button_box(bg: Color, border: Color) -> StyleBoxFlat:
 # --- Top bar ---------------------------------------------------------------
 
 func set_phase(phase_name: String, round_number: int) -> void:
-	_round.text = phase_name if round_number <= 0 else "Round %d · %s" % [round_number, phase_name]
+	_round.text = phase_name.to_upper().replace(" AND ", " & ")
+	_round_no.text = "ROUND %d" % round_number if round_number > 0 else ""
+	_round_no.visible = round_number > 0
 	_tool_title.text = phase_name.to_upper().replace(" AND ", " & ")
 
 
@@ -611,6 +645,29 @@ static func tracked_font(spacing: int) -> Font:
 	return f
 
 
+## The log in capitals, like the mainframe's screens; BBCode tags are left
+## alone.
+static func _terminal_case(text: String) -> String:
+	var out := ""
+	var in_tag := false
+	for ch in text:
+		if ch == "[":
+			in_tag = true
+		elif ch == "]":
+			in_tag = false
+		out += ch if in_tag else ch.to_upper()
+	return out
+
+
+## A top-right button as a chunky coloured key with dark lettering.
+static func _key_button(b: Button, color: Color) -> void:
+	DevicePanel.style_key(b, color)
+	b.add_theme_font_override("font", bold_font())
+	b.add_theme_font_size_override("font_size", 15)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(c, DevicePanel.PLATE_INK)
+
+
 ## Smaller text and height for the buttons under the resources.
 static func _small_button(b: Button) -> void:
 	b.add_theme_font_size_override("font_size", 13)
@@ -656,10 +713,11 @@ func notice_showing() -> String:
 ## Adds an event to the history and flashes it at the top of the screen.
 ## flash false: into the history only (for lines the character says).
 func add_log(text: String, flash: bool = true) -> void:
-	_log.append_text(text + "\n")
+	_log.append_text("* " + _terminal_case(text) + "\n")
 	if not _log_panel.visible:
 		_unread += 1
-		_log_button.text = "Log (%d)" % _unread
+		_log_badge.visible = true
+		_log_badge.queue_redraw()
 	if not flash:
 		return
 	var l := RichTextLabel.new()
@@ -689,7 +747,7 @@ func _toggle_log(on: bool) -> void:
 	_log_panel.visible = on
 	if on:
 		_unread = 0
-		_log_button.text = "Log"
+		_log_badge.visible = false
 
 
 # --- Left toolbar ----------------------------------------------------------
