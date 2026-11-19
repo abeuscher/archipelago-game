@@ -3,9 +3,10 @@
   "effects": {
     "missile_fire": "assets/audio/missile_launch.ogg",
     "missile_explode": "assets/audio/missile_explode.ogg",
-    "anti_air_fire": "assets/audio/anti_air_fire.ogg",
-    "countdown_tick": "assets/audio/countdown_tick.ogg",
-    "repair": "assets/audio/repair_work_crew.ogg",
+    "anti_air_fire": "assets/audio/anti_aircraft.ogg",
+    "anti_air_hit": "assets/audio/anti_aircraft_hit.ogg",
+    "countdown": "assets/audio/countdown.wav",
+    "repair": "assets/audio/repair.ogg",
     "transport_engine": "assets/audio/transport_engine.ogg",
     "cannon_shot": "assets/audio/cannon_shot.ogg",
     "bunker_fire": "assets/audio/bunker_fire.ogg"
@@ -13,8 +14,8 @@
   "build": {
     "lab": "assets/audio/lab.ogg",
     "bank": "assets/audio/bank.ogg",
-    "basic_launcher": "assets/audio/build_missile.ogg",
-    "ballistic_launcher": "assets/audio/build_missile.ogg",
+    "basic_launcher": "assets/audio/missile_build.ogg",
+    "ballistic_launcher": "assets/audio/missile_build.ogg",
     "airport": "assets/audio/airport.ogg",
     "docks": "assets/audio/dock.ogg",
     "radar": "assets/audio/radar.ogg"
@@ -39,5 +40,6 @@
     "build": "assets/music/build_theme.ogg",
     "battle": "assets/music/battle_theme.ogg"
   },
+  "_countdown_note": "The countdown sound starts this many seconds before the build clock runs out.",
   "countdown_seconds": 5
 }

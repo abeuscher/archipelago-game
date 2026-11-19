@@ -224,6 +224,7 @@ func _end_build() -> void:
 	if ui != Ui.BUILD:
 		return
 	m.end_build_phase()
+	audio.stop_effect("countdown")   # Done pressed with the countdown running
 	hud.research_panel.visible = false
 	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
@@ -297,14 +298,15 @@ func _set_clock(seconds: int) -> void:
 
 
 func _process(delta: float) -> void:
-	if clock_running and not hud.overlay_visible() and not _tip_holds_clock():
-		var before := ceili(clock_left)
+	var clock_ticking: bool = clock_running and not hud.overlay_visible() and not _tip_holds_clock()
+	audio.pause_effect("countdown", not clock_ticking)   # the countdown holds when the clock does
+	if clock_ticking:
+		var warn := float(audio.sounds.get("countdown_seconds", 5))
 		clock_left -= delta
 		hud.set_timer(maxf(clock_left, 0.0))
-		# The last seconds of the build clock tick.
-		var after := ceili(clock_left)
-		if ui == Ui.BUILD and after < before and after >= 0 and after < int(audio.sounds.get("countdown_seconds", 5)):
-			audio.effect("countdown_tick")
+		# The last seconds of the build clock count down out loud.
+		if ui == Ui.BUILD and clock_left <= warn and clock_left + delta > warn:
+			audio.effect("countdown")
 		if clock_left <= 0.0:
 			clock_running = false
 			if ui == Ui.BUILD:
@@ -1520,7 +1522,7 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 		if eng["hit"]:
 			effects.burst(ground - Vector2(0, alt))
 			effects.explosion(ground - Vector2(0, alt), 26.0, Color(1.0, 0.55, 0.15))
-			audio.effect("missile_explode", -4.0)
+			audio.effect("anti_air_hit")
 			effects.remove_plane(plane)
 			return
 	# Eight parachutes, while the plane flies on and away.
@@ -1618,7 +1620,7 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 		await _wait(0.15)
 		if eng["hit"]:
 			effects.burst(ground - Vector2(0, ms.alt))
-			audio.effect("missile_explode", -8.0)
+			audio.effect("anti_air_hit")
 			effects.remove_missile(ms)
 			return
 	t = create_tween()

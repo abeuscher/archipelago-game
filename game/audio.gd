@@ -48,6 +48,19 @@ func built(type: String) -> void:
 		play(path)
 
 
+## Pauses or resumes a named effect that is playing (the countdown).
+func pause_effect(name: String, paused: bool) -> void:
+	var p: AudioStreamPlayer = _players.get(_full(String(sounds.get("effects", {}).get(name, "-"))))
+	if p != null:
+		p.stream_paused = paused
+
+
+func stop_effect(name: String) -> void:
+	var p: AudioStreamPlayer = _players.get(_full(String(sounds.get("effects", {}).get(name, "-"))))
+	if p != null:
+		p.stop()
+
+
 func play(path: String, volume_db: float = 0.0) -> void:
 	var stream := _load(path)
 	if stream == null:
@@ -61,6 +74,7 @@ func play(path: String, volume_db: float = 0.0) -> void:
 		_players[full] = p
 	p.stream = stream
 	p.volume_db = volume_db
+	p.stream_paused = false
 	p.play()
 
 
