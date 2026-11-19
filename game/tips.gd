@@ -64,6 +64,8 @@ static func holds(when: String, ctx: Dictionary) -> bool:
 			return phase == "build" and not ctx.get("has_launcher", true)
 		"build_without_anti_air":
 			return phase == "build" and not ctx.get("has_anti_air", false)
+		"troop_selected":
+			return phase == "targeting" and ctx.get("troop_selected", false)
 		"research_open":
 			return phase == "build" and ctx.get("research_open", false)
 		"radar_not_started":

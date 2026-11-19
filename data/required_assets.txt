@@ -3,3 +3,18 @@
 # The game plays a sound only if its file exists.
 assets/audio/repair_work_crew.ogg | Work-crew sound on a hex under repair | 9
 assets/characters/ginger.jpg | Portrait of Ginger, who speaks tips and announcements from the left-hand panel; face inside a circle, position in data/characters.json | 14
+assets/audio/missile_fire.ogg | A missile launching | 13
+assets/audio/anti_air_fire.ogg | Anti-air firing at a missile or transport | 13
+assets/audio/countdown_tick.ogg | Each of the last 5 seconds of the build clock | 14
+assets/audio/build_lab.ogg | A lab going up | 13
+assets/audio/build_bank.ogg | A bank going up | 13
+assets/audio/build_missile.ogg | A missile launcher (either kind) going up | 13
+assets/audio/build_airport.ogg | An airport going up | 13
+assets/audio/build_docks.ogg | Docks going up | 13
+assets/audio/build_radar.ogg | A radar going up | 13
+assets/audio/transport_engine.ogg | A transport taking off (optional) | 10
+assets/music/intro_theme.ogg | Intro theme, title screen, loops | 13
+assets/music/build_theme.ogg | Build theme, setup and build and repair, loops | 13
+assets/music/battle_theme.ogg | Battle theme, targeting and the attack, loops | 13
+assets/audio/cannon_shot.ogg | A coastal cannon firing at a boat (optional) | 10
+assets/audio/bunker_fire.ogg | A bunker wiping out a platoon (optional) | 10

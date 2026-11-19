@@ -75,6 +75,11 @@ func _troops() -> void:
 	main._refresh()
 	await _shot("21b_drop_planned")
 	main._attack()
+	for k in 12:
+		await create_timer(0.15).timeout
+		if not main.effects.planes.is_empty():
+			await _shot("21c_take_off")
+			break
 	var got := {}
 	while main.ui == main.Ui.PLAYOUT:
 		if main.hud.announcing():

@@ -19,7 +19,6 @@ const Tips = preload("res://game/tips.gd")
 const Earnings = preload("res://game/earnings.gd")
 const RulesText = preload("res://game/rules_text.gd")
 
-const REPAIR_SOUND := "assets/audio/repair_work_crew.ogg"
 const CHANNEL_ROWS := 4        ## rows of open sea between the two islands
 const FLY_SECONDS := 0.9       ## camera move between islands at a phase change
 const FIT_MARGIN := 0.92       ## share of the free screen an island fills when fitted
@@ -164,6 +163,7 @@ func _enter_setup() -> void:
 	hud.set_alarm(false)
 	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
+	audio.music("build")
 	_set_clock(0)
 	hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
 	_refresh()
@@ -216,6 +216,7 @@ func _start_round() -> void:
 	selected = Vector2i(-1, -1)
 	_fly_to(0)
 	hud.set_phase("Build and repair", m.round_number)
+	audio.music("build")
 	_set_clock(int(prefs["build_clock_seconds"]))
 	_refresh()
 
@@ -246,6 +247,7 @@ func _end_build() -> void:
 	active_launcher = _next_free_launcher()
 	_fly_to(1)
 	hud.set_phase("Targeting", m.round_number)
+	audio.music("battle")
 	_set_clock(int(prefs["targeting_clock_seconds"]))
 	_refresh()
 
@@ -298,8 +300,13 @@ func _set_clock(seconds: int) -> void:
 
 func _process(delta: float) -> void:
 	if clock_running and not hud.overlay_visible() and not _tip_holds_clock():
+		var before := ceili(clock_left)
 		clock_left -= delta
 		hud.set_timer(maxf(clock_left, 0.0))
+		# The last seconds of the build clock tick.
+		var after := ceili(clock_left)
+		if ui == Ui.BUILD and after < before and after >= 0 and after < int(audio.sounds.get("countdown_seconds", 5)):
+			audio.effect("countdown_tick")
 		if clock_left <= 0.0:
 			clock_running = false
 			if ui == Ui.BUILD:
@@ -452,6 +459,7 @@ func _click(side: int, hex: int) -> void:
 				var e: String = m.build_action(MatchState.PLAYER, {"action": "build", "type": tool, "hex": hex})
 				if e == "":
 					hud.add_log("Built %s." % Pieces.display_name(tool))
+					audio.built(tool)
 					if m.sides[0].money < data.cost(tool):
 						tool = ""
 				else:
@@ -985,6 +993,8 @@ func _tip_context() -> Dictionary:
 		"phase": phase,
 		"round": m.round_number,
 		"has_lab": st.count_role(data, "lab") > 0,
+		"troop_selected": ui == Ui.TARGETING and active_launcher >= 0 and st.building_at(active_launcher) != null \
+			and data.role(st.building_at(active_launcher).type) in ["airport", "docks"],
 		"research_open": hud.research_panel.visible,
 		"setup_complete": setup_complete,
 		"clock_on": clock_running,
@@ -1193,7 +1203,7 @@ func _info_actions_for(st, b) -> void:
 			if e != "":
 				hud.add_log("[color=salmon]%s[/color]" % e)
 			else:
-				audio.play(REPAIR_SOUND)
+				audio.effect("repair")
 				hud.add_log("Repairing %s." % Pieces.display_name(type))
 			_refresh()
 		var err: String = st.can_repair(b.hex, data)
@@ -1298,7 +1308,10 @@ func _run_playout() -> void:
 	_fly_to(0, 0.6)
 	await _wait(0.7)
 	for k in launches[0].size():
-		_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
+		if data.missile(String(launches[0][k]["missile"])).has("carries"):
+			_take_off(int(launches[0][k]["launcher"]), k * 0.15)
+		else:
+			_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
 	for k in sailings.size():
 		_sail_out(sailings[k], k * 0.2)
 	await _wait(0.9 + maxf(launches[0].size() * 0.15, sailings.size() * 0.2 + 0.3))
@@ -1375,10 +1388,29 @@ func _wait(seconds: float) -> void:
 	await get_tree().create_timer(seconds, false).timeout
 
 
+func _aa_sound() -> void:
+	audio.effect("anti_air_fire")
+
+
+## Our transport takes off from its airport and climbs away north toward
+## the enemy, at the same time as the missiles go up.
+func _take_off(hex: int, delay: float) -> void:
+	await _wait(delay)
+	audio.effect("transport_engine")
+	var start: Vector2 = own_board.position + own_board.tile_center(hex)
+	var plane = effects.add_plane(start, 4.0, Vector2(0, -1).angle(), Color(1, 0.9, 0.5), "player")
+	var t := create_tween().set_parallel(true)
+	t.tween_property(plane, "ground", start + Vector2(0, -620), 1.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.tween_property(plane, "alt", 150.0, 1.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await t.finished
+	effects.remove_plane(plane)
+
+
 func _rise(board, hex: int, color: Color, delay: float, offset: Vector2 = Vector2.ZERO) -> void:
 	await _wait(delay)
 	if board == own_board:
 		_mark_fired([hex])
+		audio.effect("missile_fire")
 	var ms = effects.add_missile(board.position + board.tile_center(hex) + offset, 0.0, color)
 	var t := create_tween()
 	t.tween_property(ms, "alt", 700.0, 0.8).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
@@ -1427,6 +1459,7 @@ func _ashore_anim(board, isl, ev: Dictionary, info: Dictionary, color: Color, de
 	for shot in info.get("cannon_shots", []):
 		await _wait(0.25)
 		var src: Vector2 = board.position + board.tile_center(int(shot["cannon"])) - Vector2(0, 16) if isl != null else ground + Vector2(70, -20)
+		audio.effect("cannon_shot")
 		effects.tracer(src, bt.ground)
 		effects.explosion(bt.ground, 14.0, Color(0.85, 0.9, 1.0) if not shot["hit"] else Color(1.0, 0.55, 0.15))
 	await t.finished
@@ -1480,6 +1513,7 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 	if info.has("engage"):
 		var eng: Dictionary = info["engage"]
 		var src: Vector2 = board.position + board.tile_center(int(eng["anti_air"])) - Vector2(0, 20) if isl != null else ground + Vector2(-60, 30)
+		_aa_sound()
 		effects.tracer(src, ground - Vector2(0, alt))
 		await _wait(0.15)
 		if eng["hit"]:
@@ -1538,6 +1572,7 @@ func _march(board, p: Dictionary, ground: Vector2, color: Color, side: String, r
 			var bk := int(p["stopped_by"])
 			if not reveal_tiles.is_empty():
 				board.tiles[bk] = reveal_tiles[bk]
+			audio.effect("bunker_fire")
 			effects.tracer(board.position + board.tile_center(bk) - Vector2(0, 14), pos - Vector2(0, 6))
 			await _wait(0.12)
 			effects.burst(pos - Vector2(0, 6))
@@ -1572,8 +1607,10 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 	if info.has("engage"):
 		var eng: Dictionary = info["engage"]
 		if isl != null:
+			_aa_sound()
 			effects.tracer(board.position + board.tile_center(int(eng["anti_air"])) - Vector2(0, 20), ground - Vector2(0, ms.alt))
 		else:
+			_aa_sound()
 			effects.tracer(ground + Vector2(-60, 30), ground - Vector2(0, ms.alt))
 		await _wait(0.15)
 		if eng["hit"]:

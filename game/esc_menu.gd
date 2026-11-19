@@ -24,6 +24,7 @@ var _reset_note: Label
 var _rules_box: VBoxContainer
 var _rules_label: RichTextLabel
 var rules_text: String = ""      ## the Game Rules page, set by the game (rules_text.gd)
+var options_only: bool = false   ## title screen: no pause menu; leaving Options closes it
 
 
 func _ready() -> void:
@@ -150,7 +151,10 @@ func open_menu() -> void:
 	# pausing may not have had its anchored size applied yet.
 	position = Vector2.ZERO
 	size = get_viewport_rect().size
-	_show_main()
+	if options_only:
+		_show_options()
+	else:
+		_show_main()
 	get_tree().paused = true
 
 
@@ -173,6 +177,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _show_main() -> void:
+	if options_only:
+		close_menu()
+		return
 	_main_box.visible = true
 	_opts_box.visible = false
 	_rules_box.visible = false

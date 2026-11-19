@@ -64,6 +64,12 @@
       "text": "General, I'd research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to pick the research."
     },
     {
+      "id": "troop_aim",
+      "character": "pilot",
+      "when": "troop_selected",
+      "text": "Looks like you're trying to land your troops on enemy territory, General. Click once on where you want them to land, then click on an adjacent hex to tell them which way to move once boots are on the ground."
+    },
+    {
       "id": "aim",
       "character": "pilot",
       "when": "targeting",

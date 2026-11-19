@@ -21,7 +21,7 @@ A turn-based strategy roguelike in Godot 4.7, GDScript, 2D. The design is in [sp
 & "C:\Godot\Godot_v4.7.2-stable_win64.exe" --path . -- --seed 1234    # reproducible island and dice
 ```
 
-You can also open the folder in the Godot editor and press F5.
+The game opens on the title screen. You can also open the folder in the Godot editor and press F5.
 
 Controls:
 
