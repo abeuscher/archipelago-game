@@ -30,6 +30,7 @@ signal tip_dismissed(id: String, forever: bool)
 signal announcement_dismissed(id: String, forever: bool)
 
 var slot: Control                 ## the portrait space in the toolbar
+var _laid_out_for: Rect2 = Rect2()   ## the portrait space as it was when last laid out
 var anchor_rect: Callable         ## anchor name -> Rect2 on screen (empty if not shown)
 var characters: Dictionary = {}
 var default_character: String = ""
@@ -210,10 +211,20 @@ func _on_ok() -> void:
 
 
 func _process(delta: float) -> void:
+	# The portrait space may not be laid out yet when the first message
+	# shows (the setup tip comes on the first frame), or may move later:
+	# place the face and bubble again whenever it does.
+	if slot != null and _box.visible and slot.get_global_rect() != _laid_out_for:
+		_layout()
 	if _msg != null and not _msg.has("tip") and _box.visible and float(_msg.get("seconds", 0.0)) > 0.0:
 		_left -= delta
 		if _left <= 0.0:
 			_on_ok()
+	if _msg != null and _msg.has("tip") and _box.visible:
+		# What a tip points at can appear (or move) after the tip does, when
+		# the toolbar or the board is rebuilt: check each frame.
+		var tip: Dictionary = _msg["tip"]
+		_spot.visible = bool(tip.get("pause", false)) or _rect_of(tip, "anchor").has_area() or _rect_of(tip, "arrow").has_area()
 	if _spot.visible:
 		_spot.queue_redraw()   # anchors move when the toolbar is rebuilt
 
@@ -233,7 +244,7 @@ func _show_msg() -> void:
 	_left = float(_msg.get("seconds", ANNOUNCE_SECONDS)) + BUBBLE_POP_SECONDS
 	var tip: Dictionary = _msg.get("tip", {})
 	var pause := bool(tip.get("pause", false))
-	_spot.visible = is_tip and (pause or anchor_rect.is_valid() and anchor_rect.call(String(tip.get("anchor", ""))).has_area())
+	_spot.visible = is_tip and (pause or _rect_of(tip, "anchor").has_area() or _rect_of(tip, "arrow").has_area())
 	_spot.mouse_filter = Control.MOUSE_FILTER_STOP if pause else Control.MOUSE_FILTER_IGNORE
 	_spot.queue_redraw()
 	_layout()
@@ -288,6 +299,7 @@ func _layout() -> void:
 	if slot == null:
 		return
 	var r := slot.get_global_rect()
+	_laid_out_for = r
 	var d := minf(PORTRAIT_MAX, minf(r.size.y, r.size.x) - 8.0)
 	_face.size = Vector2(d, d)
 	_face.position = Vector2(r.position.x + (r.size.x - d) / 2.0, r.position.y + (r.size.y - d) / 2.0)
@@ -379,10 +391,14 @@ static func _arc(pts: PackedVector2Array, c: Vector2, r: float, a0: float, a1: f
 ## edge. Without an anchor (a pausing tip) the whole screen dims.
 func _draw_spot() -> void:
 	var view := get_viewport_rect().size
-	var hole := Rect2()
-	if _msg != null and _msg.has("tip") and anchor_rect.is_valid():
-		hole = anchor_rect.call(String(_msg["tip"].get("anchor", "")))
+	var tip: Dictionary = _msg.get("tip", {}) if _msg != null else {}
+	var hole := _rect_of(tip, "anchor")
 	if not hole.has_area():
+		# An arrow-only tip points without dimming anything.
+		var pointed := _rect_of(tip, "arrow")
+		if pointed.has_area():
+			_draw_arrow(pointed.grow(6.0))
+			return
 		_spot.draw_rect(Rect2(Vector2.ZERO, view), DIM)
 		return
 	hole = hole.grow(6.0)
@@ -392,6 +408,15 @@ func _draw_spot() -> void:
 	_spot.draw_rect(Rect2(hole.end.x, hole.position.y, view.x - hole.end.x, hole.size.y), DIM)
 	_spot.draw_rect(hole, SPOT_EDGE, false, 2.0)
 	_draw_arrow(hole)   # over the dimming, so it stands out
+
+
+## Where a tip's "anchor" (dim around it, with an arrow) or "arrow" (just
+## the arrow) is on screen; empty if it has none or it isn't showing.
+func _rect_of(tip: Dictionary, key: String) -> Rect2:
+	var name := String(tip.get(key, ""))
+	if name == "" or not anchor_rect.is_valid():
+		return Rect2()
+	return anchor_rect.call(name)
 
 
 ## A bobbing arrow pointing down at what the tip is about (up from below
