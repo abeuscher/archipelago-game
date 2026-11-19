@@ -255,8 +255,8 @@ func _start_round() -> void:
 		else:
 			_log_event(ev)
 	if report != "":
-		# Held until OK: there is a lot to read.
-		hud.announce((report + " " + income_said).strip_edges(), "", 0.0, false, _line_character("battle_report"))
+		# The build clock runs while it is read, as for the income line.
+		hud.announce((report + " " + income_said).strip_edges(), "", 0.0, false, _line_character("battle_report"), false)
 	elif income_said != "":
 		hud.announce(income_said, "", 0.0, false, _line_character("income"), false)
 	if m.boats[MatchState.ENEMY].any(func(bt): return int(bt["lands_round"]) == m.round_number):
