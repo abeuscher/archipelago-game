@@ -30,6 +30,7 @@ const ZOOM_MIN := 0.3
 const ZOOM_MAX := 3.0
 const PAN_SPEED := 700.0
 const ZOOM_STEP := 1.25        ## per press of a zoom button
+const ENEMY_TURN_PAUSE := 1.2  ## seconds on our island after the enemy's strikes, before ours
 const ALARM_TURNS := 1.0       ## the siren turns this many times before the warning
 
 enum Ui { SETUP, BUILD, TARGETING, PLAYOUT, COIN, OVER }
@@ -340,13 +341,6 @@ func _after_playout() -> void:
 	elif m.is_over():
 		_show_game_over()
 	else:
-		# Our first base lost: the level's line (Ginger in level 1), every match.
-		var lost_line := String(level.get("first_base_lost", ""))
-		var lost: int = data.integer("bases", "per_side") - m.sides[0].bases_alive(data)
-		if not first_base_line_said and lost >= 1 and lost_line != "" and lines.has(lost_line):
-			first_base_line_said = true
-			if lost == 1:
-				hud.announce(_line_text(lost_line), "", 0.0, false, _line_character(lost_line))
 		# The first sight of the enemy's stronghold: the Admiral's warning,
 		# once a match.
 		if enemy_stronghold_seen and lines.has("enemy_stronghold"):
@@ -1555,9 +1549,23 @@ func _run_playout() -> void:
 			_log_event(ev)
 		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing"]:
 			_log_event(ev)
+	# Our first base just fell: the level's line (Ginger in level 1), right
+	# away, before our own strikes go in. Every match; skipped if two fell at
+	# once or the game is over.
+	var lost_line := String(level.get("first_base_lost", ""))
+	var lost: int = data.integer("bases", "per_side") - m.sides[0].bases_alive(data)
+	if not first_base_line_said and lost >= 1 and lost_line != "" and lines.has(lost_line):
+		first_base_line_said = true
+		if lost == 1 and not m.is_over():
+			hud.announce(_line_text(lost_line), "", 0.0, false, _line_character(lost_line))
+			while hud.announcing():
+				await get_tree().process_frame
 
-	# Our strikes land on the enemy island.
+	# Our strikes land on the enemy island, after a beat on ours to take in
+	# what the enemy did.
 	if not launches[0].is_empty() or not arrivals[0].is_empty():
+		if not launches[1].is_empty() or not arrivals[1].is_empty():
+			await _wait(ENEMY_TURN_PAUSE)
 		_fly_to(1, 0.6)
 		await _wait(0.7)
 		var longest := 0.0
