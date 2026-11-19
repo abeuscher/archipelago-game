@@ -84,6 +84,16 @@ func bases_alive(data) -> int:
 	return count_role(data, "base")
 
 
+## Everything that shoots at incoming missiles: anti-air buildings and the
+## guns mounted on strongholds, oldest first.
+func anti_air_guns(data) -> Array:
+	var out: Array = []
+	for b in buildings_sorted():
+		if data.role(b.type) == "anti_air" or data.mounts_anti_air(b.type):
+			out.append(b)
+	return out
+
+
 func is_unlocked(item: String) -> bool:
 	return unlocked.has(item)
 
@@ -160,11 +170,20 @@ func missile_unlocked(missile: String, data) -> bool:
 
 
 func repair_cost(type: String, data) -> int:
+	var def: Dictionary = data.building(type)
+	if def.has("repair_cost"):
+		return int(def["repair_cost"])
 	return roundi(data.cost(type) * data.num("damage", "repair_cost_fraction"))
 
 
+## Bases and decoys can't be repaired; a stronghold can, to bring its gun
+## back after a missile hit.
+func can_be_repaired(type: String, data) -> bool:
+	return data.is_missile_proof(type) or not data.is_base_like(type)
+
+
 func needs_repair(b, data) -> bool:
-	if data.is_base_like(b.type) or b.repairing:
+	if not can_be_repaired(b.type, data) or b.repairing:
 		return false
 	return b.disabled or b.hp < data.max_hp(b.type)
 
@@ -247,7 +266,8 @@ func _add_building(type: String, hex: int, data, round_number: int) -> Variant:
 	return b
 
 
-## Place the three bases and any decoys before round 1.
+## Place the three bases and any decoys before round 1. The first
+## bases.strongholds_per_side of base_hexes are strongholds.
 func setup(base_hexes: Array, decoy_hexes: Array, data, settings: Dictionary) -> String:
 	if setup_done:
 		return "Setup already done"
@@ -257,13 +277,15 @@ func setup(base_hexes: Array, decoy_hexes: Array, data, settings: Dictionary) ->
 	if decoy_hexes.size() > int(settings["decoys_per_side"]):
 		return "Too many decoys"
 	var trial = duplicate_state()
-	for h in base_hexes:
-		var e: String = trial._hex_error(int(h))
+	var strongholds := strongholds_per_side(data)
+	for k in base_hexes.size():
+		var h := int(base_hexes[k])
+		var e: String = trial._hex_error(h)
 		if e == "":
-			e = trial._base_spacing_error(int(h), data)
+			e = trial._base_spacing_error(h, data)
 		if e != "":
 			return e
-		trial._add_building("base", int(h), data, 0)
+		trial._add_building("stronghold" if k < strongholds else "base", h, data, 0)
 	for h in decoy_hexes:
 		var e: String = trial.can_build("decoy", int(h), data, settings)
 		if e != "":
@@ -273,6 +295,10 @@ func setup(base_hexes: Array, decoy_hexes: Array, data, settings: Dictionary) ->
 	_copy_from(trial)
 	setup_done = true
 	return ""
+
+
+static func strongholds_per_side(data) -> int:
+	return int(data.section("bases").get("strongholds_per_side", 0))
 
 
 func build(type: String, hex: int, data, settings: Dictionary, round_number: int) -> String:
@@ -288,7 +314,7 @@ func can_repair(hex: int, data) -> String:
 	var b = buildings.get(hex)
 	if b == null:
 		return "Nothing to repair"
-	if data.is_base_like(b.type):
+	if not can_be_repaired(b.type, data):
 		return "Bases and decoys cannot be repaired"
 	if b.repairing:
 		return "Already under repair"

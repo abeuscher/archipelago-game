@@ -18,6 +18,7 @@ A missile reveals the hexes around where it lands, out to its view radius. Impac
 
 [font_size=20][b]Bases and decoys[/b][/font_size]
 A base falls at {base_hits} hits and a decoy at {decoy_hits}. A basic missile counts as one hit and a ballistic missile as half a hit. On the enemy island, potential bases show the hits they have taken; when a decoy falls, you learn it was a decoy.
+From level 2, the first base you place is a stronghold. Missiles can't destroy it: a hit only knocks out the anti-air gun on its roof (repair it for {stronghold_repair} money) and shows the enemy it is a stronghold. Only a platoon can take it, so bunkers around it are its best defence. The enemy has one too.
 
 [font_size=20][b]Anti-air and radar[/b][/font_size]
 Anti-air shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round ({aa_engagements_up} with research). It hits {acc}% of the time, or {acc_radar}% inside a radar's range. Radar reaches {radar_ranges} hexes from the base, middle and top level.

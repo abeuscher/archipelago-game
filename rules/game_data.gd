@@ -114,6 +114,17 @@ func is_base_like(type: String) -> bool:
 	return r == "base" or r == "decoy"
 
 
+## A stronghold: missiles can't destroy it (a hit only knocks out its gun);
+## only troops can.
+func is_missile_proof(type: String) -> bool:
+	return bool(building(type).get("missile_proof", false))
+
+
+## Carries its own anti-air gun, which defends like an anti-air building.
+func mounts_anti_air(type: String) -> bool:
+	return bool(building(type).get("anti_air_mount", false))
+
+
 func missile(type: String) -> Dictionary:
 	return rules["missiles"][type]
 

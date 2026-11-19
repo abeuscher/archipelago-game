@@ -18,6 +18,7 @@
 extends "res://ai/simple_ai.gd"
 
 const Island = preload("res://rules/island.gd")
+const SideState = preload("res://rules/side_state.gd")
 
 const PRIOR_SAMPLES := 60
 const PRIOR_SEED := 7919
@@ -44,12 +45,37 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 	if a >= 0 and d >= 0 and rng.chance(0.5):
 		research[a] = "docks"
 		research[d] = "airport"
+	# Strongholds fall only to troops: in a level with them, the way to get
+	# troops (and the bunkers that stop the enemy's) is researched first.
+	if _strongholds() > 0:
+		var first: Array = cfg["strongholds"]["research_first"]
+		for item in first:
+			research.erase(item)
+		research = first + research
+
+
+func _strongholds() -> int:
+	return SideState.strongholds_per_side(data)
 
 
 # --- Shared helpers --------------------------------------------------------
 
 func _build_order() -> Array:
-	return cfg[String(hc["build_order"])]
+	var order: Array = cfg[String(hc["build_order"])]
+	if _strongholds() <= 0:
+		return order
+	# Stronghold levels: the troop buildings move up to just after the lab.
+	var early: Array = cfg["strongholds"]["build_early"]
+	var out: Array = order.duplicate()
+	for t in early:
+		out.erase(t)
+	var at := out.find("lab")
+	if at < 0:
+		out.insert(0, "lab")
+		at = 0
+	for k in early.size():
+		out.insert(at + 1 + k, early[k])
+	return out
 
 
 ## A sighting map with the memory handicap applied.
@@ -155,7 +181,15 @@ func choose_setup(view) -> Dictionary:
 		if pick < 0:
 			break
 		decoy_hexes.append(pick)
+	# The first bases become strongholds: put them where troops have the
+	# hardest time, up high and away from the beach.
+	if _strongholds() > 0 and best_set.size() > 1:
+		best_set.sort_custom(func(a, b): return _fort_score(isl, a) > _fort_score(isl, b))
 	return {"bases": best_set, "decoys": decoy_hexes}
+
+
+func _fort_score(isl, h: int) -> float:
+	return float(isl.level[h]) + (0.0 if isl.is_coastal(h) else 1.5)
 
 
 func _land_centre(isl) -> int:
@@ -360,7 +394,7 @@ func _place_strong(st, type: String, view) -> int:
 						for bk in bunkers:
 							if g.distance(bk.hex, b.hex) <= reach:
 								covered += 1
-						s += float(w2.get(data.role(b.type), w2["default"])) / (1.0 + covered)
+						s += float(w2.get(b.type, w2.get(data.role(b.type), w2["default"]))) / (1.0 + covered)
 				return s)
 		"coastal_cannon":
 			var reach2 := int(data.section("troops")["cannon_range"])
@@ -418,7 +452,7 @@ func _base_estimate(view, know: Dictionary) -> PackedFloat32Array:
 	var blocked := {}
 	for h in know:
 		var b = know[h].get("building")
-		if (b != null and String(b["type"]) in ["suspected_base", "decoy"]) or String(know[h].get("destroyed", "")) in ["base", "decoy"]:
+		if (b != null and String(b["type"]) in ["suspected_base", "decoy", "stronghold"]) or String(know[h].get("destroyed", "")) in ["base", "decoy", "stronghold"]:
 			for n in g.within(h, 1):
 				blocked[n] = true
 	for h in view.enemy_bases_destroyed:
@@ -446,7 +480,7 @@ func _bases_unfound(view, know: Dictionary) -> int:
 	var found := 0
 	for h in know:
 		var b = know[h].get("building")
-		if b != null and String(b["type"]) == "suspected_base":
+		if b != null and String(b["type"]) in ["suspected_base", "stronghold"]:
 			found += 1
 	return view.enemy_bases_left() + int(view.settings["decoys_per_side"]) - found
 
@@ -473,6 +507,8 @@ func choose_targets(view) -> Array:
 	var weapons: Array = []     # [hex, priority]
 	var bases: Array = []       # [hex, hits]
 	var enemy_launchers_active := false
+	var forts: Array = []       # known enemy strongholds: [hex, gun working]
+	var live_bunkers: Array = []   # known enemy bunkers in action
 	var wprio: Array = tc["weapon_priority"]
 	for h in know:
 		var b = know[h].get("building")
@@ -480,8 +516,12 @@ func choose_targets(view) -> Array:
 			continue
 		var t := String(b["type"])
 		var active: bool = not b["disabled"] or b["repairing"]
-		if t == "anti_air" and active:
+		if (t == "anti_air" or (data.has_building(t) and data.mounts_anti_air(t))) and active:
 			aa_known.append(h)
+		if t == "stronghold":
+			forts.append([h, active])
+		if t == "bunker" and active:
+			live_bunkers.append(h)
 		if t == "suspected_base":
 			bases.append([h, float(b["hits"])])
 		elif wprio.has(t) and active:
@@ -496,6 +536,13 @@ func choose_targets(view) -> Array:
 		var c := 0
 		for a in aa_known:
 			if a != h and g.distance(a, h) <= aa_radius:
+				c += 1
+		return c
+	# For a transport, a stronghold's own gun covers its hex too.
+	var air_cover := func(h: int) -> int:
+		var c := 0
+		for a in aa_known:
+			if g.distance(a, h) <= aa_radius:
 				c += 1
 		return c
 
@@ -532,6 +579,26 @@ func choose_targets(view) -> Array:
 		wish.append_array(guard)
 		wish.append_array(weapon_list.filter(func(h): return not aa_known.has(h)))
 
+	# Siege: whenever we have troops to send, a known stronghold's gun and the
+	# bunkers guarding it are knocked out first. A building hit this round is
+	# out next round too (still broken, or under repair), so the troops that
+	# follow get through.
+	var have_troops: bool = not st.of_role(data, "airport").is_empty() or not st.of_role(data, "docks").is_empty()
+	if have_troops and bool(cfg["strongholds"]["silence_gun_first"]):
+		var bunker_reach := int(data.section("troops")["bunker_range"])
+		var siege: Array = []
+		for f in forts:
+			if f[1]:
+				siege.append(f[0])
+			for bk in live_bunkers:
+				if g.distance(bk, f[0]) <= bunker_reach and not siege.has(bk):
+					siege.append(bk)
+		siege.reverse()
+		for h in siege:
+			while wish.has(h):
+				wish.erase(h)
+			wish.push_front(h)
+
 	# Troop drops first: they are the strongest single strike.
 	var money: int = st.money
 	for port in st.of_role(data, "airport"):
@@ -540,7 +607,7 @@ func choose_targets(view) -> Array:
 		var t: Dictionary = data.missile("transport")
 		if int(t["fuel"]) > fuel or int(t.get("money", 0)) > money:
 			continue
-		var plan := _plan_drop(know, cover)
+		var plan := _plan_drop(know, air_cover)
 		if plan.is_empty():
 			continue
 		orders.append({"launcher": port.hex, "missile": "transport", "target": plan["target"], "dir": plan["dir"]})
@@ -717,14 +784,38 @@ func _search_missile(st, launcher_type: String, fuel: int) -> String:
 	return best
 
 
+## Where to look next: among the aims that would uncover nearly as much
+## likely ground as the best one (within search_spread of it), one picked at
+## random, weighted by how much it uncovers. So the opening shots differ from
+## match to match instead of always landing in the middle.
 func _search_aim(missile: String, est: PackedFloat32Array, planned_seen: Dictionary) -> int:
 	var g := _enemy_grid
 	var radius := int(data.missile(missile)["view_radius"])
 	var candidates: Array = range(g.count)
-	return _choose(candidates, func(h):
+	var score := func(h):
 		var s := 0.0
 		for n in g.within(h, radius):
 			if planned_seen.has(n):
 				continue
 			s += est[n]
-		return s + 0.5 * est[h])
+		return s + 0.5 * est[h]
+	var spread := float(cfg.get("search_spread", 0.0))
+	if spread <= 0.0:
+		return _choose(candidates, score)
+	var scores := {}
+	var top := 0.0
+	for h in candidates:
+		scores[h] = float(score.call(h))
+		top = maxf(top, scores[h])
+	if top <= 0.0:
+		return _choose(candidates, score)
+	var pool: Array = candidates.filter(func(h): return scores[h] >= top * (1.0 - spread))
+	var total := 0.0
+	for h in pool:
+		total += scores[h]
+	var r: float = rng.rand_float() * total
+	for h in pool:
+		r -= scores[h]
+		if r <= 0.0:
+			return h
+	return pool[-1]

@@ -223,6 +223,8 @@ func show_state(st, data, editable: bool) -> void:
 		_project_block(st, data, String(oldest["item"]))
 	else:
 		_status.text = "NO ACTIVE PROJECT! POINTS EARNED ARE STORED FOR LATER."
+		if st.stored_research > 0:
+			_status.text = "NO ACTIVE PROJECT! START ONE TO SPEND YOUR %d STORED POINTS." % st.stored_research
 	if own == null:
 		var prompt := _label("START RESEARCH: _" if editable else "CHOOSE RESEARCH IN THE BUILD AND REPAIR PHASE.", 16, ALERT, true)
 		_items.add_child(prompt)
@@ -250,6 +252,8 @@ func _item_button(st, data, lab, item: String, lab_busy: bool) -> Control:
 		b.state = "IN PROGRESS IN ANOTHER LAB"
 	elif p != null and int(p["lab_id"]) == lab.id:
 		b.state = "IN PROGRESS HERE"
+	elif not lab_busy and err == "Not enough money":
+		b.state = "NEEDS %d MONEY · YOU HAVE %d" % [int(def["cost"]), st.money]
 	elif not lab_busy and err != "":
 		b.state = err.to_upper()
 	b.disabled = not _editable or lab_busy or err != ""

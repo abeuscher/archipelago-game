@@ -103,7 +103,7 @@ static func _color(t: Dictionary) -> Color:
 		return UNKNOWN
 	var b = t.get("building")
 	if b != null:
-		return BASE_MARK if String(b["type"]) in ["base", "decoy", "suspected_base"] else BUILDING_MARK
+		return BASE_MARK if String(b["type"]) in ["base", "decoy", "suspected_base", "stronghold"] else BUILDING_MARK
 	if not t.get("land", false):
 		return SEA
 	return LAND[clampi(int(t.get("level", 0)), 0, 2)]

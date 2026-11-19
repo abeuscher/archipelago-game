@@ -41,6 +41,8 @@
     "coastal_cannon": "coastal_cannon.png",
     "coastal_cannon_damaged": "coastal_cannon_damaged.png",
     "repair": "repair.png",
-    "rubble": "rubble.png"
+    "rubble": "rubble.png",
+    "stronghold": "stronghold.png",
+    "stronghold_damaged": "stronghold_damaged.png"
   }
 }

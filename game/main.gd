@@ -19,6 +19,9 @@ const UserSettings = preload("res://game/user_settings.gd")
 const Tips = preload("res://game/tips.gd")
 const Earnings = preload("res://game/earnings.gd")
 const RulesText = preload("res://game/rules_text.gd")
+const Levels = preload("res://rules/levels.gd")
+const Campaign = preload("res://game/campaign.gd")
+const SideState = preload("res://rules/side_state.gd")
 
 const CHANNEL_ROWS := 4        ## rows of open sea between the two islands
 const FLY_SECONDS := 0.9       ## camera move between islands at a phase change
@@ -70,10 +73,13 @@ var _drag_moved: float = 0.0
 var ocean
 var _cam_tween: Tween
 var debug_no_fog: bool = false       ## debug tool: show the enemy island as it really is
+var level: Dictionary = {}           ## this match's level (data/levels.json)
+var enemy_stronghold_seen: bool = false   ## set when a missile gives the enemy's stronghold away
 
 
 func _ready() -> void:
-	data = GameData.load_default()
+	level = Levels.level(Campaign.level)
+	data = Levels.data_for(GameData.load_default(), Campaign.level)
 	if has_meta("settings_path"):
 		prefs_path = String(get_meta("settings_path"))
 	prefs = UserSettings.load_settings(data.settings, prefs_path)
@@ -81,6 +87,7 @@ func _ready() -> void:
 	lines = Tips.load_lines()
 	seed_value = _seed_from_args()
 	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
+	m.sides[MatchState.PLAYER].money += Campaign.award_money   # the last win's award
 	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
 
 	# Beyond the drawn sea hexes the screen is plain sea, so there is never
@@ -122,6 +129,7 @@ func _ready() -> void:
 	hud.zoom_requested.connect(func(dir: int): _zoom_at(ZOOM_STEP if dir > 0 else 1.0 / ZOOM_STEP, get_viewport_rect().size / 2.0))
 	hud.debug_add_money.connect(_debug_add_money)
 	hud.debug_toggle_fog.connect(_debug_toggle_fog)
+	hud.debug_next_level.connect(_debug_next_level)
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
@@ -135,7 +143,9 @@ func _ready() -> void:
 	var es: Dictionary = enemy_ai.choose_setup(m.view_for(MatchState.ENEMY))
 	var e: String = m.setup_side(MatchState.ENEMY, es["bases"], es["decoys"])
 	assert(e == "", "Enemy setup failed: " + e)
-	hud.add_log("New game. Seed %d." % seed_value)
+	hud.add_log("[b]%s[/b]. Seed %d." % [String(level.get("name", "")), seed_value])
+	if Campaign.award_money > 0:
+		hud.add_log("Command's award for your last victory: +%d money to start." % Campaign.award_money)
 	_enter_setup()
 
 
@@ -187,7 +197,15 @@ func _enter_setup() -> void:
 	hud.set_phase("Setup", 0)
 	audio.start_ambient()
 	_set_clock(0)
-	hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
+	var strongholds := SideState.strongholds_per_side(data)
+	if strongholds > 0:
+		hud.add_log("Place your three bases; the first %s. Bases and decoys may not touch each other."
+			% ("is a stronghold" if strongholds == 1 else "%d are strongholds" % strongholds))
+	else:
+		hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
+	var intro := String(level.get("intro", ""))
+	if intro != "" and lines.has(intro):
+		hud.announce(_line_text(intro), "", 0.0, false, _line_character(intro))
 	_refresh()
 
 
@@ -195,7 +213,9 @@ func _start_setup_game() -> void:
 	var bases: Array = []
 	var decoys: Array = []
 	for b in setup_trial.buildings_sorted():
-		if b.type == "base":
+		if b.type == "stronghold":
+			bases.push_front(b.hex)   # setup makes the first bases strongholds
+		elif b.type == "base":
 			bases.append(b.hex)
 		elif b.type == "decoy":
 			decoys.append(b.hex)
@@ -294,6 +314,12 @@ func _after_playout() -> void:
 	elif m.is_over():
 		_show_game_over()
 	else:
+		# The first sight of the enemy's stronghold: the Admiral's warning,
+		# once a match.
+		if enemy_stronghold_seen and lines.has("enemy_stronghold"):
+			hud.announce(_line_text("enemy_stronghold"), "", 0.0, false, _line_character("enemy_stronghold"))
+			lines.erase("enemy_stronghold")
+		enemy_stronghold_seen = false
 		# The round's battle report, if anything happened; the next round's
 		# clock waits for it.
 		if not battle_report.is_empty():
@@ -317,8 +343,25 @@ func _show_game_over() -> void:
 	var why := {"bases": "All three enemy bases destroyed." if won else "All three of your bases were destroyed.",
 		"money": "Both sides fell together; %s more money." % ("you had" if won else "the enemy had"),
 		"coin": "Coin: enemy called %s, it landed %s." % [m.coin.get("call", ""), m.coin.get("flip", "")]}
-	hud.show_overlay(("ISLAND TAKEN\n" if won else "DEFEAT\n") + String(why.get(m.end_reason, "")),
-		[["New game", func(): get_tree().reload_current_scene()], ["Quit", func(): get_tree().quit()]])
+	var text := ("ISLAND TAKEN\n" if won else "DEFEAT\n") + String(why.get(m.end_reason, ""))
+	var buttons: Array = []
+	if won and Campaign.has_next():
+		var award := int(level.get("win_award_money", 0))
+		if award > 0:
+			text += "\nCommand awards you %d money toward your next battle." % award
+		buttons.append(["On to %s" % String(Levels.level(Campaign.level + 1).get("name", "")), func():
+			Campaign.advance()
+			get_tree().reload_current_scene()])
+	elif won:
+		text += "\nThat was the last level for now."
+		buttons.append(["Play it again", func(): get_tree().reload_current_scene()])
+		buttons.append(["Back to %s" % String(Levels.level(1).get("name", "")), func():
+			Campaign.restart()
+			get_tree().reload_current_scene()])
+	else:
+		buttons.append(["Try again", func(): get_tree().reload_current_scene()])
+	buttons.append(["Quit", func(): get_tree().quit()])
+	hud.show_overlay(text, buttons)
 	_refresh()
 
 
@@ -563,9 +606,10 @@ func _setup_click(hex: int) -> void:
 		if setup_trial.bases_alive(data) >= data.integer("bases", "per_side"):
 			hud.add_log("All three bases are placed. Click one to move it.")
 			return
-		setup_trial._add_building("base", hex, data, 0)
+		var type := _next_setup_base()
+		setup_trial._add_building(type, hex, data, 0)
 		setup_history.append(hex)
-		audio.built("base")
+		audio.built(type)
 	else:
 		var err: String = setup_trial.can_build("decoy", hex, data, m.settings)
 		if err != "":
@@ -575,6 +619,17 @@ func _setup_click(hex: int) -> void:
 		setup_trial._add_building("decoy", hex, data, 0)
 		setup_history.append(hex)
 		audio.built("decoy")
+
+
+## The next base placed in setup: a stronghold until the level's are all
+## down, then plain bases.
+func _next_setup_base() -> String:
+	var have := 0
+	if setup_trial != null:
+		for b in setup_trial.buildings.values():
+			if b.type == "stronghold":
+				have += 1
+	return "stronghold" if have < SideState.strongholds_per_side(data) else "base"
 
 
 func _setup_remove(hex: int) -> void:
@@ -788,6 +843,15 @@ func _debug_add_money() -> void:
 	_refresh()
 
 
+## Jumps straight to the next level, with the award a win would have given.
+func _debug_next_level() -> void:
+	if not Campaign.has_next():
+		hud.add_log("[color=gray]Debug: this is the last level.[/color]")
+		return
+	Campaign.advance()
+	get_tree().reload_current_scene()
+
+
 func _debug_toggle_fog(on: bool) -> void:
 	debug_no_fog = on
 	hud.add_log("[color=gray]Debug: fog of war %s.[/color]" % ("cleared" if on else "restored"))
@@ -817,6 +881,9 @@ func _update_ranges(st) -> void:
 	if b == null:
 		return
 	var g = st.island.grid
+	if data.mounts_anti_air(b.type):
+		own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("anti_air")["radius"])), "color": Color(0.4, 1.0, 0.5, 0.6)}]
+		return
 	match data.role(b.type):
 		"anti_air":
 			own_board.range_rings = [{"hexes": g.within(b.hex, int(data.section("anti_air")["radius"])), "color": Color(0.4, 1.0, 0.5, 0.6)}]
@@ -833,7 +900,9 @@ func _building_tooltip(type: String) -> String:
 	var lines: Array = [Pieces.display_name(type), Pieces.BUILDING_TEXT.get(type, "")]
 	var def: Dictionary = data.building(type)
 	lines.append("Cost %d" % data.cost(type))
-	if def.has("hp"):
+	if data.is_missile_proof(type):
+		lines.append("Only troops can destroy it")
+	elif def.has("hp"):
 		lines.append("%d HP" % int(def["hp"]))
 	elif def.has("hits_to_destroy"):
 		lines.append("Destroyed by %d hits" % int(def["hits_to_destroy"]))
@@ -858,8 +927,9 @@ func _build_toolbar(st) -> void:
 				setup_mode = "decoy"
 			elif setup_mode == "decoy" and decoys_full and not bases_full:
 				setup_mode = "base"
-			hud.add_piece_button("base", "Base", "%d/%d" % [placed, per_side], "All placed" if bases_full else "Free",
-				func(): setup_mode = "base"; _refresh(), bases_full, setup_mode == "base" and not bases_full, _building_tooltip("base"))
+			var next_base := _next_setup_base()
+			hud.add_piece_button(next_base, Pieces.display_name(next_base), "%d/%d" % [placed, per_side], "All placed" if bases_full else "Free",
+				func(): setup_mode = "base"; _refresh(), bases_full, setup_mode == "base" and not bases_full, _building_tooltip(next_base))
 			hud.add_piece_button("decoy", "Decoy (optional)", "%d/%d" % [decoys, max_decoys], "%d money" % data.cost("decoy"),
 				func(): setup_mode = "decoy"; _refresh(), decoys_full, setup_mode == "decoy" and not decoys_full, _building_tooltip("decoy"))
 			hud.add_label("Click a placed piece to remove it.", true)
@@ -964,7 +1034,8 @@ func _build_strip(st) -> void:
 	# The status gauge: hits our bases can still take before we lose.
 	var hits_left := 0.0
 	for b in bases:
-		hits_left += max_hits - float(b.hits)
+		# A stronghold doesn't wear down; it stands at full until troops take it.
+		hits_left += max_hits if data.is_missile_proof(b.type) else max_hits - float(b.hits)
 	if ui == Ui.SETUP:
 		hits_left = per_side * max_hits   # bases still being placed: all to come
 	hud.status_gauge.set_hits(hits_left, per_side * max_hits)
@@ -1153,7 +1224,17 @@ func _update_info() -> void:
 		var b = st.building_at(target.y)
 		if b != null:
 			lines.push_front("[b]%s[/b]" % Pieces.display_name(b.type))
-			if data.is_base_like(b.type):
+			if data.is_missile_proof(b.type):
+				lines.append("Only enemy troops can destroy it. Bunkers nearby protect it.")
+				if b.repairing:
+					lines.append("[color=orange]Gun under repair: back next round[/color]")
+				elif b.disabled:
+					lines.append("[color=salmon]Gun out of action until repaired[/color]")
+				else:
+					lines.append("Gun covers %d hexes around it, %d missiles a round" % [int(data.section("anti_air")["radius"]), st.anti_air_engagements(data)])
+				if b.hits > 0.0:
+					lines.append("The enemy knows it is a stronghold")
+			elif data.is_base_like(b.type):
 				var max_hits := float(data.building(b.type)["hits_to_destroy"])
 				lines.append("Hits taken: %s of %s" % [_fmt(b.hits), _fmt(max_hits)])
 			else:
@@ -1181,8 +1262,11 @@ func _update_info() -> void:
 				lines.push_front("[b]Potential base: %s hits[/b]" % _fmt(float(b["hits"])))
 			else:
 				lines.push_front("[b]%s[/b]" % Pieces.display_name(String(b["type"])))
+				var proof: bool = data.has_building(String(b["type"])) and data.is_missile_proof(String(b["type"]))
+				if proof:
+					lines.append("Missiles only knock out its gun. Land troops on it to take it.")
 				if b["disabled"]:
-					lines.append("Out of action")
+					lines.append("Gun out of action" if proof else "Out of action")
 				elif b["damaged"]:
 					lines.append("Damaged")
 		elif String(e["destroyed"]) != "":
@@ -1399,7 +1483,7 @@ func _run_playout() -> void:
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
 	for ev in events:
-		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
+		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
 		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing"]:
 			_log_event(ev)
@@ -1417,7 +1501,7 @@ func _run_playout() -> void:
 		await _wait(longest)
 	enemy_board.set_tiles(_enemy_tiles())
 	for ev in events:
-		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed"]:
+		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
 		elif ev.get("side", -1) == 0 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "boat_launch"]:
 			_log_event(ev)
@@ -1747,6 +1831,12 @@ func _log_event(ev: Dictionary) -> void:
 			hud.add_log(("Our %s was damaged." if mine else "Enemy %s damaged.") % Pieces.display_name(String(ev["building"])))
 		"decoy_revealed":
 			hud.add_log("Our decoy has been exposed." if mine else "[color=lightgreen]That base was a decoy.[/color]")
+		"stronghold_revealed":
+			if mine:
+				hud.add_log("[color=salmon]The enemy has found our stronghold.[/color]")
+			else:
+				hud.add_log("[color=orange]That base is a stronghold: missiles only knock out its gun.[/color]")
+				enemy_stronghold_seen = true
 		"platoon":
 			var n_kill: int = ev["destroyed"].size()
 			if bool(ev["lost_at_sea"]):

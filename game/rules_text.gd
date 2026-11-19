@@ -28,6 +28,7 @@ static func values(data, build_clock: int, targeting_clock: int) -> Dictionary:
 		"build_clock": _clock(build_clock),
 		"targeting_clock": _clock(targeting_clock),
 		"base_hits": int(data.building("base")["hits_to_destroy"]),
+		"stronghold_repair": int(data.building("stronghold").get("repair_cost", 0)),
 		"decoy_hits": int(data.building("decoy")["hits_to_destroy"]),
 		"aa_radius": int(aa["radius"]),
 		"aa_engagements": int(aa["engagements"]),
@@ -61,8 +62,8 @@ static func _clock(secs: int) -> String:
 static func _buildings(data) -> String:
 	var out: Array = []
 	for type in data.building_types():
-		if type == "base":
-			continue
+		if not bool(data.building(type).get("buildable", true)):
+			continue   # bases and strongholds are placed in setup
 		var def: Dictionary = data.building(type)
 		var bits: Array = ["%d money" % int(def["cost"])]
 		var produces: Dictionary = def.get("produces", {})

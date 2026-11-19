@@ -23,6 +23,7 @@ These buildings have no sound of their own yet. They play the shared constructio
 | Coastal cannon | `coastal_cannon` |
 | Decoy | `decoy` |
 | Base (placed in setup) | `base` |
+| Stronghold (placed in setup, level 2) | `stronghold` |
 
 ## Placeholders to replace
 

@@ -22,11 +22,14 @@
 
   "bases": {
     "per_side": 3,
+    "strongholds_per_side": 0,
+    "_note_strongholds": "How many of each side's bases are strongholds (set by the level, data/levels.json). The first bases placed are the strongholds.",
     "no_adjacent_bases_or_decoys": true
   },
 
   "buildings": {
     "base":               { "role": "base",     "cost": 0,  "hits_to_destroy": 2, "buildable": false, "repairable": false },
+    "stronghold":         { "role": "base",     "cost": 0,  "buildable": false, "missile_proof": true, "anti_air_mount": true, "repair_cost": 15 },
     "decoy":              { "role": "decoy",    "cost": 20, "hits_to_destroy": 1, "repairable": false },
     "bank":               { "role": "economy",  "cost": 50, "hp": 40, "produces": { "money": 15 } },
     "refinery":           { "role": "economy",  "cost": 50, "hp": 40, "produces": { "fuel": 3 } },

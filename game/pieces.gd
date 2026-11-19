@@ -5,20 +5,20 @@ extends RefCounted
 const Textures = preload("res://game/textures.gd")
 
 const NAMES := {
-	"base": "Base", "decoy": "Decoy", "suspected_base": "Potential base",
+	"base": "Base", "decoy": "Decoy", "suspected_base": "Potential base", "stronghold": "Stronghold",
 	"bank": "Bank", "refinery": "Refinery", "lab": "Lab",
 	"basic_launcher": "Missile launcher", "anti_air": "Anti-air", "radar": "Radar",
 	"ballistic_launcher": "Ballistic launcher", "airport": "Airport", "bunker": "Bunker",
 	"docks": "Docks", "coastal_cannon": "Coastal cannon",
 }
 const SHORT := {
-	"base": "BASE", "decoy": "BASE", "suspected_base": "?", "bank": "$", "refinery": "F",
+	"base": "BASE", "decoy": "BASE", "suspected_base": "?", "stronghold": "SH", "bank": "$", "refinery": "F",
 	"lab": "R", "basic_launcher": "M", "anti_air": "AA", "radar": "RD", "ballistic_launcher": "BM",
 	"airport": "AP", "bunker": "BK", "docks": "DK", "coastal_cannon": "CC",
 }
 const COLORS := {
 	"base": Color(0.85, 0.85, 0.9), "decoy": Color(0.85, 0.85, 0.9),
-	"suspected_base": Color(0.85, 0.85, 0.9),
+	"suspected_base": Color(0.85, 0.85, 0.9), "stronghold": Color(0.75, 0.72, 0.62),
 	"bank": Color(0.95, 0.80, 0.25), "refinery": Color(0.85, 0.45, 0.20), "lab": Color(0.45, 0.75, 0.95),
 	"basic_launcher": Color(0.85, 0.25, 0.25), "anti_air": Color(0.30, 0.75, 0.40),
 	"radar": Color(0.70, 0.45, 0.90), "ballistic_launcher": Color(0.60, 0.15, 0.15),
@@ -31,6 +31,7 @@ const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile"
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
 	"base": "Lose all three and you lose the island.",
+	"stronghold": "A base that missiles can't destroy, with an anti-air gun on its roof. Only troops can take it. A missile hit knocks out the gun until repaired.",
 	"decoy": "Looks exactly like a base to the enemy, but falls to a single hit.",
 	"bank": "Produces money every round.",
 	"refinery": "Produces fuel every round. Fuel launches missiles.",
@@ -72,7 +73,7 @@ static func research_name(item: String) -> String:
 const SPRITE_DIR := "res://assets/buildings/"
 const BOARD_HEX_WIDTH := 30.0 * 1.7320508   ## Iso.HEX_SIZE * sqrt(3)
 const SHEET_FOR := {
-	"base": "base", "decoy": "decoy", "suspected_base": "base",
+	"base": "base", "decoy": "decoy", "suspected_base": "base", "stronghold": "stronghold",
 	"bank": "bank", "refinery": "refinery", "lab": "lab",
 	"basic_launcher": "missile_launcher", "ballistic_launcher": "ballistic_launcher",
 	"anti_air": "anti_air", "radar": "radar",
@@ -84,7 +85,7 @@ const TILE_COLORS := {
 	"lab": Color(0.56, 0.84, 0.82), "basic_launcher": Color(0.96, 0.58, 0.28), "anti_air": Color(0.58, 0.80, 0.42),
 	"radar": Color(0.56, 0.78, 0.96), "ballistic_launcher": Color(0.88, 0.42, 0.36), "airport": Color(0.74, 0.72, 0.94),
 	"bunker": Color(0.76, 0.66, 0.50), "docks": Color(0.42, 0.74, 0.86), "coastal_cannon": Color(0.95, 0.70, 0.30),
-	"base": Color(0.86, 0.86, 0.82),
+	"base": Color(0.86, 0.86, 0.82), "stronghold": Color(0.74, 0.70, 0.60),
 }
 
 
@@ -95,7 +96,7 @@ const ART_PENDING := []
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
 ## Sheets with a <name>_damaged version: hit and not yet repaired.
 const DAMAGED_SHEETS := ["missile_launcher", "ballistic_launcher", "anti_air", "radar", "bank",
-	"refinery", "lab", "base", "decoy", "airport", "bunker", "docks", "coastal_cannon"]
+	"refinery", "lab", "base", "decoy", "airport", "bunker", "docks", "coastal_cannon", "stronghold"]
 
 static var _sheets: Dictionary = {}
 static var _meta = null
@@ -135,6 +136,8 @@ static func sheet_name(b: Dictionary) -> String:
 
 
 static func is_hit(b: Dictionary) -> bool:
+	if String(b.get("type", "")) == "stronghold":
+		return bool(b.get("disabled", false))   # its hits only mark it as found
 	return bool(b.get("damaged", false)) or bool(b.get("disabled", false)) or float(b.get("hits", 0.0)) > 0.0
 
 

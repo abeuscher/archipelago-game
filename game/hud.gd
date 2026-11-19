@@ -33,6 +33,7 @@ signal tip_dismissed(id: String, forever: bool)
 signal earnings_requested
 signal debug_add_money
 signal debug_toggle_fog(on: bool)
+signal debug_next_level
 
 var minimap
 var status_gauge     ## our bases' hits left
@@ -397,6 +398,12 @@ func _ready() -> void:
 	_debug_fog.focus_mode = Control.FOCUS_NONE
 	_debug_fog.toggled.connect(func(on: bool): debug_toggle_fog.emit(on))
 	dv.add_child(_debug_fog)
+	var skip := Button.new()
+	skip.text = "Skip to next level"
+	skip.focus_mode = Control.FOCUS_NONE
+	skip.tooltip_text = "Start the next level now, with the award a win gives"
+	skip.pressed.connect(func(): debug_next_level.emit())
+	dv.add_child(skip)
 
 	# Esc menu on top of everything; it keeps running while paused.
 	esc_menu = EscMenu.new()

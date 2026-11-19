@@ -81,7 +81,7 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 	# Anti-air active at the start of playout, radar-covered ones first.
 	var radars: Array = def.of_role(data, "radar")
 	var defenders: Array = []
-	for b in def.of_role(data, "anti_air"):
+	for b in def.anti_air_guns(data):
 		if not def.weapon_active(b):
 			continue
 		var covered := false
@@ -310,6 +310,15 @@ static func _apply_damage(m, defender: int, pending: Dictionary, events: Array) 
 		b.repairing = false
 		if bool(p.get("destroy", false)):
 			destroyed = true   # overrun by a platoon
+		elif data.is_missile_proof(b.type):
+			# A stronghold: a hit knocks out its gun and gives it away, but
+			# only troops can take it. Its hits only count for the reveal.
+			if float(p["hits"]) > 0.0:
+				if b.hits <= 0.0:
+					events.append({"type": "stronghold_revealed", "side": defender, "hex": h})
+				b.hits += float(p["hits"])
+				b.disabled = true
+				events.append({"type": "disabled", "side": defender, "hex": h, "building": b.type})
 		elif data.is_base_like(b.type):
 			var bdef: Dictionary = data.building(b.type)
 			b.hits += float(p["hits"])

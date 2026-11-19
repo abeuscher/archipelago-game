@@ -1,0 +1,17 @@
+{
+  "_note": "The campaign, in order. Each level changes data for its match with \"set\" (dotted paths, as the batch runner's --set). \"win_award_money\" is paid into the player's starting money for the next level. \"intro\" names a line in data/dialogue.json said at the start of setup.",
+  "levels": [
+    {
+      "name": "Level 1",
+      "set": {},
+      "win_award_money": 180,
+      "intro": ""
+    },
+    {
+      "name": "Level 2",
+      "set": { "rules.bases.strongholds_per_side": 1 },
+      "win_award_money": 0,
+      "intro": "level_2_intro"
+    }
+  ]
+}

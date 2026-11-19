@@ -249,6 +249,8 @@ func _public_building(b) -> Dictionary:
 	if data.is_base_like(b.type):
 		shown = "suspected_base"
 		var bdef: Dictionary = data.building(b.type)
+		if data.is_missile_proof(b.type) and b.hits > 0.0:
+			shown = b.type   # a missile hit gave the stronghold away
 		if bdef.has("reveals_as_decoy_at_hits") and b.hits >= float(bdef["reveals_as_decoy_at_hits"]):
 			shown = "decoy"
 	return {

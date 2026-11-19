@@ -171,14 +171,16 @@
         "airport": 4.0,
         "anti_air": 3.0,
         "radar": 2.0,
-        "default": 1.0
+        "default": 1.0,
+        "stronghold": 30.0
       },
       "bunker_weights": {
         "base": 4.0,
         "decoy": 0.5,
         "launcher": 1.5,
         "airport": 1.5,
-        "default": 0.5
+        "default": 0.5,
+        "stronghold": 8.0
       },
       "cannon_weights": {
         "base": 4.0,
@@ -189,6 +191,20 @@
         "default": 0.5
       },
       "_note_route": "Each match the AI favours one troop route: airport or docks. The favoured one is researched where the airport sits in research_order; the other moves to the docks' place."
+    },
+    "search_spread": 0.3,
+    "_note_search": "search_spread: a search shot is picked at random (weighted) among aims that uncover at least (1 - search_spread) of the best aim's likely ground. 0 = always the best aim.",
+    "strongholds": {
+      "_note": "Levels with strongholds (only troops can take them): research_first goes to the front of the research order, build_early is built right after the lab, and with silence_gun_first a known stronghold's gun is hit with a missile whenever the AI has troops to send.",
+      "research_first": [
+        "airport",
+        "bunker"
+      ],
+      "build_early": [
+        "airport",
+        "bunker"
+      ],
+      "silence_gun_first": true
     }
   },
   "batch": {

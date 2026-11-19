@@ -397,6 +397,36 @@ def decoy(damaged=False):
     return base(flag="#6c7076", damaged=damaged)
 
 
+def stronghold(damaged=False):
+    """A squat walled fort: thick sloped walls with merlons, a keep, and an
+    anti-air launcher on the roof. Damaged = the roof gun knocked out; the
+    fort itself never shows harm (only troops can take it)."""
+    stone, stone_dk = "#a29f94", "#7f7c72"
+    m = pad()
+    m += prism(8, .74, .66, .12, .4, stone, rot=22.5)            # outer wall, sloped
+    m += prism(8, .62, .62, .4, .405, "#5d5a53", rot=22.5)       # wall walk
+    for i in range(8):                                           # merlons
+        a = math.radians(22.5 + 45 * i)
+        m += box((.14, .1, .09), stone, (.64 * math.cos(a), .64 * math.sin(a), .445), yaw=math.degrees(a) + 90)
+    m += prism(6, .42, .38, .4, .62, "#c9c6bb", rot=90)          # keep
+    m += prism(6, .37, .37, .62, .65, stone_dk, rot=90)
+    m += box((.04, .18, .16), DARK, (.73, 0, .2))                # gate
+    m += prism(4, .02, .02, .65, 1.15, GUNMETAL, at=(-.25, .15))  # flag
+    m += box((.26, .025, .15), WHITE, _xf((.13, 0, 0), 0, 0, (-.25, .15, 1.06)))
+    gun = (.06, -.05, .65)
+    m += prism(8, .2, .18, .65, .74, STEEL)                      # gun ring
+    if damaged:
+        m += box((.24, .38, .14), "#4a4f55", (gun[0], gun[1], .82), pitch=12, yaw=30)
+        m += tube(8, .045, .045, .5, GUNMETAL, (gun[0], gun[1] - .1, .82), pitch=6, yaw=-35, x0=.05)
+        m += tube(8, .045, .045, .3, GUNMETAL, (gun[0], gun[1] + .1, .82), pitch=55, yaw=25, x0=.05)
+        return wreck(m, (gun[0], gun[1], .86), 21)
+    m += box((.24, .38, .14), GREEN, (gun[0], gun[1], .82))
+    for y in (-.1, .1):
+        m += tube(8, .045, .045, .55, GUNMETAL, (gun[0], gun[1] + y, .82), pitch=50, x0=.05)
+        m += tube(8, .06, .06, .1, "#16181b", (gun[0], gun[1] + y, .82), pitch=50, x0=.55)
+    return m
+
+
 # ---- troop buildings (airport, bunker, docks, coastal cannon) ------------
 ASPHALT = "#3a3d42"
 NAVY = "#4d5a6b"
@@ -559,6 +589,8 @@ BUILDINGS = {
     "lab_damaged": lambda: lab(damaged=True),
     "base_damaged": lambda: base(damaged=True),
     "decoy_damaged": lambda: decoy(damaged=True),
+    "stronghold": stronghold,
+    "stronghold_damaged": lambda: stronghold(damaged=True),
     "airport": airport,
     "airport_damaged": lambda: airport(damaged=True),
     "bunker": bunker,

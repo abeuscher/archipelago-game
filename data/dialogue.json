@@ -110,6 +110,14 @@
       "character": "ginger",
       "text": "General! Enemy boat coming ashore! They're landing troops on our coast!"
     },
+    "level_2_intro": {
+      "character": "admiral",
+      "text": "Congratulations on your victory, General. As you have been fighting, our scientists have come up with a new type of base: a stronghold. It is impervious to air attack and comes with a mounted anti-aircraft missile on its roof. The only way it can be taken is with ground troops."
+    },
+    "enemy_stronghold": {
+      "character": "admiral",
+      "text": "General, bad news! Enemy spies have stolen the secrets of our stronghold tech and built one of their own. We're going to have to get some invasion forces ready to destroy it."
+    },
     "boat_spotted": {
       "character": "ginger",
       "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."
