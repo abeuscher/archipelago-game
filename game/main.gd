@@ -75,6 +75,7 @@ var ocean
 var _cam_tween: Tween
 var debug_no_fog: bool = false       ## debug tool: show the enemy island as it really is
 var level: Dictionary = {}           ## this match's level (data/levels.json)
+var unaimed_warned: bool = false   ## Ginger's "target your weapons" said this game (a new game reloads the scene)
 var first_base_line_said: bool = false   ## the level's line for losing our first base, once
 var enemy_stronghold_seen: bool = false   ## set when a missile gives the enemy's stronghold away
 
@@ -377,14 +378,15 @@ func _build_timeout_tip() -> void:
 	hud.announce(_line_text(key), "", 0.0, false, _line_character(key))
 
 
-## The Attack button. The first time it is pressed with nothing aimed at
-## all (and something that could fire), Ginger warns once (the clock holds while she talks) instead of
-## attacking. The clock running out attacks without asking.
+## The Attack button. Pressed with nothing aimed at all (and something
+## that could fire), Ginger warns instead of attacking, once a game: after
+## that, Attack goes ahead even with nothing aimed, so the player is helped
+## once but not stopped. The clock holds while she talks; the clock running
+## out attacks without asking.
 func _attack_pressed() -> void:
 	var warn := "attack_unaimed"
-	if ui == Ui.TARGETING and orders.is_empty() and not prefs["tips_done"].has(warn) and _next_free_launcher(true) >= 0 and lines.has(warn):
-		prefs["tips_done"].append(warn)
-		_save_prefs()
+	if ui == Ui.TARGETING and orders.is_empty() and not unaimed_warned and _next_free_launcher(true) >= 0 and lines.has(warn):
+		unaimed_warned = true
 		hud.announce(_line_text(warn), "", 0.0, false, _line_character(warn))
 		return
 	_attack()
