@@ -44,11 +44,15 @@
   },
 
   "research": {
-    "radar":              { "cost": 30, "points": 6 },
-    "scouting_missile":   { "cost": 20, "points": 4 },
-    "anti_air_capacity":  { "cost": 20, "points": 4 },
-    "motion_sensor":      { "cost": 50, "points": 12 },
-    "ballistic_launcher": { "cost": 60, "points": 14 }
+    "radar":              { "cost": 30, "points": 6,  "tab": "buildings" },
+    "ballistic_launcher": { "cost": 60, "points": 14, "tab": "buildings" },
+    "airport":            { "cost": 80, "points": 18, "tab": "buildings", "available": false },
+    "bunker":             { "cost": 40, "points": 10, "tab": "buildings", "available": false },
+    "docks":              { "cost": 50, "points": 12, "tab": "buildings", "available": false },
+    "coastal_cannon":     { "cost": 40, "points": 10, "tab": "buildings", "available": false },
+    "scouting_missile":   { "cost": 20, "points": 4,  "tab": "upgrades" },
+    "anti_air_capacity":  { "cost": 20, "points": 4,  "tab": "upgrades" },
+    "motion_sensor":      { "cost": 50, "points": 12, "tab": "upgrades" }
   },
 
   "anti_air": {

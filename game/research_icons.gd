@@ -8,6 +8,10 @@ const COLORS := {
 	"anti_air_capacity": Color(0.48, 0.80, 0.42),
 	"motion_sensor": Color(0.96, 0.86, 0.32),
 	"ballistic_launcher": Color(0.78, 0.38, 0.32),
+	"airport": Color(0.66, 0.64, 0.94),
+	"bunker": Color(0.72, 0.71, 0.66),
+	"docks": Color(0.38, 0.78, 0.76),
+	"coastal_cannon": Color(0.60, 0.70, 0.86),
 }
 
 
@@ -53,5 +57,29 @@ static func draw(ci: CanvasItem, item: String, c: Vector2, r: float, ink: Color)
 			var base := c + Vector2(-r * 0.2, r * 0.45)
 			ci.draw_line(base, base + d * r * 1.1, ink, 5.0, true)
 			ci.draw_rect(Rect2(c + Vector2(-r * 0.75, r * 0.45), Vector2(r * 1.3, r * 0.35)), ink)
+		"airport":
+			# A plane seen from above, nose up and right.
+			var d := Vector2(1, -1).normalized()
+			var n := d.orthogonal()
+			ci.draw_line(c - d * r * 0.85, c + d * r * 0.85, ink, 4.0, true)
+			ci.draw_colored_polygon(PackedVector2Array([c + d * r * 0.15, c - d * r * 0.25 + n * r * 0.8, c - d * r * 0.35 + n * r * 0.7, c - d * r * 0.2,
+				c - d * r * 0.35 - n * r * 0.7, c - d * r * 0.25 - n * r * 0.8]), ink)
+			ci.draw_colored_polygon(PackedVector2Array([c - d * r * 0.6, c - d * r * 0.85 + n * r * 0.35, c - d * r * 0.85 - n * r * 0.35]), ink)
+		"bunker":
+			# A low pillbox with a gun slit.
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.85, r * 0.55), c + Vector2(-r * 0.6, -r * 0.25),
+				c + Vector2(r * 0.6, -r * 0.25), c + Vector2(r * 0.85, r * 0.55)]), ink)
+			ci.draw_rect(Rect2(c + Vector2(-r * 0.4, -r * 0.02), Vector2(r * 0.8, r * 0.16)), Color(1, 1, 1, 0.85))
+		"docks":
+			# An anchor.
+			ci.draw_line(c + Vector2(0, -r * 0.6), c + Vector2(0, r * 0.75), ink, 2.4, true)
+			ci.draw_arc(c + Vector2(0, -r * 0.75), r * 0.17, 0.0, TAU, 12, ink, 2.0, true)
+			ci.draw_line(c + Vector2(-r * 0.4, -r * 0.3), c + Vector2(r * 0.4, -r * 0.3), ink, 2.2, true)
+			ci.draw_arc(c + Vector2(0, r * 0.1), r * 0.65, PI * 0.15, PI * 0.85, 14, ink, 2.4, true)
+		"coastal_cannon":
+			# A heavy barrel on a round turret.
+			ci.draw_arc(c + Vector2(-r * 0.15, r * 0.25), r * 0.5, PI, TAU, 14, ink, 3.0, true)
+			ci.draw_line(c + Vector2(-r * 0.65, r * 0.25), c + Vector2(r * 0.35, r * 0.25), ink, 3.0, true)
+			ci.draw_line(c + Vector2(-r * 0.05, -r * 0.05), c + Vector2(r * 0.85, -r * 0.6), ink, 5.0, true)
 		_:
 			ci.draw_circle(c, r * 0.35, ink)

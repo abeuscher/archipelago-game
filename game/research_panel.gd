@@ -36,6 +36,8 @@ var _items: VBoxContainer
 var _prev: Button
 var _next: Button
 var _pager: Label
+var _tab: String = "buildings"         ## "buildings" or "upgrades"
+var _tab_buttons: Dictionary = {}
 var _st
 var _data
 var _editable: bool = false
@@ -98,6 +100,21 @@ func _ready() -> void:
 	close.add_theme_stylebox_override("pressed", _box(Color(0.70, 0.24, 0.14), Color(0.35, 0.10, 0.06), 3, 17, [8, 4, 8, 4]))
 	close.pressed.connect(func(): visible = false; closed.emit())
 	head.add_child(close)
+	# Tabs: new building types, or upgrades to what the side already has.
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	v.add_child(tabs)
+	for t in [["buildings", "BUILDINGS"], ["upgrades", "UPGRADES"]]:
+		var tb := Button.new()
+		tb.text = t[1]
+		tb.focus_mode = Control.FOCUS_NONE
+		tb.custom_minimum_size = Vector2(140, 30)
+		tb.add_theme_font_override("font", _bold)
+		tb.add_theme_font_size_override("font_size", 15)
+		var key: String = t[0]
+		tb.pressed.connect(func(): _tab = key; show_state(_st, _data, _editable))
+		tabs.add_child(tb)
+		_tab_buttons[key] = tb
 	_lab_line = _label("", 14, DIM_TEXT)
 	v.add_child(_lab_line)
 	_status = _label("", 16, ALERT, true)
@@ -173,6 +190,7 @@ func show_state(st, data, editable: bool) -> void:
 	_st = st
 	_data = data
 	_editable = editable
+	_style_tabs()
 	for c in _project.get_children() + _items.get_children():
 		c.queue_free()
 	var labs: Array = st.of_role(data, "lab")
@@ -208,7 +226,8 @@ func show_state(st, data, editable: bool) -> void:
 		var prompt := _label("START RESEARCH: _" if editable else "CHOOSE RESEARCH IN THE BUILD AND REPAIR PHASE.", 16, ALERT, true)
 		_items.add_child(prompt)
 	for item in data.research_items():
-		_items.add_child(_item_button(st, data, lab, item, own != null))
+		if String(data.research_item(item).get("tab", "upgrades")) == _tab:
+			_items.add_child(_item_button(st, data, lab, item, own != null))
 
 
 func _item_button(st, data, lab, item: String, lab_busy: bool) -> Control:
@@ -222,7 +241,9 @@ func _item_button(st, data, lab, item: String, lab_busy: bool) -> Control:
 	if p != null and int(p["progress"]) > 0:
 		b.detail += "  (%d done)" % int(p["progress"])
 	var err: String = st.can_start_research(lab.id, item, data)
-	if st.is_unlocked(item):
+	if not bool(def.get("available", true)):
+		b.state = "COMING SOON"
+	elif st.is_unlocked(item):
 		b.state = "RESEARCHED"
 	elif p != null and int(p["lab_id"]) != -1 and int(p["lab_id"]) != lab.id:
 		b.state = "IN PROGRESS IN ANOTHER LAB"
@@ -267,6 +288,20 @@ func _project_block(st, data, item: String) -> void:
 
 
 # --- Bits ------------------------------------------------------------------
+
+## The selected tab is lit (screen-coloured text on a bright block); the
+## other is an outline.
+func _style_tabs() -> void:
+	for key in _tab_buttons:
+		var tb: Button = _tab_buttons[key]
+		var on: bool = key == _tab
+		var fill := TEXT if on else SCREEN
+		var edge := TEXT if on else DIM_TEXT
+		for s in ["normal", "hover", "pressed", "hover_pressed"]:
+			tb.add_theme_stylebox_override(s, _box(fill if s != "hover" or on else SCREEN.lightened(0.08), edge, 2, 4, [10, 3, 10, 3]))
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+			tb.add_theme_color_override(c, SCREEN if on else TEXT)
+
 
 func _label(text: String, size_px: int, color: Color, bold: bool = false) -> Label:
 	var l := Label.new()

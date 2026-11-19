@@ -334,7 +334,7 @@ func oldest_project() -> Variant:
 func research_available(data) -> Array:
 	var out: Array = []
 	for item in data.research_items():
-		if is_unlocked(item):
+		if is_unlocked(item) or not bool(data.research_item(item).get("available", true)):
 			continue
 		var p = project_for_item(item)
 		if p != null and int(p["lab_id"]) != -1:
@@ -353,6 +353,8 @@ func can_start_research(lab_id: int, item: String, data) -> String:
 		return "Unknown research"
 	if is_unlocked(item):
 		return "Already researched"
+	if not bool(data.research_item(item).get("available", true)):
+		return "Coming soon"
 	var p = project_for_item(item)
 	if p != null:
 		if int(p["lab_id"]) != -1:

@@ -38,6 +38,7 @@ const BUILDING_TEXT := {
 const RESEARCH_NAMES := {
 	"radar": "Radar", "scouting_missile": "Scouting missile", "anti_air_capacity": "Anti-air capacity",
 	"motion_sensor": "Motion sensor", "ballistic_launcher": "Ballistic launcher",
+	"airport": "Airport", "bunker": "Bunker", "docks": "Docks", "coastal_cannon": "Coastal cannon",
 }
 const RESEARCH_TEXT := {
 	"radar": "Unlocks the radar building, which raises the accuracy of anti-air inside its range.",
@@ -45,6 +46,10 @@ const RESEARCH_TEXT := {
 	"anti_air_capacity": "Each anti-air engages one more missile a round.",
 	"motion_sensor": "A basic missile that lands on an empty hex moves to the nearest enemy building close by, on the same level.",
 	"ballistic_launcher": "Unlocks the ballistic launcher.",
+	"airport": "Unlocks the airport, which sends an air transport to drop a platoon on the enemy island.",
+	"bunker": "Unlocks the bunker, which wipes out enemy platoons that land or march near it.",
+	"docks": "Unlocks the docks, which send a boat carrying a platoon to the enemy coast.",
+	"coastal_cannon": "Unlocks the coastal cannon, which fires on enemy boats landing nearby.",
 }
 
 

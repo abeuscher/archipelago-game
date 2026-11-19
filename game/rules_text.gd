@@ -87,6 +87,8 @@ static func _research(data) -> String:
 	var out: Array = []
 	for item in data.section("research"):
 		var r: Dictionary = data.research_item(item)
+		if not bool(r.get("available", true)):
+			continue
 		out.append("[b]%s[/b] (%d money, %d points). %s" % [Pieces.research_name(item), int(r["cost"]), int(r["points"]),
 			Pieces.RESEARCH_TEXT.get(item, "")])
 	return "\n".join(out)

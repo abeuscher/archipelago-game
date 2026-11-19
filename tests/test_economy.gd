@@ -266,3 +266,18 @@ func test_launch_validation() -> void:
 	ok(m.set_launch_orders(0, [{"launcher": l.hex, "missile": "basic", "target": t}]))
 	m.resolve_playout()
 	eq(m.sides[0].fuel, 0, "fuel spent at playout")
+
+
+func test_research_tabs_and_coming_soon() -> void:
+	var m = flat_match()
+	var d = m.data
+	for item in d.research_items():
+		check(String(d.research_item(item).get("tab", "")) in ["buildings", "upgrades"], "tab for " + item)
+	eq(String(d.research_item("radar")["tab"]), "buildings", "radar unlocks a building")
+	eq(String(d.research_item("scouting_missile")["tab"]), "upgrades", "scouting missile is an upgrade")
+	var lab = put(m, 0, "lab", 1, 1)
+	m.sides[0].money = 500
+	for item in d.research_items():
+		if not bool(d.research_item(item).get("available", true)):
+			eq(m.sides[0].can_start_research(lab.id, item, d), "Coming soon", "not yet researchable: " + item)
+			check(not m.sides[0].research_available(d).has(item), "not offered: " + item)

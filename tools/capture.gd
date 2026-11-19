@@ -91,6 +91,11 @@ func _run() -> void:
 	await _shot("05_lab_selected")
 	main._open_research(lab.id)
 	await _shot("06_research_panel")
+	main.hud.research_panel._tab = "upgrades"
+	main.hud.research_panel.show_state(main.m.sides[0], main.data, true)
+	await _shot("06b_research_upgrades")
+	main.hud.research_panel._tab = "buildings"
+	main.hud.research_panel.show_state(main.m.sides[0], main.data, true)
 	main._start_research(lab.id, "radar")
 	await _shot("07_research_started")
 	main.hud.research_panel.visible = false
