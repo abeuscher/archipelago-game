@@ -745,8 +745,9 @@ func _next_free_launcher() -> int:
 	var used := {}
 	for o in orders:
 		used[o["launcher"]] = true
+	var money_left: int = m.sides[0].money - _money_planned()
 	for b in _attackers(m.sides[0]):
-		if m.sides[0].weapon_active(b) and _carrier_block(b) == "" and not used.has(b.hex):
+		if m.sides[0].weapon_active(b) and _carrier_block(b) == "" and not used.has(b.hex) 				and int(data.missile(_missile_for(b.hex)).get("money", 0)) <= money_left:
 			return b.hex
 	return -1
 
@@ -766,6 +767,14 @@ func _carrier_block(b) -> String:
 	if b.boat_out:
 		return Hud.NOTICE_BOAT_OUT
 	return ""
+
+
+## Money the orders placed so far will spend at the playout (troop launches).
+func _money_planned() -> int:
+	var total := 0
+	for o in orders:
+		total += int(data.missile(String(o["missile"])).get("money", 0))
+	return total
 
 
 func _fuel_planned() -> int:
@@ -1031,12 +1040,27 @@ func _build_toolbar(st) -> void:
 					else "Select this launcher, then click an enemy hex to aim it."
 				if options.size() > 1:
 					tip += "\nClick it again to switch missile."
+				# A weapon that costs money to fire (troops) can't be picked
+				# without the money, counting what the other orders spend.
+				var cost := int(mdef.get("money", 0))
+				if cost > 0 and not aimed and st.money - _money_planned() < cost:
+					hud.add_piece_button(b.type, name, str(int(mdef["fuel"])), note + " (not enough money)",
+						func(): hud.show_notice(Hud.NOTICE_MONEY), false, false, tip, false, true, "", false, true)
+					continue
 				var pick := func():
 					if active_launcher == hx and options.size() > 1:
 						_cycle_missile(hx)
-					else:
-						active_launcher = hx
-						_refresh()
+						return
+					# Picking an aimed weapon takes back its order, so its target
+					# leaves the map, ready to aim again.
+					var kept := orders.filter(func(o): return int(o["launcher"]) != hx)
+					if kept.size() != orders.size():
+						orders = kept
+						m.set_launch_orders(MatchState.PLAYER, orders)
+					if int(pending_drop.get("launcher", -1)) != hx:
+						pending_drop = {}   # a half-placed drop from another weapon
+					active_launcher = hx
+					_refresh()
 				hud.add_piece_button(b.type, name, str(int(mdef["fuel"])), note, pick, false, active_launcher == b.hex,
 					tip, false, true, "", aimed)
 			hud.add_spacer()
