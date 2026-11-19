@@ -68,7 +68,7 @@
   "theme": {
     "_note": "The main theme: plays in setup and the build and repair phase, fades out for targeting and the attack, and comes back where it left off. Not all the time: it plays for play_seconds, then rests (silent) for rest_seconds, each picked at random in its range. Every change fades over fade_seconds.",
     "file": "assets/music/main_theme.ogg",
-    "volume_db": -12,
+    "volume_db": -9,
     "fade_seconds": 4.0,
     "play_seconds": [
       150,
@@ -78,5 +78,7 @@
       45,
       90
     ]
-  }
+  },
+  "effects_db": -2,
+  "_note_effects_db": "effects_db: every sound effect and building sound plays this many dB below its file's level (the click too)."
 }

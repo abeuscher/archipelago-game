@@ -99,7 +99,7 @@ func play(path: String, volume_db: float = 0.0) -> void:
 		add_child(p)
 		_players[full] = p
 	p.stream = stream
-	p.volume_db = volume_db
+	p.volume_db = volume_db + float(sounds.get("effects_db", 0.0))   # the effects' overall level
 	p.stream_paused = false
 	p.play()
 

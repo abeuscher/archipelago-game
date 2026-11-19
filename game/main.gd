@@ -312,6 +312,18 @@ func _end_build() -> void:
 	_refresh()
 
 
+## The first time the build clock runs out, Ginger reminds the player to
+## watch it (once ever, kept with the finished tips; only with tips on).
+## Said as targeting starts, holding its clock. Not for the targeting clock.
+func _build_timeout_tip() -> void:
+	var key := "build_timeout"
+	if prefs["tips_done"].has(key) or not bool(prefs["show_tips"]) or not lines.has(key):
+		return
+	prefs["tips_done"].append(key)
+	_save_prefs()
+	hud.announce(_line_text(key), "", 0.0, false, _line_character(key))
+
+
 ## The Attack button. The first time it is pressed with weapons left
 ## unaimed, Ginger warns once (the clock holds while she talks) instead of
 ## attacking. The clock running out attacks without asking.
@@ -416,6 +428,7 @@ func _process(delta: float) -> void:
 			clock_running = false
 			if ui == Ui.BUILD:
 				_end_build()
+				_build_timeout_tip()
 			elif ui == Ui.TARGETING:
 				_attack()   # orders placed so far are launched
 	# The ambience swells as the view moves in and fades as it pulls out.

@@ -2,7 +2,7 @@
 ## each side gets soldiers (airport/docks), and whether troops pay off.
 ## Rules layer only: no scenes, no audio.
 ##
-##   godot --headless --path . -s tools/troop_study.gd -- [--matches N] [--part 1|2|search]
+##   godot --headless --path . -s tools/troop_study.gd -- [--matches N] [--part 1|2|search|launcher]
 ##     [--level L] [--award M]
 ## --level plays a campaign level (data/levels.json); --award adds money to
 ## both sides' start, as the win before it does in the game.
@@ -44,6 +44,17 @@ func _initialize() -> void:
 		print("\n=== Part 2: are troops worth it? strong vs strong, sides alternate ===")
 		_run("strong", "no_troops", "strong", "normal", n, 5000, true)
 		_run("strong", "eager_troops", "strong", "normal", n, 9000, true)
+	if part == "launcher":
+		print("
+=== No launcher in the first round(s) vs the normal opening ===")
+		_run("strong", "no_launcher_r1", "strong", "normal", n, 21000, true)
+		_run("strong", "no_launcher_r2", "strong", "normal", n, 25000, true)
+		print("
+--- Player stand-in (medium) vs the game's enemy: normal opening, then no launcher in round 1 ---")
+		_run("strong:medium", "normal", "strong", "normal", n, 29000, false)
+		_run("strong:medium", "no_launcher_r1", "strong", "normal", n, 29000, false)
+		_run("strong:easy", "normal", "strong", "normal", n, 33000, false)
+		_run("strong:easy", "no_launcher_r1", "strong", "normal", n, 33000, false)
 	if part == "search":
 		print("\n=== Varied search shots vs always the best aim, sides alternate ===")
 		_run("strong", "normal", "strong", "fixed_search", n, 17000, true)
@@ -72,7 +83,16 @@ func _variant(kind: String):
 			s["troops"]["min_value"] = 3.0
 		"fixed_search":
 			s["search_spread"] = 0.0
+		"no_launchers":
+			# For the opening only: everything but launchers.
+			for key in ["build_order", "build_order_plain", "late_cycle"]:
+				s[key] = Array(s[key]).filter(func(x): return x != "basic_launcher" and x != "ballistic_launcher")
 	return d
+
+
+## Opening kinds: the normal AI, but its first N rounds of building come
+## from an AI that buys no launchers.
+const OPENINGS := {"no_launcher_r1": 1, "no_launcher_r2": 2}
 
 
 func _make(name: String, side: int, d, seed_in: int):
@@ -83,8 +103,8 @@ func _make(name: String, side: int, d, seed_in: int):
 
 
 func _run(a_name: String, a_kind: String, b_name: String, b_kind: String, n: int, seed0: int, swap: bool) -> void:
-	var da = data if a_kind == "normal" else _variant(a_kind)
-	var db = data if b_kind == "normal" else _variant(b_kind)
+	var da = data if a_kind == "normal" or OPENINGS.has(a_kind) else _variant(a_kind)
+	var db = data if b_kind == "normal" or OPENINGS.has(b_kind) else _variant(b_kind)
 	var label_a := "A %s[%s]" % [a_name, a_kind]
 	var label_b := "B %s[%s]" % [b_name, b_kind]
 	# Per-label totals.
@@ -98,6 +118,12 @@ func _run(a_name: String, a_kind: String, b_name: String, b_kind: String, n: int
 		var ais := [
 			_make(b_name if flip else a_name, 0, db if flip else da, seed_in),
 			_make(a_name if flip else b_name, 1, da if flip else db, seed_in)]
+		var kinds: Array = [b_kind, a_kind] if flip else [a_kind, b_kind]
+		for s in 2:
+			if OPENINGS.has(kinds[s]):
+				var names: Array = [b_name, a_name] if flip else [a_name, b_name]
+				ais[s].set_meta("opener", _make(names[s], s, _variant("no_launchers"), seed_in))
+				ais[s].set_meta("opener_rounds", OPENINGS[kinds[s]])
 		var r := _play(seed_in, ais)
 		var m = r["m"]
 		if r["timed_out"]:
@@ -109,6 +135,8 @@ func _run(a_name: String, a_kind: String, b_name: String, b_kind: String, n: int
 			var t: Dictionary = T[labels[s]]
 			var ps: Dictionary = per[s]
 			t["games"] += 1
+			t["first_fire"].append(int(r["first_fire"][s]))
+			t["idle_r1"] += int(int(r["first_fire"][s]) != 1)
 			var won: bool = m.winner == s
 			if won:
 				t["wins"] += 1
@@ -133,6 +161,8 @@ func _run(a_name: String, a_kind: String, b_name: String, b_kind: String, n: int
 		var g: int = t["games"]
 		print("  %s" % lab)
 		print("    wins %d/%d (%.0f%%)" % [t["wins"], g, 100.0 * t["wins"] / g])
+		print("    first round it fired anything: median %s; nothing to fire in round 1 in %.0f%% of matches" % [
+			_med(t["first_fire"]), 100.0 * t["idle_r1"] / g])
 		print("    got troops (airport/docks built) in %.0f%% of matches, median round %s" % [100.0 * t["capable"] / g, _med(t["capable_rounds"])])
 		print("    actually sent troops in %.0f%% of matches, first drop median round %s" % [100.0 * t["used"] / g, _med(t["first_drop_rounds"])])
 		if t["drops"] > 0:
@@ -147,7 +177,7 @@ func _run(a_name: String, a_kind: String, b_name: String, b_kind: String, n: int
 func _blank() -> Dictionary:
 	return {"games": 0, "wins": 0, "capable": 0, "capable_rounds": [], "used": 0, "used_wins": 0, "unused_wins": 0,
 		"first_drop_rounds": [], "drops": 0, "landed": 0, "lost": 0, "buildings": 0, "bases": 0, "bases_all": 0,
-		"spent": 0, "games_troop_base_kill": 0}
+		"spent": 0, "games_troop_base_kill": 0, "first_fire": [], "idle_r1": 0}
 
 
 func _play(seed_in: int, ais: Array) -> Dictionary:
@@ -156,6 +186,7 @@ func _play(seed_in: int, ais: Array) -> Dictionary:
 	m.sides[0].money += award
 	m.sides[1].money += award   # the enemy gets the same, as in the game
 	var port_info := [{"first": 0, "spent": 0}, {"first": 0, "spent": 0}]
+	var first_fire := [0, 0]   # first round each side launched anything
 	for s in 2:
 		var setup: Dictionary = ais[s].choose_setup(m.view_for(s))
 		m.setup_side(s, setup["bases"], setup["decoys"])
@@ -163,7 +194,10 @@ func _play(seed_in: int, ais: Array) -> Dictionary:
 		m.begin_round()
 		var planned: Array = []
 		for s in 2:
-			planned.append(ais[s].choose_build(m.view_for(s)))
+			var builder = ais[s]
+			if builder.has_meta("opener") and m.round_number <= int(builder.get_meta("opener_rounds")):
+				builder = builder.get_meta("opener")
+			planned.append(builder.choose_build(m.view_for(s)))
 		for s in 2:
 			for a in planned[s]:
 				if m.build_action(s, a) == "":
@@ -174,10 +208,12 @@ func _play(seed_in: int, ais: Array) -> Dictionary:
 			orders.append(ais[s].choose_targets(m.view_for(s)))
 		for s in 2:
 			m.set_launch_orders(s, orders[s])
+			if first_fire[s] == 0 and not orders[s].is_empty():
+				first_fire[s] = m.round_number
 		m.resolve_playout()
 		if m.phase == MatchState.Phase.COIN_FLIP:
 			m.resolve_coin_flip()
-	return {"m": m, "timed_out": not m.is_over(), "ports": port_info}
+	return {"m": m, "timed_out": not m.is_over(), "ports": port_info, "first_fire": first_fire}
 
 
 func _note_build(m, s: int, a: Dictionary, port_info: Array) -> void:
