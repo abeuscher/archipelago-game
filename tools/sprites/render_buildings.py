@@ -125,6 +125,14 @@ def rail(length, width, thick, color, pivot, pitch=0, yaw=0):
                pitch=pitch, yaw=yaw)
 
 
+def arch(r, length, color, pos, yaw=0, n=7, h=1.0):
+    """Half-cylinder roof lying along local x, flat side down, centred on pos."""
+    def ring(x):
+        return [_xf((x, r * math.cos(math.pi * i / (n - 1)), h * r * math.sin(math.pi * i / (n - 1))),
+                    0, yaw, pos) for i in range(n)]
+    return _solid(ring(-length / 2), ring(length / 2), color)
+
+
 def blob(r, color, pos, rot=0):
     """Low-poly ball."""
     x, y, z = pos
@@ -365,6 +373,115 @@ def decoy(damaged=False):
     return base(flag="#6c7076", damaged=damaged)
 
 
+# ---- troop buildings (airport, bunker, docks, coastal cannon) ------------
+ASPHALT = "#3a3d42"
+NAVY = "#4d5a6b"
+NAVY_DK = "#3d4856"
+TEAL = "#3f7f9a"
+DARK = "#1d1f22"
+
+
+def airport(damaged=False):
+    m = pad()
+    m += box((1.3, .34, .02), ASPHALT, (0, -.2, .13))
+    for x in (-.45, -.15, .15, .45):
+        m += box((.14, .03, .006), WHITE, (x, -.2, .142))
+    m += box((.44, .48, .1), CONCRETE_LT, (-.2, .22, .17))
+    if damaged:
+        m += box((.4, .44, .01), DARK, (-.2, .22, .224))
+        m += arch(.24, .16, "#7d8a96", (-.34, .22, .22))
+        m += box((.3, .3, .03), "#7d8a96", (-.08, .2, .26), pitch=-24, yaw=15)
+        m += prism(6, .07, .07, .12, .26, CONCRETE_LT, at=(.36, .3))
+        m += tube(6, .07, .07, .3, CONCRETE_LT, (.33, .26, .2), pitch=10, yaw=205)
+        m += tube(8, .045, .045, .3, WHITE, (.05, -.26, .19), yaw=28)
+        m += box((.09, .24, .015), WHITE, (.2, -.07, .17), pitch=12, yaw=40)
+        m += box((.07, .012, .07), BLUE, (.08, -.25, .245), yaw=28)
+        return wreck(m, (-.18, .2, .26), 11)
+    m += arch(.24, .44, "#7d8a96", (-.2, .22, .22))
+    m += box((.012, .36, .17), "#1d2228", (.022, .22, .205))
+    m += prism(6, .07, .07, .12, .5, CONCRETE_LT, at=(.36, .3))
+    m += prism(6, .1, .1, .5, .6, "#2a3340", at=(.36, .3))
+    m += prism(6, .11, .11, .6, .63, STEEL_DK, at=(.36, .3))
+    m += prism(4, .02, .02, .63, .71, RED, at=(.36, .3))
+    m += tube(8, .045, .045, .3, WHITE, (.05, -.2, .19))
+    m += tube(8, .045, .012, .08, WHITE, (.05, -.2, .19), x0=.3)
+    m += box((.09, .42, .015), WHITE, (.2, -.2, .2))
+    m += box((.05, .16, .012), WHITE, (.07, -.2, .2))
+    m += box((.07, .012, .07), BLUE, (.07, -.2, .245))
+    return m
+
+
+def bunker(damaged=False):
+    m = pad()
+    m += prism(8, .62, .56, .12, .38, "#9a988f", rot=22.5)
+    m += prism(8, .6, .588, .25, .31, DARK, rot=22.5)
+    m += box((.03, .2, .2), "#2a2c30", (-.585, 0, .22))
+    if damaged:
+        m += prism(8, .5, .5, .38, .385, DARK, rot=22.5)
+        m += box((.62, .5, .08), "#7d7b73", (-.14, .1, .45), pitch=13, yaw=22)
+        m += box((.26, .22, .08), "#7d7b73", (.34, -.26, .4), pitch=-20, yaw=-30)
+        m += tube(6, .03, .03, .22, GUNMETAL, (.55, 0, .28), pitch=-25, yaw=-20)
+        return wreck(m, (.15, -.08, .4), 12)
+    m += prism(8, .6, .48, .38, .47, "#7d7b73", rot=22.5)
+    m += prism(6, .1, .08, .47, .52, STEEL_DK)
+    m += tube(6, .03, .03, .22, GUNMETAL, (.55, 0, .28))
+    return m
+
+
+def docks(damaged=False):
+    m = pad()
+    for x in (-.5, -.17, .17, .5):
+        for y in (-.32, -.02):
+            m += prism(6, .035, .035, .12, .22, "#5a4630", at=(x, y))
+    m += box((.18, .18, .08), STEEL, (-.3, .3, .16))
+    m += prism(8, .05, .05, .27, .39, TEAL, at=(-.45, -.08))
+    if damaged:
+        m += box((.56, .4, .05), WOOD, (-.31, -.17, .23), pitch=-9)
+        m += box((.5, .4, .05), WOOD, (.33, -.17, .2), pitch=14, yaw=6)
+        m += box((.1, .1, .3), TEAL, (-.3, .3, .34))
+        m += beam((-.3, .3, .46), (.38, -.2, .3), .05, TEAL)
+        m += box((.18, .16, .12), TEAL, (-.1, .42, .19), pitch=20, yaw=40)
+        m += box((.36, .3, .2), CONCRETE_LT, (.26, .33, .22))
+        m += box((.4, .34, .04), "#3f6f8a", (.3, .3, .35), pitch=-14, yaw=14)
+        m += box((.14, .14, .12), "#8a6a3c", (.5, -.3, .19), yaw=30)
+        return wreck(m, (0, -.15, .26), 13)
+    m += box((1.2, .4, .05), WOOD, (0, -.17, .245))
+    for x in (-.5, .5):
+        m += prism(6, .03, .03, .27, .33, GUNMETAL, at=(x, -.33))
+    m += box((.14, .14, .12), "#8a6a3c", (.3, -.1, .33))
+    m += box((.12, .12, .1), "#a37f4a", (.43, -.22, .32))
+    m += box((.36, .3, .2), CONCRETE_LT, (.26, .33, .22))
+    m += box((.4, .34, .04), "#3f6f8a", (.26, .33, .34))
+    m += box((.1, .1, .62), TEAL, (-.3, .3, .5))
+    m += box((.18, .16, .12), TEAL, (-.28, .3, .84))
+    m += beam((-.3, .3, .9), (.3, -.1, 1.02), .05, TEAL)
+    m += beam((-.3, .3, .9), (-.5, .43, .86), .05, TEAL)
+    m += beam((.2, -.033, .99), (.2, -.033, .52), .014, GUNMETAL)
+    m += box((.12, .12, .1), "#8a6a3c", (.2, -.033, .47))
+    return m
+
+
+def coastal_cannon(damaged=False):
+    gun = (.2, 0, .62)
+    m = pad()
+    m += prism(12, .55, .5, .12, .26, STEEL)
+    m += prism(8, .36, .31, .26, .5, NAVY)
+    m += box((.2, .18, .12), NAVY, (-.4, -.3, .18))
+    if damaged:
+        m += box((.34, .54, .3), NAVY_DK, (.06, .03, .58), pitch=-10, yaw=22)
+        m += tube(10, .11, .11, .2, STEEL_LT, gun, pitch=-9, yaw=-32)
+        m += tube(10, .085, .07, .8, GUNMETAL, gun, pitch=-9, yaw=-32)
+        m += tube(10, .1, .1, .12, "#16181b", gun, pitch=-9, yaw=-32, x0=.8)
+        return wreck(m, (.02, .08, .62), 14)
+    m += box((.34, .54, .3), NAVY_DK, (.08, 0, .6))
+    m += box((.08, .7, .06), STEEL_DK, (-.02, 0, .78))
+    m += tube(10, .11, .11, .2, STEEL_LT, gun, pitch=12)
+    m += tube(10, .085, .07, .8, GUNMETAL, gun, pitch=12)
+    m += tube(10, .1, .1, .12, "#16181b", gun, pitch=12, x0=.8)
+    return m
+# ---- end troop buildings --------------------------------------------------
+
+
 def repair():
     m = pad()
     m += box((.62, .62, .52), TARP, (0, 0, .38))
@@ -418,6 +535,14 @@ BUILDINGS = {
     "lab_damaged": lambda: lab(damaged=True),
     "base_damaged": lambda: base(damaged=True),
     "decoy_damaged": lambda: decoy(damaged=True),
+    "airport": airport,
+    "airport_damaged": lambda: airport(damaged=True),
+    "bunker": bunker,
+    "bunker_damaged": lambda: bunker(damaged=True),
+    "docks": docks,
+    "docks_damaged": lambda: docks(damaged=True),
+    "coastal_cannon": coastal_cannon,
+    "coastal_cannon_damaged": lambda: coastal_cannon(damaged=True),
     "repair": repair,
     "rubble": rubble,
 }
@@ -441,25 +566,32 @@ class Camera:
         self.facing = math.radians(facing)
         self.dir = -1 if reverse else 1
         self.ss = supersample
-        self.fw = int(math.ceil(self.scale * 2.2 / 2) * 2)
-        self.fh = int(math.ceil(self.scale * 3.3 / 2) * 2)
+        self.fw = int(round(self.scale * 2.2 / 2) * 2)
+        self.fh = int(round(self.scale * 3.3 / 2) * 2)
         self.ax = self.fw / 2
         self.ay = round(self.fh - self.scale * 0.8)
 
     def yaw(self, view):
         return self.facing + self.dir * view * math.pi / 3
 
-    def render(self, parts, view, outline=True):
-        ss, W, H = self.ss, self.fw * self.ss, self.fh * self.ss
+    def render(self, parts, view=0, outline=True, yaw=None, frame=None, anchor=None,
+               model_scale=BUILDING_SCALE):
+        """yaw (degrees CCW from above) overrides view; frame=(w, h) and
+        anchor=(x, y) override the building frame; model_scale converts model
+        units to tile units."""
+        fw, fh = frame or (self.fw, self.fh)
+        ax, ay = anchor or (self.ax, self.ay)
+        ang = self.yaw(view) if yaw is None else math.radians(yaw)
+        ss, W, H = self.ss, fw * self.ss, fh * self.ss
         color = np.zeros((H, W, 3))
         alpha = np.zeros((H, W), dtype=bool)
         zbuf = np.full((H, W), np.inf)
-        c, s = math.cos(self.yaw(view)), math.sin(self.yaw(view))
+        c, s = math.cos(ang), math.sin(ang)
         rot = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         view_vec = np.array([0, self.cp, -self.sp])
         k = self.scale * ss
         for face, col in parts:
-            p = (np.array(face) * BUILDING_SCALE) @ rot.T
+            p = (np.array(face) * model_scale) @ rot.T
             q = np.roll(p, -1, axis=0)
             n = np.array([((p[:, 1] - q[:, 1]) * (p[:, 2] + q[:, 2])).sum(),
                           ((p[:, 2] - q[:, 2]) * (p[:, 0] + q[:, 0])).sum(),
@@ -472,14 +604,14 @@ class Camera:
                 n = -n
             shade = AMBIENT + (1 - AMBIENT) * max(0.0, float(n @ LIGHT))
             rgb = np.clip(_rgb(col) * shade, 0, 255)
-            X = self.ax * ss + p[:, 0] * k
-            Y = self.ay * ss - (p[:, 1] * self.sp + p[:, 2] * self.cp) * k
+            X = ax * ss + p[:, 0] * k
+            Y = ay * ss - (p[:, 1] * self.sp + p[:, 2] * self.cp) * k
             D = p[:, 1] * self.cp - p[:, 2] * self.sp
             for i in range(1, len(p) - 1):
                 self._tri(color, alpha, zbuf, rgb,
                           (X[0], Y[0], D[0]), (X[i], Y[i], D[i]), (X[i + 1], Y[i + 1], D[i + 1]))
-        a = alpha.reshape(self.fh, ss, self.fw, ss).mean(axis=(1, 3))
-        rgbsum = (color * alpha[..., None]).reshape(self.fh, ss, self.fw, ss, 3).mean(axis=(1, 3))
+        a = alpha.reshape(fh, ss, fw, ss).mean(axis=(1, 3))
+        rgbsum = (color * alpha[..., None]).reshape(fh, ss, fw, ss, 3).mean(axis=(1, 3))
         rgb = np.where(a[..., None] > 0, rgbsum / np.maximum(a[..., None], 1e-9), 0)
         img = Image.fromarray(np.dstack([rgb, a * 255]).round().astype(np.uint8), "RGBA")
         if outline:

@@ -38,6 +38,8 @@ class Aircraft extends RefCounted:
 	var alt: float
 	var heading: float
 	var color: Color
+	var side: String = "player"   ## colourway of the unit art
+	var door_open: bool = false
 
 
 class Chute extends RefCounted:
@@ -45,16 +47,22 @@ class Chute extends RefCounted:
 	var alt: float
 	var color: Color
 	var phase: float
+	var side: String = "player"
 
 
 class Squad extends RefCounted:
 	var ground: Vector2
 	var color: Color
+	var side: String = "player"
+	var facing: int = 0          ## screen direction row: E, SE, SW, W, NW, NE
+	var walking: bool = false
+	var wiped: bool = false
 
 
 ## Placeholder troop art until the sprites arrive (docs/troop_assets.md).
-func add_plane(ground: Vector2, alt: float, heading: float, color: Color) -> Aircraft:
+func add_plane(ground: Vector2, alt: float, heading: float, color: Color, side: String = "player") -> Aircraft:
 	var p := Aircraft.new()
+	p.side = side
 	p.ground = ground
 	p.alt = alt
 	p.heading = heading
@@ -67,8 +75,9 @@ func remove_plane(p) -> void:
 	planes.erase(p)
 
 
-func add_chute(ground: Vector2, alt: float, color: Color) -> Chute:
+func add_chute(ground: Vector2, alt: float, color: Color, side: String = "player") -> Chute:
 	var c := Chute.new()
+	c.side = side
 	c.ground = ground
 	c.alt = alt
 	c.color = color
@@ -81,8 +90,9 @@ func remove_chute(c) -> void:
 	chutes.erase(c)
 
 
-func add_squad(ground: Vector2, color: Color) -> Squad:
+func add_squad(ground: Vector2, color: Color, side: String = "player") -> Squad:
 	var s := Squad.new()
+	s.side = side
 	s.ground = ground
 	s.color = color
 	squads.append(s)
@@ -210,6 +220,11 @@ func _draw() -> void:
 func _draw_plane(p) -> void:
 	draw_colored_polygon(_ellipse(p.ground, 20.0, 7.0), Color(0, 0, 0, 0.25))
 	var c: Vector2 = p.ground - Vector2(0, p.alt)
+	# The art: nose to the right, turned to the heading; props spin, and the
+	# cargo door opens for the drop.
+	var frame := 2 if p.door_open else int(_clock * 20.0) % 2
+	if _unit_frame("transport_" + p.side, frame, 0, c, p.heading):
+		return
 	var shape := PackedVector2Array([Vector2(26, 0), Vector2(14, -4), Vector2(4, -4), Vector2(-2, -24), Vector2(-9, -24), Vector2(-6, -4),
 		Vector2(-18, -4), Vector2(-24, -11), Vector2(-28, -11), Vector2(-25, 0), Vector2(-28, 11), Vector2(-24, 11), Vector2(-18, 4),
 		Vector2(-6, 4), Vector2(-9, 24), Vector2(-2, 24), Vector2(4, 4), Vector2(14, 4)])
@@ -225,6 +240,11 @@ func _draw_plane(p) -> void:
 func _draw_chute(c) -> void:
 	var sway := sin(_clock * 3.0 + c.phase) * 4.0
 	var feet: Vector2 = c.ground - Vector2(0, c.alt)
+	var col := 3 if c.alt < 6.0 else (1 if sway < 0.0 else 2)
+	if c.alt > 130.0:
+		col = 0   # canopy still opening
+	if _unit_frame("parachutist_" + c.side, col, 0, feet + Vector2(sway, 0), 0.0):
+		return
 	var top := feet + Vector2(sway, -16)
 	if c.alt > 1.0:
 		var canopy := PackedVector2Array()
@@ -239,6 +259,15 @@ func _draw_chute(c) -> void:
 
 
 func _draw_squad(s) -> void:
+	var col := 0
+	if s.wiped:
+		col = 7
+	elif s.walking:
+		col = 1 + int(_clock * 8.0) % 4
+	else:
+		col = 5 + int(_clock * 6.0) % 2   # fighting on the hex
+	if _unit_frame("platoon_" + s.side, col, s.facing, s.ground, 0.0):
+		return
 	for k in 8:
 		var off := Vector2(float(k % 4) * 7.0 - 10.5, float(k / 4) * 6.0 - 3.0)
 		var bob := sin(_clock * 10.0 + k) * 0.8
@@ -250,6 +279,59 @@ func _soldier(p: Vector2, col: Color) -> void:
 	draw_rect(Rect2(p + Vector2(-1.5, -6), Vector2(3, 6)), col.darkened(0.35))
 	draw_circle(p + Vector2(0, -7.5), 1.8, Color(0.95, 0.8, 0.65))
 	draw_rect(Rect2(p + Vector2(-1.5, -6), Vector2(3, 6)), Color(0.1, 0.1, 0.1, 0.6), false, 0.6)
+
+
+# --- Unit art (assets/units, described by units.json) ----------------------
+
+const UNIT_DIR := "res://assets/units/"
+const BOARD_HEX_WIDTH := 30.0 * 1.7320508
+const Textures = preload("res://game/textures.gd")
+static var _unit_meta = null
+static var _unit_tex: Dictionary = {}
+
+
+static func unit_meta() -> Dictionary:
+	if _unit_meta == null:
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(UNIT_DIR + "units.json"))
+		_unit_meta = parsed if parsed is Dictionary else {}
+	return _unit_meta
+
+
+## Draws one frame of a unit sheet with its anchor on `at`, rotated by
+## `angle`. False if the sheet is missing (the caller draws a placeholder).
+func _unit_frame(sheet: String, col: int, row: int, at: Vector2, angle: float) -> bool:
+	var meta := unit_meta()
+	var info: Dictionary = meta.get("sheets", {}).get(sheet, {})
+	if info.is_empty():
+		return false
+	if not _unit_tex.has(sheet):
+		_unit_tex[sheet] = Textures.load_texture(UNIT_DIR + String(info["file"]))
+	var tex: Texture2D = _unit_tex[sheet]
+	if tex == null:
+		return false
+	var fw := float(info["frame_width"])
+	var fh := float(info["frame_height"])
+	var anchor := Vector2(float(info["anchor"][0]), float(info["anchor"][1]))
+	var k := BOARD_HEX_WIDTH / float(meta.get("hex_width", 104.0))
+	draw_set_transform(at, angle, Vector2(k, k))
+	draw_texture_rect_region(tex, Rect2(-anchor, Vector2(fw, fh)), Rect2(col * fw, row * fh, fw, fh))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	return true
+
+
+## The unit-art direction row for a movement on screen: E, SE, SW, W, NW, NE
+## (hex neighbours as they look on the board).
+static func facing_for(v: Vector2) -> int:
+	var ang := fposmod(rad_to_deg(v.angle()), 360.0)
+	var dirs := [0.0, 45.0, 135.0, 180.0, 225.0, 315.0]
+	var best := 0
+	var best_d := 999.0
+	for i in dirs.size():
+		var d: float = absf(fposmod(ang - float(dirs[i]) + 180.0, 360.0) - 180.0)
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
 
 
 static func _ellipse(c: Vector2, rx: float, ry: float) -> PackedVector2Array:

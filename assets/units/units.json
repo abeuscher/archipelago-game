@@ -1,0 +1,172 @@
+{
+  "hex_width": 104,
+  "squash": 0.58,
+  "sheets": {
+    "platoon_player": {
+      "file": "platoon_player.png",
+      "frame_width": 104,
+      "frame_height": 80,
+      "anchor": [
+        52,
+        56
+      ],
+      "columns": [
+        "stand",
+        "walk_1",
+        "walk_2",
+        "walk_3",
+        "walk_4",
+        "fight_1",
+        "fight_2",
+        "wiped_out"
+      ],
+      "rows": [
+        "E",
+        "SE",
+        "SW",
+        "W",
+        "NW",
+        "NE"
+      ]
+    },
+    "platoon_enemy": {
+      "file": "platoon_enemy.png",
+      "frame_width": 104,
+      "frame_height": 80,
+      "anchor": [
+        52,
+        56
+      ],
+      "columns": [
+        "stand",
+        "walk_1",
+        "walk_2",
+        "walk_3",
+        "walk_4",
+        "fight_1",
+        "fight_2",
+        "wiped_out"
+      ],
+      "rows": [
+        "E",
+        "SE",
+        "SW",
+        "W",
+        "NW",
+        "NE"
+      ]
+    },
+    "parachutist_player": {
+      "file": "parachutist_player.png",
+      "frame_width": 48,
+      "frame_height": 64,
+      "anchor": [
+        24,
+        60
+      ],
+      "columns": [
+        "opening",
+        "sway_left",
+        "sway_right",
+        "landing"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "parachutist_enemy": {
+      "file": "parachutist_enemy.png",
+      "frame_width": 48,
+      "frame_height": 64,
+      "anchor": [
+        24,
+        60
+      ],
+      "columns": [
+        "opening",
+        "sway_left",
+        "sway_right",
+        "landing"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "transport_player": {
+      "file": "transport_player.png",
+      "frame_width": 120,
+      "frame_height": 90,
+      "anchor": [
+        60,
+        45
+      ],
+      "columns": [
+        "prop_1",
+        "prop_2",
+        "door_open"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "transport_enemy": {
+      "file": "transport_enemy.png",
+      "frame_width": 120,
+      "frame_height": 90,
+      "anchor": [
+        60,
+        45
+      ],
+      "columns": [
+        "prop_1",
+        "prop_2",
+        "door_open"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "boat_player": {
+      "file": "boat_player.png",
+      "frame_width": 120,
+      "frame_height": 90,
+      "anchor": [
+        60,
+        56
+      ],
+      "columns": [
+        "bob_1",
+        "bob_2"
+      ],
+      "rows": [
+        "E",
+        "SE",
+        "SW",
+        "W",
+        "NW",
+        "NE"
+      ]
+    },
+    "boat_enemy": {
+      "file": "boat_enemy.png",
+      "frame_width": 120,
+      "frame_height": 90,
+      "anchor": [
+        60,
+        56
+      ],
+      "columns": [
+        "bob_1",
+        "bob_2"
+      ],
+      "rows": [
+        "E",
+        "SE",
+        "SW",
+        "W",
+        "NW",
+        "NE"
+      ]
+    }
+  }
+}

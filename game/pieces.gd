@@ -72,15 +72,16 @@ const SHEET_FOR := {
 	"bank": "bank", "refinery": "refinery", "lab": "lab",
 	"basic_launcher": "missile_launcher", "ballistic_launcher": "ballistic_launcher",
 	"anti_air": "anti_air", "radar": "radar",
+	"airport": "airport", "bunker": "bunker", "docks": "docks", "coastal_cannon": "coastal_cannon",
 }
 ## Buildings drawn as placeholder blocks until their sprite sheets arrive
 ## (docs/troop_assets.md).
-const ART_PENDING := ["airport", "bunker", "docks", "coastal_cannon"]
+const ART_PENDING := []
 ## Sheets with a separate frame set for a launcher that has fired.
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
 ## Sheets with a <name>_damaged version: hit and not yet repaired.
 const DAMAGED_SHEETS := ["missile_launcher", "ballistic_launcher", "anti_air", "radar", "bank",
-	"refinery", "lab", "base", "decoy"]
+	"refinery", "lab", "base", "decoy", "airport", "bunker", "docks", "coastal_cannon"]
 
 static var _sheets: Dictionary = {}
 static var _meta = null

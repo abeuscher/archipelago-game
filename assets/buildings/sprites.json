@@ -32,6 +32,14 @@
     "lab_damaged": "lab_damaged.png",
     "base_damaged": "base_damaged.png",
     "decoy_damaged": "decoy_damaged.png",
+    "airport": "airport.png",
+    "airport_damaged": "airport_damaged.png",
+    "bunker": "bunker.png",
+    "bunker_damaged": "bunker_damaged.png",
+    "docks": "docks.png",
+    "docks_damaged": "docks_damaged.png",
+    "coastal_cannon": "coastal_cannon.png",
+    "coastal_cannon_damaged": "coastal_cannon_damaged.png",
     "repair": "repair.png",
     "rubble": "rubble.png"
   }

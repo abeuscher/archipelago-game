@@ -1334,8 +1334,9 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 	await _wait(delay)
 	var ground: Vector2 = board.position + board.tile_center(target)
 	var from := Vector2(0, 1) if board == enemy_board else Vector2(0, -1)   # the attacker's island side
+	var side := "player" if board == enemy_board else "enemy"
 	var alt := 150.0
-	var plane = effects.add_plane(ground + from * 650.0, alt, (-from).angle(), color)
+	var plane = effects.add_plane(ground + from * 650.0, alt, (-from).angle(), color, side)
 	var t := create_tween()
 	t.tween_property(plane, "ground", ground, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await t.finished
@@ -1350,10 +1351,11 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 			effects.remove_plane(plane)
 			return
 	# Eight parachutes, while the plane flies on and away.
+	plane.door_open = true
 	var chutes: Array = []
 	for k in 8:
 		var off := Vector2(float(k % 4) * 9.0 - 13.5, float(k / 4) * 6.0 - 3.0)
-		chutes.append(effects.add_chute(ground + off, alt - 10.0 - k * 3.0, color))
+		chutes.append(effects.add_chute(ground + off, alt - 10.0 - k * 3.0, color, side))
 	var away := create_tween()
 	away.tween_property(plane, "ground", ground - from * 650.0, 1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	away.tween_callback(func(): effects.remove_plane(plane))
@@ -1370,15 +1372,19 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 		effects.explosion(ground, 18.0, Color(0.6, 0.85, 1.0))
 		effects.float_text(ground, "Lost at sea", Color(0.8, 0.9, 1.0))
 		return
-	var squad = effects.add_squad(ground, color)
+	var squad = effects.add_squad(ground, color, side)
 	var path: Array = p["path"]
+	if path.size() > 1:
+		squad.facing = effects.facing_for(board.tile_center(int(path[1])) - board.tile_center(int(path[0])))
 	for i in path.size():
 		var h: int = int(path[i])
 		var pos: Vector2 = board.position + board.tile_center(h)
 		if i > 0:
+			squad.walking = true
 			var mv := create_tween()
 			mv.tween_property(squad, "ground", pos, MARCH_SECONDS)
 			await mv.finished
+			squad.walking = false
 		if not reveal_tiles.is_empty():
 			board.tiles[h] = reveal_tiles[h]
 		else:
@@ -1392,9 +1398,12 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 			await _wait(0.12)
 			effects.burst(pos - Vector2(0, 6))
 			effects.float_text(pos, "Wiped out", Color(1, 1, 1))
+			squad.wiped = true
+			await _wait(0.7)
 			effects.remove_squad(squad)
 			return
 		if p["destroyed"].has(h):
+			await _wait(0.25)   # a moment of fighting on the hex
 			effects.explosion(pos, 32.0, Color(1.0, 0.55, 0.15))
 			if reveal_tiles.is_empty() and board.tiles[h].get("building") != null:
 				board.tiles[h]["destroyed"] = String(board.tiles[h]["building"]["type"])
