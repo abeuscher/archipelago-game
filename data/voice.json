@@ -1,7 +1,5 @@
 {
   "_note": "Written by music_src/sync_voice.py: each spoken line (tip:<id>, say:<id>) and its recording. A line not listed has no recording yet and is shown silently.",
   "volume_db": 0,
-  "lines": {
-    "tip:place_bases": "assets/voice/admiral_001.ogg"
-  }
+  "lines": {}
 }
