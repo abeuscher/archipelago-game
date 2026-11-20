@@ -1439,8 +1439,14 @@ func _tip_holds_clock() -> bool:
 	return hud.announcer.holds_clock() or hud.tip_showing() != ""
 
 
+## A character's line; one of its "endings", picked at random, goes after it.
 func _line_text(key: String) -> String:
-	return String(lines.get(key, {}).get("text", ""))
+	var line: Dictionary = lines.get(key, {})
+	var text := String(line.get("text", ""))
+	var endings: Array = line.get("endings", [])
+	if not endings.is_empty():
+		text += " " + String(endings[randi() % endings.size()])
+	return text
 
 
 func _line_character(key: String) -> String:

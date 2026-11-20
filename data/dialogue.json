@@ -166,7 +166,12 @@
     },
     "incoming_many": {
       "character": "ginger",
-      "text": "General! {n} enemy missiles incoming!"
+      "text": "General! {n} enemy missiles incoming!",
+      "endings": [
+        "Brace for impact!",
+        "This could get wild!",
+        "Let's hope our defenses hold!"
+      ]
     },
     "incoming_troops": {
       "character": "ginger",
@@ -194,11 +199,24 @@
     },
     "attack_unaimed": {
       "character": "ginger",
-      "text": "Don't forget to target your weapons before you click attack. Otherwise you're a sitting duck!"
+      "text": "Don't forget to target your weapons before you click attack.",
+      "endings": [
+        "Otherwise you're a sitting duck!",
+        "Otherwise they'll run circles around us!",
+        "Otherwise they'll get a free shot!",
+        "Otherwise they'll get the upper hand!"
+      ]
     },
     "first_base_lost": {
       "character": "ginger",
-      "text": "Oh no! We lost our first base! Two more and we're toast!"
+      "text": "Oh no! We lost our first base!",
+      "endings": [
+        "Two more and we're toast!",
+        "Two more and it's curtains for us.",
+        "Two more and we'll be finished! Finished, I tell you!",
+        "Two more and we'll be cooked!",
+        "Two more and it's the end of the road!"
+      ]
     },
     "build_timeout": {
       "character": "ginger",
@@ -270,6 +288,7 @@
           "We stopped {n} of their soldiers."
         ]
       }
-    }
+    },
+    "_endings": "endings: one of these, picked at random each time, is said after the line."
   }
 }

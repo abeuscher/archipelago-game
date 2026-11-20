@@ -96,6 +96,9 @@ def rule_values():
     }
 
 
+ENDINGS = {}   # line key -> the endings one of which is said after it, at random
+
+
 def lines():
     """[(key, character, text, when)] in game order."""
     d = load("data/dialogue.json")
@@ -104,7 +107,10 @@ def lines():
         out.append(("tip:" + t["id"], t["character"], t["text"], TIP_WHEN))
     ann = d["announcements"]
     for k, v in ann.items():
+        if k.startswith("_"):
+            continue
         out.append(("say:" + k, v["character"], v["text"], ANNOUNCE_WHEN.get(k, "")))
+        ENDINGS["say:" + k] = v.get("endings", [])
         if k == "battle_report":
             for part, forms in v["parts"].items():
                 out.append(("report:%s:one" % part, v["character"], forms[0], REPORT_WHEN))
@@ -190,6 +196,12 @@ def main():
                         n_clips += 1
                     body.append(">")
                 body.pop()
+            if ENDINGS.get(key):
+                body.append("")
+                body.append("> Then one of these, picked at random each time (recorded separately):")
+                for k, e in enumerate(ENDINGS[key]):
+                    body.append("> **%s_e%d**  %s" % (clip, k + 1, e))
+                    n_clips += 1
             body.append("")
         rng = NUMBER_CLIPS.get(who)
         if rng is not None:
