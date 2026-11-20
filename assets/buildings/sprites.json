@@ -43,6 +43,10 @@
     "repair": "repair.png",
     "rubble": "rubble.png",
     "stronghold": "stronghold.png",
-    "stronghold_damaged": "stronghold_damaged.png"
+    "stronghold_damaged": "stronghold_damaged.png",
+    "nuclear_silo": "nuclear_silo.png",
+    "nuclear_silo_open": "nuclear_silo_open.png",
+    "nuclear_silo_open_loaded": "nuclear_silo_open_loaded.png",
+    "nuclear_silo_damaged": "nuclear_silo_damaged.png"
   }
 }

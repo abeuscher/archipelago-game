@@ -535,6 +535,77 @@ def coastal_cannon(damaged=False):
 # ---- end troop buildings --------------------------------------------------
 
 
+# ---- nuclear silo ---------------------------------------------------------
+RUSTY = "#5c4a42"
+RUSTY_DK = "#43352f"
+HAZARD = "#e8c22e"
+INK = "#17181b"
+
+
+def annulus(n, rin, rout, z, color, at=(0, 0)):
+    """Flat ring at height z."""
+    return prism(n, rin, rout, z, z, color, at=at, caps=(False, False))
+
+
+def trefoil(r, place):
+    """Radiation symbol of radius r. place maps a flat (x, y, height) point into the scene."""
+    out = []
+
+    def disc(rad, col, h, n=20):
+        out.append(([place((rad * math.cos(2 * math.pi * i / n), rad * math.sin(2 * math.pi * i / n), h))
+                     for i in range(n)], col))
+    disc(r, HAZARD, 0)
+    for k in range(3):
+        for j in range(3):                                # each blade = three convex slices
+            a0 = math.radians(90 + 120 * k - 30 + 20 * j)
+            a1 = a0 + math.radians(20)
+            pts = [(.28 * r * math.cos(a0), .28 * r * math.sin(a0)), (.86 * r * math.cos(a0), .86 * r * math.sin(a0)),
+                   (.86 * r * math.cos(a1), .86 * r * math.sin(a1)), (.28 * r * math.cos(a1), .28 * r * math.sin(a1))]
+            out.append(([place((x, y, .004)) for x, y in pts], INK))
+    disc(.16 * r, INK, .004, 12)
+    return out
+
+
+def nuclear_silo(state="closed"):
+    """state: closed (armed) | open (build phase, empty shaft) | open_loaded | damaged."""
+    n = 20
+    m = pad()
+    m += prism(n, .62, .6, .12, .3, RUSTY, caps=(False, False))
+    m += annulus(n, .47, .6, .3, RUSTY)
+    for i in range(12):
+        a = math.radians(15 + 30 * i)
+        m += box((.07, .05, .1), RUSTY_DK, (.63 * math.cos(a), .63 * math.sin(a), .17), yaw=math.degrees(a))
+    m += box((.16, .34, .12), RUSTY_DK, (-.6, 0, .3))
+    if state == "closed":
+        m += prism(n, .5, .47, .3, .38, RUSTY_DK)
+        m += trefoil(.36, lambda p: (p[0], p[1], .381 + p[2]))
+        for y in (-.1, .1):
+            m += beam((-.6, y, .36), (-.4, y, .4), .06, GUNMETAL)
+        return m
+    m += prism(n, .47, .47, .26, .3, RUSTY_DK, caps=(False, False))
+    m += annulus(n, .35, .47, .26, "#b9b6aa")
+    m += prism(n, .35, .35, .125, .26, "#77756c", caps=(False, False))
+    m += prism(n, .35, .35, .124, .126, "#14161a")
+    if state == "damaged":                                # lid blown askew, half off the shaft
+        lid = (.16, .1, .3)
+        m += tube(n, .5, .47, .08, RUSTY_DK, lid, pitch=74, yaw=25)
+        m += trefoil(.36, lambda p: _xf((.081 + p[2], p[1], p[0]), 74, 25, lid))
+        m += beam((-.6, .1, .36), (-.42, .2, .3), .06, GUNMETAL)
+        m += beam((-.6, -.1, .36), (-.5, -.28, .5), .06, GUNMETAL)
+        return wreck(m, (-.22, -.12, .3), 16)
+    if state == "open_loaded":
+        m += prism(14, .19, .19, .126, .3, "#c9ccd2")
+        m += prism(14, .19, .1, .3, .5, "#dfe2e6")
+        m += prism(14, .1, .03, .5, .58, "#3a3d42")
+    lid = (-.82, 0, .7)
+    for y in (-.1, .1):
+        m += beam((-.56, y, .32), (-.74, y, .62), .06, GUNMETAL)
+    m += tube(n, .47, .5, .09, RUSTY_DK, lid, pitch=24)
+    m += tube(n, .3, .3, .03, RUSTY, lid, pitch=24, x0=.09)
+    m += trefoil(.36, lambda p: _xf((-.003 - p[2], p[1], p[0]), 24, 0, lid))
+    return m
+
+
 def repair():
     m = pad()
     m += box((.62, .62, .52), TARP, (0, 0, .38))
@@ -598,6 +669,10 @@ BUILDINGS = {
     "coastal_cannon_damaged": lambda: coastal_cannon(damaged=True),
     "stronghold": stronghold,
     "stronghold_damaged": lambda: stronghold(damaged=True),
+    "nuclear_silo": nuclear_silo,
+    "nuclear_silo_open": lambda: nuclear_silo("open"),
+    "nuclear_silo_open_loaded": lambda: nuclear_silo("open_loaded"),
+    "nuclear_silo_damaged": lambda: nuclear_silo("damaged"),
     "repair": repair,
     "rubble": rubble,
 }
