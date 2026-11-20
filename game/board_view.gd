@@ -19,6 +19,8 @@ var markers: Dictionary = {}      ## hex -> Color, e.g. planned targets
 var drops: Array = []             ## planned troop drops: {"target", "dir" (-1 while still choosing)}
 var range_rings: Array = []       ## [{"hexes": PackedInt32Array, "color": Color}]
 var range_fill: Dictionary = {}   ## hex -> Color: shaded, for a building's reach while placing it
+var range_shade: Dictionary = {}  ## hex -> Color: darkened, for what radar covers while placing anti-air
+var blast_fill: Dictionary = {}   ## hex -> Color: lightened over everything, fog too, for where shots land
 var placement_ok: Dictionary = {} ## hex -> true where the current tool may place
 var show_hits: bool = false       ## draw hit counts on suspected bases
 var show_grid: bool = false       ## outline every hex, not just coasts and height changes
@@ -170,6 +172,10 @@ func _draw() -> void:
 
 	if _has_fog:
 		_draw_fog_overlay()
+	# Where aimed shots will land, over the fog as well as known ground.
+	for h in blast_fill:
+		var tb: Dictionary = tiles[h]
+		draw_colored_polygon(iso.top_polygon(h, _lvl(tb), _land(tb)), blast_fill[h])
 	for dr in drops:
 		_draw_drop(int(dr["target"]), int(dr["dir"]))
 	for h in markers:
@@ -250,6 +256,8 @@ func _draw_tile_extras(i: int, t: Dictionary, top: PackedVector2Array, rings_at:
 		draw_colored_polygon(top, ENEMY_SEEN_TINT)
 	if placement_ok.has(i):
 		draw_colored_polygon(top, Color(1, 1, 1, 0.10))
+	if range_shade.has(i):
+		draw_colored_polygon(top, range_shade[i])
 	if range_fill.has(i):
 		draw_colored_polygon(top, range_fill[i])
 	var c := iso.top_center(i, lvl, land)

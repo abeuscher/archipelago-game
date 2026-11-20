@@ -535,6 +535,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			enemy_board.hover = hit.y if hit.x == 1 else -1
 			if ui == Ui.BUILD and tool != "":
 				_update_ranges(_own_state())   # the reach preview follows the mouse
+			if ui == Ui.TARGETING:
+				_update_blasts()
 			own_board.queue_redraw()
 			enemy_board.queue_redraw()
 			_update_info()
@@ -758,7 +760,47 @@ func _target_click(hex: int) -> void:
 	if active_launcher < 0:
 		hud.add_log("No launcher free. Undo an order or end with Attack.")
 		return
-	var mt := _missile_for(active_launcher)
+	var options := _missile_options(active_launcher)
+	if options.size() > 1 and pending_drop.is_empty():
+		_missile_menu(active_launcher, hex, options)
+		return
+	_aim(hex, _missile_for(active_launcher))
+
+
+## The missiles a launcher can fire now (researched ones).
+func _missile_options(launcher_hex: int) -> Array:
+	var b = m.sides[0].building_at(launcher_hex)
+	if b == null:
+		return []
+	return data.building(b.type)["missiles"].filter(func(mt): return m.sides[0].missile_unlocked(mt, data))
+
+
+## A launcher with a choice of missiles: a pop-up at the click with a key
+## for each, greyed where the fuel left can't pay for it.
+func _missile_menu(launcher_hex: int, hex: int, options: Array) -> void:
+	var fuel_left: int = m.sides[0].fuel - _fuel_planned()
+	for o in orders:
+		if int(o["launcher"]) == launcher_hex:
+			fuel_left += int(data.missile(String(o["missile"]))["fuel"])   # re-aiming frees its own fuel
+	var choices: Array = []
+	for mt in options:
+		var f := int(data.missile(mt)["fuel"])
+		var missile: String = mt
+		choices.append({"text": "%s  -  %d fuel" % [Pieces.MISSILE_NAMES.get(mt, mt), f],
+			"color": MISSILE_KEY_COLORS.get(mt, Color(0.97, 0.80, 0.25)),
+			"disabled": f > fuel_left, "why": Hud.NOTICE_FUEL,
+			"action": func():
+				missile_choice[launcher_hex] = missile
+				active_launcher = launcher_hex
+				_aim(hex, missile)
+				_refresh()})
+	hud.choice_menu(get_viewport().get_mouse_position(), "Fire", choices)
+
+
+const MISSILE_KEY_COLORS := {"basic": Color(0.96, 0.58, 0.28), "scouting": Color(0.56, 0.78, 0.96)}
+
+
+func _aim(hex: int, mt: String) -> void:
 	var order := {"launcher": active_launcher, "missile": mt, "target": hex}
 	if data.missile(mt).has("carries"):
 		# Two clicks: the landing hex, then a neighbouring hex for the march.
@@ -827,25 +869,6 @@ func _missile_for(launcher_hex: int) -> String:
 		if m.sides[0].missile_unlocked(mt, data):
 			return mt
 	return ""
-
-
-func _cycle_missile(launcher_hex: int) -> void:
-	var b = m.sides[0].building_at(launcher_hex)
-	var options: Array = data.building(b.type)["missiles"].filter(func(mt): return m.sides[0].missile_unlocked(mt, data))
-	var cur := _missile_for(launcher_hex)
-	var next: String = options[(options.find(cur) + 1) % options.size()]
-	missile_choice[launcher_hex] = next
-	for o in orders:
-		if o["launcher"] == launcher_hex:
-			o["missile"] = next
-	if m.set_launch_orders(MatchState.PLAYER, orders) != "":
-		missile_choice[launcher_hex] = cur
-		for o in orders:
-			if o["launcher"] == launcher_hex:
-				o["missile"] = cur
-		hud.show_notice(Hud.NOTICE_FUEL)
-	active_launcher = launcher_hex
-	_refresh()
 
 
 ## The first weapon not yet aimed that could fire: working, with its
@@ -938,6 +961,7 @@ func _refresh() -> void:
 			enemy_board.markers[o["target"]] = Color(1, 0.25, 0.2)
 	if not pending_drop.is_empty():
 		enemy_board.drops.append({"target": int(pending_drop["target"]), "dir": -1})
+	_update_blasts()
 	_update_placement_hints(own_state)
 	_update_ranges(own_state)
 	if ui != Ui.PLAYOUT:
@@ -1037,8 +1061,15 @@ func _update_placement_hints(st) -> void:
 func _update_ranges(st) -> void:
 	own_board.range_rings = []
 	own_board.range_fill = {}
+	own_board.range_shade = {}
 	if ui == Ui.SETUP:
 		return
+	# Placing anti-air: what our radar covers is darkened, so the gun can go
+	# where it will hit far more often.
+	if ui == Ui.BUILD and tool != "" and data.role(tool) == "anti_air":
+		for r in st.of_role(data, "radar"):
+			for h in st.island.grid.within(r.hex, st.radar_range(r, data)):
+				own_board.range_shade[h] = RADAR_SHADE
 	# Placing a building: shade what it would reach from the hex under the
 	# mouse, if it can go there.
 	if ui == Ui.BUILD and tool != "" and hovered.x == 0 and hovered.y >= 0 \
@@ -1057,6 +1088,40 @@ func _update_ranges(st) -> void:
 	var r: Array = _reach(st, b.type, b.hex, b)
 	if not r.is_empty():
 		own_board.range_rings = [{"hexes": r[0], "color": r[1]}]
+
+
+const RADAR_SHADE := Color(0.16, 0.04, 0.26, 0.34)
+const BLAST_TINT := Color(1.0, 0.45, 0.35, 0.30)    ## where a shot does damage
+const VIEW_TINT := Color(0.75, 0.9, 1.0, 0.24)      ## what a scouting missile will see
+
+
+## Lightens where each aimed shot lands on the enemy island (its blast; a
+## scouting missile's view), over the fog too, and the same for the hex
+## under the mouse with the weapon being aimed.
+func _update_blasts() -> void:
+	enemy_board.blast_fill = {}
+	if ui != Ui.TARGETING:
+		enemy_board.queue_redraw()
+		return
+	var shots: Array = []
+	for o in orders:
+		shots.append([String(o["missile"]), int(o["target"])])
+	if active_launcher >= 0 and hovered.x == 1 and hovered.y >= 0 and pending_drop.is_empty() and not hud.choice_menu_open():
+		shots.append([_missile_for(active_launcher), hovered.y])
+	var g = m.sides[1].island.grid
+	for s in shots:
+		var mdef: Dictionary = data.missile(String(s[0]))
+		if mdef.has("carries"):
+			continue   # troops show their drop arrow instead
+		var r := int(mdef["blast_radius"])
+		var tint := BLAST_TINT
+		if r < 0:
+			r = int(mdef["view_radius"])
+			tint = VIEW_TINT
+		for h in g.within(int(s[1]), r):
+			if not enemy_board.blast_fill.has(h) or tint == BLAST_TINT:
+				enemy_board.blast_fill[h] = tint
+	enemy_board.queue_redraw()
 
 
 ## [hexes, colour] a building of `type` on `hex` covers (anti-air, radar,
@@ -1197,7 +1262,7 @@ func _build_toolbar(st) -> void:
 				var tip := "Select it, click the landing hex, then a hex next to it for the march direction." if troop \
 					else "Select this launcher, then click an enemy hex to aim it."
 				if options.size() > 1:
-					tip += "\nClick it again to switch missile."
+					tip += "\nYou choose the missile when you click the target."
 				# A weapon that costs money to fire (troops) can't be picked
 				# without the money, counting what the other orders spend.
 				var cost := int(mdef.get("money", 0))
@@ -1205,11 +1270,7 @@ func _build_toolbar(st) -> void:
 					hud.add_piece_button(b.type, name, str(int(mdef["fuel"])), note + " (not enough money)",
 						func(): hud.show_notice(Hud.NOTICE_MONEY), false, false, tip, false, true, "", false, true)
 					continue
-				var pick := func():
-					if active_launcher == hx and options.size() > 1:
-						_cycle_missile(hx)
-						return
-					_take_back(hx)
+				var pick := func(): _take_back(hx)
 				hud.add_piece_button(b.type, name, str(int(mdef["fuel"])), note, pick, false, active_launcher == b.hex,
 					tip, false, true, "", aimed)
 			hud.add_spacer()

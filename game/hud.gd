@@ -81,6 +81,8 @@ var _confirm: Control            ## a yes/no question in the middle of the scree
 var _confirm_text: Label
 var _confirm_yes: Callable
 var _confirm_no: Callable
+var _ui_root: Control
+var _menu: Control                ## the missile choice pop-up (with a click catcher behind it), or null
 var _overlay_text: Label
 var _overlay_buttons: HBoxContainer
 var _debug: PanelContainer
@@ -121,6 +123,7 @@ func _ready() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = make_theme()
 	add_child(root)
+	_ui_root = root
 
 	# Left toolbar.
 	# An olive metal panel: a name plate, a dark tray holding the tools, then
@@ -1154,7 +1157,8 @@ func debug_visible() -> bool:
 ## A window over the map is open (log, research, next-round projection or
 ## an end-of-game overlay): the mouse wheel shouldn't zoom the map then.
 func modal_open() -> bool:
-	return _log_panel.visible or research_panel.visible or _earn_panel.visible or _overlay.visible or _confirm.visible
+	return _log_panel.visible or research_panel.visible or _earn_panel.visible or _overlay.visible or _confirm.visible \
+		or _menu != null
 
 
 ## A yes/no question in a box of its own (not a character's speech): YES
@@ -1164,6 +1168,71 @@ func confirm(text: String, on_yes: Callable, on_no: Callable = Callable()) -> vo
 	_confirm_yes = on_yes
 	_confirm_no = on_no
 	_confirm.visible = true
+
+
+## A small beige pop-up at screen_pos with a key per choice, for picking
+## which missile a launcher fires at the hex just clicked. choices:
+## [{"text", "color", "disabled", "why", "action"}]. A click anywhere else,
+## right-click or Escape closes it without choosing.
+func choice_menu(screen_pos: Vector2, title: String, choices: Array) -> void:
+	close_choice_menu()
+	var catcher := Control.new()
+	catcher.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	catcher.mouse_filter = Control.MOUSE_FILTER_STOP
+	catcher.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed:
+			close_choice_menu())
+	_ui_root.add_child(catcher)
+	var unit := PanelContainer.new()
+	unit.add_theme_stylebox_override("panel", DevicePanel.box(DevicePanel.BEZEL, DevicePanel.BEZEL_EDGE, 3, 12, [10, 8, 10, 10]))
+	catcher.add_child(unit)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	unit.add_child(col)
+	col.add_child(DevicePanel._plate(title.to_upper()))
+	for ch in choices:
+		var b := Button.new()
+		b.text = String(ch["text"]).to_upper()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(230, 40)
+		_key_button(b, ch["color"])
+		if bool(ch.get("disabled", false)):
+			b.disabled = true
+			b.modulate = Color(1, 1, 1, 0.45)
+			b.tooltip_text = String(ch.get("why", ""))
+		var act: Callable = ch["action"]
+		b.pressed.connect(func():
+			close_choice_menu()
+			act.call())
+		col.add_child(b)
+	_menu = catcher
+	# Beside the click, kept on screen.
+	unit.reset_size()
+	var view := _ui_root.get_viewport_rect().size
+	var sz := unit.get_combined_minimum_size()
+	var at := screen_pos + Vector2(14, 10)
+	at.x = clampf(at.x, 4.0, view.x - sz.x - 4.0)
+	at.y = clampf(at.y, 4.0, view.y - sz.y - 4.0)
+	unit.position = at
+
+
+func close_choice_menu() -> void:
+	if _menu != null:
+		_menu.queue_free()
+		_menu = null
+
+
+func choice_menu_open() -> bool:
+	return _menu != null
+
+
+func _input(event: InputEvent) -> void:
+	if _menu == null:
+		return
+	if (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE) \
+			or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT):
+		close_choice_menu()
+		get_viewport().set_input_as_handled()
 
 
 func confirm_visible() -> bool:
