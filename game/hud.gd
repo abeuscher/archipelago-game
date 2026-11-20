@@ -81,6 +81,7 @@ var _confirm: Control            ## a yes/no question in the middle of the scree
 var _confirm_text: Label
 var _confirm_yes: Callable
 var _confirm_no: Callable
+signal choice_menu_closed
 var _ui_root: Control
 var _menu: Control                ## the missile choice pop-up (with a click catcher behind it), or null
 var _overlay_text: Label
@@ -1220,6 +1221,7 @@ func close_choice_menu() -> void:
 	if _menu != null:
 		_menu.queue_free()
 		_menu = null
+		choice_menu_closed.emit()
 
 
 func choice_menu_open() -> bool:

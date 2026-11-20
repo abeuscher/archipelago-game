@@ -132,6 +132,7 @@ func _ready() -> void:
 		if done:
 			_save_prefs())
 	hud.minimap.view_requested.connect(_on_minimap)
+	hud.choice_menu_closed.connect(_update_blasts)
 	hud.rotate_requested.connect(_rotate)
 	hud.zoom_requested.connect(func(dir: int): _zoom_at(ZOOM_STEP if dir > 0 else 1.0 / ZOOM_STEP, get_viewport_rect().size / 2.0))
 	hud.debug_add_money.connect(_debug_add_money)
@@ -777,6 +778,9 @@ func _missile_options(launcher_hex: int) -> Array:
 
 ## A launcher with a choice of missiles: a pop-up at the click with a key
 ## for each, greyed where the fuel left can't pay for it.
+var menu_target: int = -1   ## the hex the missile pop-up is aiming at
+
+
 func _missile_menu(launcher_hex: int, hex: int, options: Array) -> void:
 	var fuel_left: int = m.sides[0].fuel - _fuel_planned()
 	for o in orders:
@@ -794,7 +798,9 @@ func _missile_menu(launcher_hex: int, hex: int, options: Array) -> void:
 				active_launcher = launcher_hex
 				_aim(hex, missile)
 				_refresh()})
+	menu_target = hex
 	hud.choice_menu(get_viewport().get_mouse_position(), "Fire", choices)
+	_update_blasts()
 
 
 const MISSILE_KEY_COLORS := {"basic": Color(0.96, 0.58, 0.28), "scouting": Color(0.56, 0.78, 0.96)}
@@ -1093,6 +1099,7 @@ func _update_ranges(st) -> void:
 const RADAR_SHADE := Color(0.16, 0.04, 0.26, 0.34)
 const BLAST_TINT := Color(1.0, 0.45, 0.35, 0.30)    ## where a shot does damage
 const VIEW_TINT := Color(0.75, 0.9, 1.0, 0.24)      ## what a scouting missile will see
+const CENTRE_TINT := Color(0.85, 0.22, 0.16, 0.48)  ## the impact hex, when several missiles are previewed
 
 
 ## Lightens where each aimed shot lands on the enemy island (its blast; a
@@ -1106,8 +1113,19 @@ func _update_blasts() -> void:
 	var shots: Array = []
 	for o in orders:
 		shots.append([String(o["missile"]), int(o["target"])])
-	if active_launcher >= 0 and hovered.x == 1 and hovered.y >= 0 and pending_drop.is_empty() and not hud.choice_menu_open():
-		shots.append([_missile_for(active_launcher), hovered.y])
+	# The preview: the hex under the mouse, or the one the missile pop-up is
+	# for while it is open. A launcher with a choice shows every missile's
+	# area at once, its centre a shade darker, so the choice is easy to read.
+	var at := menu_target if hud.choice_menu_open() else (hovered.y if hovered.x == 1 else -1)
+	var centre := -1
+	if active_launcher >= 0 and at >= 0 and pending_drop.is_empty():
+		var options := _missile_options(active_launcher)
+		if options.size() > 1:
+			centre = at
+			for mt in options:
+				shots.append([mt, at])
+		else:
+			shots.append([_missile_for(active_launcher), at])
 	var g = m.sides[1].island.grid
 	for s in shots:
 		var mdef: Dictionary = data.missile(String(s[0]))
@@ -1121,6 +1139,8 @@ func _update_blasts() -> void:
 		for h in g.within(int(s[1]), r):
 			if not enemy_board.blast_fill.has(h) or tint == BLAST_TINT:
 				enemy_board.blast_fill[h] = tint
+	if centre >= 0:
+		enemy_board.blast_fill[centre] = CENTRE_TINT
 	enemy_board.queue_redraw()
 
 
