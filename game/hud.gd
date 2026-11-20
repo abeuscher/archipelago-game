@@ -73,7 +73,8 @@ var _strip_title: PanelContainer
 var _strip_title_text: Label
 var _hover: PanelContainer
 var _hover_text: Label
-var _overlay: PanelContainer
+var _overlay: Control              ## the coin flip and end-of-game unit, centred
+var _overlay_title: Label
 var _overlay_video: VideoStreamPlayer   ## full-screen loop behind the end-of-game box
 var hex_anchor: Callable         ## "hex:<what>" tip anchors -> Rect2 on screen (set by the game)
 var _confirm: Control            ## a yes/no question in the middle of the screen
@@ -445,27 +446,34 @@ func _ready() -> void:
 	_overlay_video.mouse_filter = Control.MOUSE_FILTER_STOP   # the map behind can't be clicked
 	_overlay_video.visible = false
 	root.add_child(_overlay_video)
-	_overlay = PanelContainer.new()
-	_overlay.anchor_left = 0.5
-	_overlay.anchor_right = 0.5
-	_overlay.anchor_top = 0.5
-	_overlay.anchor_bottom = 0.5
-	_overlay.offset_left = -260
-	_overlay.offset_right = 260
-	_overlay.offset_top = -110
-	_overlay.offset_bottom = 110
+	# A beige unit like the confirm box: a name plate, the recap on its
+	# screen, and coloured keys.
+	_overlay = CenterContainer.new()
+	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.visible = false
 	root.add_child(_overlay)
+	var ounit := PanelContainer.new()
+	ounit.add_theme_stylebox_override("panel", DevicePanel.box(DevicePanel.BEZEL, DevicePanel.BEZEL_EDGE, 4, 18, [16, 12, 16, 14]))
+	_overlay.add_child(ounit)
 	var ov := VBoxContainer.new()
-	ov.alignment = BoxContainer.ALIGNMENT_CENTER
-	_overlay.add_child(ov)
+	ov.add_theme_constant_override("separation", 12)
+	ounit.add_child(ov)
+	var oplate := DevicePanel._plate("")
+	_overlay_title = oplate.get_child(0)
+	_overlay_title.add_theme_font_size_override("font_size", 18)
+	ov.add_child(oplate)
 	_overlay_text = Label.new()
 	_overlay_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_overlay_text.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_overlay_text.add_theme_font_size_override("font_size", 20)
-	ov.add_child(_overlay_text)
+	_overlay_text.custom_minimum_size = Vector2(420, 0)
+	_overlay_text.add_theme_font_override("font", DevicePanel.font(600))
+	_overlay_text.add_theme_font_size_override("font_size", 17)
+	_overlay_text.add_theme_color_override("font_color", DevicePanel.TEXT)
+	ov.add_child(DevicePanel._screen(_overlay_text, 18))
 	_overlay_buttons = HBoxContainer.new()
 	_overlay_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	_overlay_buttons.add_theme_constant_override("separation", 14)
 	ov.add_child(_overlay_buttons)
 
 	# Debug panel, top left of the board area. Toggled with the ` key.
@@ -1092,16 +1100,24 @@ func tip_showing() -> String:
 
 # --- Overlay ---------------------------------------------------------------
 
-## video: a res:// path (or one under res://) to loop full screen behind the
-## box; "" for none.
-func show_overlay(text: String, buttons: Array, video: String = "") -> void:
+## title: on the unit's name plate. video: a res:// path (or one under
+## res://) to loop full screen behind the box; "" for none. Keys: the first
+## is green, Quit red, any others yellow.
+func show_overlay(title: String, text: String, buttons: Array, video: String = "") -> void:
+	_overlay_title.text = title.to_upper()
 	_overlay_text.text = text
 	_set_overlay_video(video)
 	for c in _overlay_buttons.get_children():
 		c.queue_free()
-	for spec in buttons:
+	for i in buttons.size():
+		var spec: Array = buttons[i]
 		var b := Button.new()
-		b.text = spec[0]
+		b.text = String(spec[0]).to_upper()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(maxf(130.0, 16.0 + 12.0 * String(spec[0]).length()), 44)
+		var col := Color(0.42, 0.80, 0.38) if i == 0 else (Color(0.90, 0.36, 0.22) if spec[0] == "Quit" else Color(0.97, 0.80, 0.25))
+		_key_button(b, col)
+		b.add_theme_font_size_override("font_size", 17)
 		var action: Callable = spec[1]
 		b.pressed.connect(func():
 			_overlay.visible = false

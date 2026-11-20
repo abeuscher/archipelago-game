@@ -407,7 +407,7 @@ func _attack() -> void:
 func _after_playout() -> void:
 	if m.phase == MatchState.Phase.COIN_FLIP:
 		ui = Ui.COIN
-		hud.show_overlay("Both sides lost their last base this round, with equal money.\nThe enemy calls %s." % String(m.coin["call"]).to_upper(),
+		hud.show_overlay("Coin flip", "Both sides lost their last base this round, with equal money.\nThe enemy calls %s." % String(m.coin["call"]).to_upper(),
 			[["Flip the coin", _flip_coin]])
 	elif m.is_over():
 		_show_game_over()
@@ -440,7 +440,7 @@ func _show_game_over() -> void:
 	var why := {"bases": "All three enemy bases destroyed." if won else "All three of your bases were destroyed.",
 		"money": "Both sides fell together; %s more money." % ("you had" if won else "the enemy had"),
 		"coin": "Coin: enemy called %s, it landed %s." % [m.coin.get("call", ""), m.coin.get("flip", "")]}
-	var text := ("ISLAND TAKEN\n" if won else "DEFEAT\n") + String(why.get(m.end_reason, ""))
+	var text := String(why.get(m.end_reason, ""))
 	var buttons: Array = []
 	if won and Campaign.has_next():
 		var award := int(level.get("win_award_money", 0))
@@ -458,7 +458,7 @@ func _show_game_over() -> void:
 	else:
 		buttons.append(["Try again", func(): get_tree().reload_current_scene()])
 	buttons.append(["Quit", func(): get_tree().quit()])
-	hud.show_overlay(text, buttons, String(audio.sounds.get("end_videos", {}).get("victory" if won else "defeat", "")))
+	hud.show_overlay("Island taken" if won else "Defeat", text, buttons, String(audio.sounds.get("end_videos", {}).get("victory" if won else "defeat", "")))
 	_refresh()
 
 
