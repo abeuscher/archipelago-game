@@ -509,7 +509,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_dragging = false
 				if mb.button_index == MOUSE_BUTTON_RIGHT and _drag_moved < 6.0:
-					_cancel()
+					if not _unaim_at(_pick(get_global_mouse_position())):
+						_cancel()
 		elif mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 			# No zooming under an open window: the wheel is for its scrolling.
 			if not hud.modal_open():
@@ -781,6 +782,31 @@ func _target_click(hex: int) -> void:
 	orders = new_orders
 	pending_drop = {}
 	active_launcher = _next_free_launcher(true)
+
+
+## Takes back a weapon's order, if it has one, so its target leaves the map,
+## and selects the weapon ready to aim again.
+func _take_back(launcher_hex: int) -> void:
+	var kept := orders.filter(func(o): return int(o["launcher"]) != launcher_hex)
+	if kept.size() != orders.size():
+		orders = kept
+		m.set_launch_orders(MatchState.PLAYER, orders)
+	if int(pending_drop.get("launcher", -1)) != launcher_hex:
+		pending_drop = {}   # a half-placed drop from another weapon
+	active_launcher = launcher_hex
+	_refresh()
+
+
+## Right-click in targeting on a hex an order is aimed at: takes that shot
+## back, as the weapon's tile does. Returns whether there was one.
+func _unaim_at(hit: Vector2i) -> bool:
+	if ui != Ui.TARGETING or hit.x != 1 or hit.y < 0:
+		return false
+	for k in range(orders.size() - 1, -1, -1):
+		if int(orders[k]["target"]) == hit.y:
+			_take_back(int(orders[k]["launcher"]))
+			return true
+	return false
 
 
 func _undo() -> void:
@@ -1183,16 +1209,7 @@ func _build_toolbar(st) -> void:
 					if active_launcher == hx and options.size() > 1:
 						_cycle_missile(hx)
 						return
-					# Picking an aimed weapon takes back its order, so its target
-					# leaves the map, ready to aim again.
-					var kept := orders.filter(func(o): return int(o["launcher"]) != hx)
-					if kept.size() != orders.size():
-						orders = kept
-						m.set_launch_orders(MatchState.PLAYER, orders)
-					if int(pending_drop.get("launcher", -1)) != hx:
-						pending_drop = {}   # a half-placed drop from another weapon
-					active_launcher = hx
-					_refresh()
+					_take_back(hx)
 				hud.add_piece_button(b.type, name, str(int(mdef["fuel"])), note, pick, false, active_launcher == b.hex,
 					tip, false, true, "", aimed)
 			hud.add_spacer()
