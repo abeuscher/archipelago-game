@@ -295,7 +295,7 @@ func _end_build() -> void:
 	audio.set_music("very_fast")   # targeting has its own, faster theme
 	if _next_free_launcher() < 0:
 		# Nothing to fire: our attack turn is skipped.
-		hud.show_notice(Hud.NOTICE_NO_WEAPONS)
+		no_weapons_turn = true   # said when our strikes would have gone in
 		m.set_launch_orders(MatchState.PLAYER, [])
 		orders = []
 		ui = Ui.TARGETING
@@ -392,6 +392,9 @@ func _attack_pressed() -> void:
 		hud.announce(_line_text(warn), "", 0.0, false, _line_character(warn))
 		return
 	_attack()
+
+
+var no_weapons_turn := false   ## we had nothing to fire this round: told after the enemy's strikes
 
 
 func _attack() -> void:
@@ -1662,11 +1665,12 @@ func _info_actions_for(st, b) -> void:
 				hud.add_log("Building a nuke: ready next round." if silo else "Replacement ready.")
 			_refresh(), err2 != "", err2)
 	if data.role(b.type) == "lab":
-		# Only a lab without a project of its own can start one.
+		# Always open: a busy lab shows its project's progress, and stored
+		# points can be spent on it there.
 		var lab_id: int = b.id
 		var own = st.project_for_lab(lab_id)
-		hud.add_info_action("Research...", func(): _open_research(lab_id), own != null,
-			"Choose research for this lab" if own == null else "Already researching %s" % Pieces.research_name(String(own["item"])))
+		hud.add_info_action("Research...", func(): _open_research(lab_id), false,
+			"Choose research for this lab" if own == null else "Researching %s: see progress or use stored points" % Pieces.research_name(String(own["item"])))
 
 
 ## What the enemy knows about one of our hexes: missiles that landed on it
@@ -1805,6 +1809,13 @@ func _run_playout() -> void:
 			while hud.announcing():
 				await get_tree().process_frame
 
+	# Nothing of ours to fire this round: said now, where our strikes would go.
+	if no_weapons_turn:
+		no_weapons_turn = false
+		if not launches[1].is_empty() or not arrivals[1].is_empty():
+			await _wait(ENEMY_TURN_PAUSE)
+		hud.show_notice(Hud.NOTICE_NO_WEAPONS)
+		await _wait(1.5)
 	# Our strikes land on the enemy island, after a beat on ours to take in
 	# what the enemy did.
 	if not launches[0].is_empty() or not arrivals[0].is_empty():
