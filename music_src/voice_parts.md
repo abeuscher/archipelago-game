@@ -14,7 +14,7 @@ Clips: Admiral 3, Ginger 112, Pilot 156, Mechanic 2, Scientist 2.
 
 *Tutorial tip (shown once; the player can turn tips off).*
 
-**admiral_001**  General, place our bases carefully. If we lose all three, we lose the war. A decoy can help draw the enemy away from our real targets.
+**admiral_001**  General, place our bases carefully. If we lose all three, we lose the war. A decoy can help to spread confusion.
 
 *Start of level 2, introducing the stronghold.*
 
