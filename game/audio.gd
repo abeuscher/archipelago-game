@@ -215,6 +215,17 @@ func _ambient_db(spec: Dictionary) -> float:
 ## left off; the others start from the top.
 func set_music(track: String) -> void:
 	_theme_wanted = track
+	# A track that wants no quiet before it (the battle theme) doesn't wait out
+	# a gap left by the last one.
+	_theme_gap = minf(_theme_gap, _switch(track, "gap_seconds", _theme_gap))
+
+
+## A switch timing for a track: its own (sounds.json theme.track_switch)
+## or the general one.
+func _switch(track: String, key: String, fallback: float) -> float:
+	var cfg: Dictionary = sounds.get("theme", {})
+	var own: Dictionary = cfg.get("track_switch", {}).get(track, {})
+	return float(own.get(key, cfg.get("switch_" + key, fallback)))
 
 
 ## The main theme on or off (older callers).
@@ -230,7 +241,7 @@ func _update_theme(delta: float) -> void:
 	var cfg: Dictionary = sounds.get("theme", {})
 	if _theme_current != "" and _theme_current != _theme_wanted:
 		# Switching: fade the old track right out first.
-		_theme_level = move_toward(_theme_level, 0.0, delta / maxf(float(cfg.get("switch_out_seconds", 1.5)), 0.1))
+		_theme_level = move_toward(_theme_level, 0.0, delta / maxf(_switch(_theme_current, "out_seconds", 1.5), 0.1))
 		if _theme_level <= 0.0:
 			var old: AudioStreamPlayer = _tracks[_theme_current]
 			if _theme_current == "main":
@@ -238,7 +249,7 @@ func _update_theme(delta: float) -> void:
 			else:
 				old.stop()
 			_theme_current = ""
-			_theme_gap = float(cfg.get("switch_gap_seconds", 2.0))
+			_theme_gap = _switch(_theme_wanted, "gap_seconds", 2.0)
 		_set_track_volume(cfg)
 		return
 	if _theme_current == "" and _theme_wanted != "":
@@ -259,7 +270,7 @@ func _update_theme(delta: float) -> void:
 		_theme_level = 0.0
 	if _theme_current == "":
 		return
-	var fade := float(cfg.get("switch_in_seconds", 2.5))
+	var fade := _switch(_theme_current, "in_seconds", 2.5)
 	var target := 1.0
 	if _theme_current == "main":
 		# The main theme plays a while, then rests a while.

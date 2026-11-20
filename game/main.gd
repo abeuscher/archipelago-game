@@ -1777,6 +1777,7 @@ func _run_playout() -> void:
 		var incoming := _line_text(key).format({"n": n})
 		hud.set_alarm(true)
 		audio.effect("siren")
+		audio.set_music("battle")   # loops until our strikes are in
 		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
 		await _wait(hud.alarm_seconds(ALARM_TURNS))
 		hud.announce(incoming, "", 0.0, false, _line_character(key))
@@ -1830,6 +1831,7 @@ func _run_playout() -> void:
 		for k in launches[0].size():
 			longest = maxf(longest, _land(enemy_board, null, launches[0][k], by_id, Color(1, 0.9, 0.5), off + k * 0.35, post_enemy))
 		await _wait(longest)
+	audio.set_music("")   # our missiles are down: the battle theme fades out
 	enemy_board.set_tiles(_enemy_tiles())
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:

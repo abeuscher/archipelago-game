@@ -71,7 +71,8 @@
       "main": "assets/music/main_theme.ogg",
       "fast": "assets/music/fast_theme.ogg",
       "very_fast": "assets/music/very_fast_theme.ogg",
-      "glock": "assets/music/glock_theme.ogg"
+      "glock": "assets/music/glock_theme.ogg",
+      "battle": "assets/music/battle_theme.ogg"
     },
     "volume_db": -9,
     "fade_seconds": 4.0,
@@ -86,7 +87,15 @@
     "rest_seconds": [
       45,
       90
-    ]
+    ],
+    "track_switch": {
+      "battle": {
+        "in_seconds": 0.4,
+        "gap_seconds": 0.0,
+        "out_seconds": 3.0
+      }
+    },
+    "_note_track_switch": "Per-track overrides of the switch timings: the battle theme comes in with the siren at once and fades out slowly once our strikes have landed."
   },
   "effects_db": -2,
   "_note_effects_db": "effects_db: every sound effect and building sound plays this many dB below its file's level (the click too).",
