@@ -80,5 +80,10 @@
     ]
   },
   "effects_db": -2,
-  "_note_effects_db": "effects_db: every sound effect and building sound plays this many dB below its file's level (the click too)."
+  "_note_effects_db": "effects_db: every sound effect and building sound plays this many dB below its file's level (the click too).",
+  "end_videos": {
+    "_note": "Full-screen looping video behind the end-of-game box. A file that doesn't exist leaves the map showing instead.",
+    "victory": "assets/video/victory_reel.ogv",
+    "defeat": "assets/video/defeat_reel.ogv"
+  }
 }

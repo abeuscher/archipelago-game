@@ -458,7 +458,7 @@ func _show_game_over() -> void:
 	else:
 		buttons.append(["Try again", func(): get_tree().reload_current_scene()])
 	buttons.append(["Quit", func(): get_tree().quit()])
-	hud.show_overlay(text, buttons)
+	hud.show_overlay(text, buttons, String(audio.sounds.get("end_videos", {}).get("victory" if won else "defeat", "")))
 	_refresh()
 
 

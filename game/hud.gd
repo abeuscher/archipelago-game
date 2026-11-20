@@ -74,6 +74,7 @@ var _strip_title_text: Label
 var _hover: PanelContainer
 var _hover_text: Label
 var _overlay: PanelContainer
+var _overlay_video: VideoStreamPlayer   ## full-screen loop behind the end-of-game box
 var hex_anchor: Callable         ## "hex:<what>" tip anchors -> Rect2 on screen (set by the game)
 var _confirm: Control            ## a yes/no question in the middle of the screen
 var _confirm_text: Label
@@ -435,7 +436,15 @@ func _ready() -> void:
 		ckeys.add_child(kb)
 	_confirm = cfill
 
-	# Centre overlay for the coin flip and the end of the game.
+	# Centre overlay for the coin flip and the end of the game, with the
+	# victory or defeat video looping full screen behind it.
+	_overlay_video = VideoStreamPlayer.new()
+	_overlay_video.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_overlay_video.expand = true
+	_overlay_video.loop = true
+	_overlay_video.mouse_filter = Control.MOUSE_FILTER_STOP   # the map behind can't be clicked
+	_overlay_video.visible = false
+	root.add_child(_overlay_video)
 	_overlay = PanelContainer.new()
 	_overlay.anchor_left = 0.5
 	_overlay.anchor_right = 0.5
@@ -1083,8 +1092,11 @@ func tip_showing() -> String:
 
 # --- Overlay ---------------------------------------------------------------
 
-func show_overlay(text: String, buttons: Array) -> void:
+## video: a res:// path (or one under res://) to loop full screen behind the
+## box; "" for none.
+func show_overlay(text: String, buttons: Array, video: String = "") -> void:
 	_overlay_text.text = text
+	_set_overlay_video(video)
 	for c in _overlay_buttons.get_children():
 		c.queue_free()
 	for spec in buttons:
@@ -1093,9 +1105,22 @@ func show_overlay(text: String, buttons: Array) -> void:
 		var action: Callable = spec[1]
 		b.pressed.connect(func():
 			_overlay.visible = false
+			_set_overlay_video("")
 			action.call())
 		_overlay_buttons.add_child(b)
 	_overlay.visible = true
+
+
+func _set_overlay_video(path: String) -> void:
+	var full := path if path == "" or path.begins_with("res://") else "res://" + path
+	var stream: VideoStream = load(full) if full != "" and ResourceLoader.exists(full) else null
+	if stream == null:
+		_overlay_video.stop()
+		_overlay_video.visible = false
+		return
+	_overlay_video.stream = stream
+	_overlay_video.visible = true
+	_overlay_video.play()
 
 
 # --- Debug panel -----------------------------------------------------------
