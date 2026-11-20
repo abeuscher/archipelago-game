@@ -12,13 +12,9 @@ Everything below was set up on the user's Windows PC and won't reach you any oth
 - **Python** is `python3`. The `music_src/*.py` scripts are run with it.
 - **Line endings.** `.gitattributes` forces LF.
 - **Saved settings** go to `~/Library/Application Support/Godot/app_userdata/Archipelago/settings.json` (README.md gives the Windows path).
-- **ETC2/ASTC texture import.** The user turned this on in `project.godot` on Windows (`textures/vram_compression/import_etc2_astc=true`) for the macOS export, but didn't commit it. If Godot asks for it on the Mac, that is expected. Ask the user before committing `project.godot`. They are the only person they send macOS builds to, so the export warnings can be left alone.
-- **Files that stay on the PC.** These were never committed, so they won't be on the Mac unless the user copies them:
-  - the end-reel video sources in `music_src/*.ogv`
-  - `music_src/voice/excerpt.ogg`
-  - the user's edits to `music_src/voice_parts.md`
-
-  The game itself only needs `assets/video/*.ogv`, which are committed.
+- **ETC2/ASTC texture import** is on in `project.godot` (`textures/vram_compression/import_etc2_astc=true`), for the macOS export. The user is the only person they send macOS builds to, so the export warnings can be left alone.
+- **Source files.** The end-reel video sources (`music_src/*.ogv`) and the voice files are all committed. The game itself plays the copies in `assets/video/`.
+- **The voice script.** `music_src/voice_parts.md` holds the user's own edits. Running `music_src/make_voice_parts.py` overwrites that file, so ask the user first.
 
 ## Working rules
 
