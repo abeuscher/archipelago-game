@@ -205,7 +205,7 @@ func _enter_setup() -> void:
 	_fly_to(0, 0.0)
 	hud.set_phase("Setup", 0)
 	audio.start_ambient()
-	audio.set_theme(true)   # the main theme, in setup and build and repair
+	audio.set_music("main")   # the main theme, in setup and build and repair
 	_set_clock(0)
 	var strongholds := SideState.strongholds_per_side(data)
 	if strongholds > 0:
@@ -271,7 +271,7 @@ func _start_round() -> void:
 		m.build_action(MatchState.ENEMY, a)
 	hud.set_alarm(false)
 	ui = Ui.BUILD
-	audio.set_theme(true)
+	audio.set_music("main")
 	tool = ""
 	tips_snoozed = []
 	orders = []   # last round's aim markers don't carry over
@@ -292,7 +292,7 @@ func _end_build() -> void:
 	var eo: Array = enemy_ai.choose_targets(m.view_for(MatchState.ENEMY))
 	if m.set_launch_orders(MatchState.ENEMY, eo) != "":
 		m.set_launch_orders(MatchState.ENEMY, [])
-	audio.set_theme(false)   # fades out for targeting and the attack
+	audio.set_music("very_fast")   # targeting has its own, faster theme
 	if _next_free_launcher() < 0:
 		# Nothing to fire: our attack turn is skipped.
 		hud.show_notice(Hud.NOTICE_NO_WEAPONS)
@@ -398,6 +398,7 @@ func _attack() -> void:
 	if ui != Ui.TARGETING:
 		return
 	_set_clock(0)
+	audio.set_music("")   # the attack plays out with no music
 	ui = Ui.PLAYOUT
 	_reset_rotation()
 	hud.set_phase("Playout", m.round_number)
@@ -436,7 +437,7 @@ func _show_game_over() -> void:
 	ui = Ui.OVER
 	var won: bool = m.winner == MatchState.PLAYER
 	audio.stop_ambient()
-	audio.set_theme(false)
+	audio.set_music("")
 	audio.effect("you_win" if won else "you_lose")
 	var why := {"bases": "All three enemy bases destroyed." if won else "All three of your bases were destroyed.",
 		"money": "Both sides fell together; %s more money." % ("you had" if won else "the enemy had"),
@@ -478,6 +479,9 @@ func _process(delta: float) -> void:
 		var warn := float(audio.sounds.get("countdown_seconds", 5))
 		clock_left -= delta
 		hud.set_timer(maxf(clock_left, 0.0))
+		# The build clock running low: the fast theme.
+		if ui == Ui.BUILD and clock_left < float(audio.sounds.get("theme", {}).get("fast_under_seconds", 20)):
+			audio.set_music("fast")
 		# The last seconds of the build clock count down out loud.
 		if ui == Ui.BUILD and clock_left <= warn and clock_left + delta > warn:
 			audio.effect("countdown")

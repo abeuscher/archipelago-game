@@ -29,11 +29,13 @@ var _ambient_fade := 0.0          # 0..1, eases the ambience in when it starts
 var voice: Dictionary = {}        # data/voice.json: spoken line -> recording
 var _voice: AudioStreamPlayer     # the line being spoken
 
-var _theme: AudioStreamPlayer     # the main theme (sounds.json "theme")
-var _theme_wanted := false        # the game is in a phase that has it
-var _theme_level := 0.0           # 0..1, how far faded in
-var _theme_resting := false       # taking a break between plays
-var _theme_timer := 0.0           # seconds left of this play or rest
+var _tracks: Dictionary = {}      # track name -> AudioStreamPlayer (sounds.json "theme.tracks")
+var _theme_wanted := ""           # the track the phase asks for ("" for none)
+var _theme_current := ""          # the track playing or fading out ("" for none)
+var _theme_level := 0.0           # 0..1, how far the current track is faded in
+var _theme_gap := 0.0             # seconds of quiet left before the wanted track starts
+var _theme_resting := false       # the main theme taking a break between plays
+var _theme_timer := 0.0           # seconds left of the main theme's play or rest
 
 
 func _ready() -> void:
@@ -207,42 +209,93 @@ func _ambient_db(spec: Dictionary) -> float:
 
 # --- Main theme ------------------------------------------------------------------
 
-## Whether the phase wants the main theme. It fades in or out, never cuts,
-## and picks up where it left off when it comes back.
+## Which track the phase wants: "main", "fast", "very_fast" or "" for
+## none. It never cuts: the old track fades out, a moment of just the
+## ambience, then the new one fades in. The main theme picks up where it
+## left off; the others start from the top.
+func set_music(track: String) -> void:
+	_theme_wanted = track
+
+
+## The main theme on or off (older callers).
 func set_theme(on: bool) -> void:
-	_theme_wanted = on
-	if not on or _theme != null:
-		return
-	var cfg: Dictionary = sounds.get("theme", {})
-	var stream := _load(String(cfg.get("file", "")))
-	if stream == null:
-		return
-	_set_loop(stream)
-	_theme = AudioStreamPlayer.new()
-	_theme.stream = stream
-	_theme.volume_db = SILENT_DB
-	add_child(_theme)
-	_theme.play()
-	_theme_resting = false
-	_theme_timer = _theme_range("play_seconds", [150, 240])
+	set_music("main" if on else "")
+
+
+func music_track() -> String:
+	return _theme_wanted
 
 
 func _update_theme(delta: float) -> void:
-	if _theme == null:
-		return
 	var cfg: Dictionary = sounds.get("theme", {})
-	# Plays for a while, then rests a while, then plays again.
-	_theme_timer -= delta
-	if _theme_timer <= 0.0:
-		_theme_resting = not _theme_resting
-		_theme_timer = _theme_range("rest_seconds" if _theme_resting else "play_seconds",
-			[45, 90] if _theme_resting else [150, 240])
-	var target := 1.0 if _theme_wanted and not _theme_resting else 0.0
-	var step := delta / maxf(float(cfg.get("fade_seconds", 4.0)), 0.1)
-	_theme_level = move_toward(_theme_level, target, step)
-	# Faded right out, it holds its place; faded in again, it carries on.
-	_theme.stream_paused = _theme_level <= 0.0 and target <= 0.0
-	_theme.volume_db = float(cfg.get("volume_db", -12)) + linear_to_db(maxf(_theme_level * _theme_level, 0.0001))
+	if _theme_current != "" and _theme_current != _theme_wanted:
+		# Switching: fade the old track right out first.
+		_theme_level = move_toward(_theme_level, 0.0, delta / maxf(float(cfg.get("switch_out_seconds", 1.5)), 0.1))
+		if _theme_level <= 0.0:
+			var old: AudioStreamPlayer = _tracks[_theme_current]
+			if _theme_current == "main":
+				old.stream_paused = true   # holds its place
+			else:
+				old.stop()
+			_theme_current = ""
+			_theme_gap = float(cfg.get("switch_gap_seconds", 2.0))
+		_set_track_volume(cfg)
+		return
+	if _theme_current == "" and _theme_wanted != "":
+		_theme_gap -= delta
+		if _theme_gap > 0.0:
+			return
+		var p := _track(_theme_wanted)
+		if p == null:
+			return
+		if _theme_wanted == "main" and p.stream_paused:
+			p.stream_paused = false   # carries on where it left off
+		else:
+			p.play()
+			if _theme_wanted == "main":
+				_theme_resting = false
+				_theme_timer = _theme_range("play_seconds", [150, 240])
+		_theme_current = _theme_wanted
+		_theme_level = 0.0
+	if _theme_current == "":
+		return
+	var fade := float(cfg.get("switch_in_seconds", 2.5))
+	var target := 1.0
+	if _theme_current == "main":
+		# The main theme plays a while, then rests a while.
+		_theme_timer -= delta
+		if _theme_timer <= 0.0:
+			_theme_resting = not _theme_resting
+			_theme_timer = _theme_range("rest_seconds" if _theme_resting else "play_seconds",
+				[45, 90] if _theme_resting else [150, 240])
+		if _theme_resting:
+			target = 0.0
+		fade = float(cfg.get("fade_seconds", 4.0)) if _theme_resting or _theme_level > 0.99 else fade
+	_theme_level = move_toward(_theme_level, target, delta / maxf(fade, 0.1))
+	_set_track_volume(cfg)
+
+
+func _set_track_volume(cfg: Dictionary) -> void:
+	if _theme_current == "" or not _tracks.has(_theme_current):
+		return
+	var p: AudioStreamPlayer = _tracks[_theme_current]
+	p.volume_db = float(cfg.get("volume_db", -12)) + linear_to_db(maxf(_theme_level * _theme_level, 0.0001))
+
+
+## The player for a track, made (looping, silent) the first time.
+func _track(name: String) -> AudioStreamPlayer:
+	if _tracks.has(name):
+		return _tracks[name]
+	var stream := _load(String(sounds.get("theme", {}).get("tracks", {}).get(name, "")))
+	if stream == null:
+		return null
+	_set_loop(stream)
+	var p := AudioStreamPlayer.new()
+	p.stream = stream
+	p.volume_db = SILENT_DB
+	add_child(p)
+	_tracks[name] = p
+	return p
 
 
 func _theme_range(key: String, fallback: Array) -> float:

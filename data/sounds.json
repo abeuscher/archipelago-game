@@ -66,10 +66,19 @@
   "_countdown_note": "The countdown sound starts this many seconds before the build clock runs out.",
   "countdown_seconds": 5,
   "theme": {
-    "_note": "The main theme: plays in setup and the build and repair phase, fades out for targeting and the attack, and comes back where it left off. Not all the time: it plays for play_seconds, then rests (silent) for rest_seconds, each picked at random in its range. Every change fades over fade_seconds.",
-    "file": "assets/music/main_theme.ogg",
+    "_note": "The music. Each phase asks for a track: main in setup and the build and repair phase, fast once the build clock is under fast_under_seconds, very_fast in targeting, none during the attack. A change fades the old track out over switch_out_seconds, leaves switch_gap_seconds of just the island ambience, then fades the new one in over switch_in_seconds. The main theme picks up where it left off; the others start from the top. The main theme also plays for play_seconds, then rests (silent) for rest_seconds, each picked at random in its range, fading over fade_seconds. glock is not used yet.",
+    "tracks": {
+      "main": "assets/music/main_theme.ogg",
+      "fast": "assets/music/fast_theme.ogg",
+      "very_fast": "assets/music/very_fast_theme.ogg",
+      "glock": "assets/music/glock_theme.ogg"
+    },
     "volume_db": -9,
     "fade_seconds": 4.0,
+    "switch_out_seconds": 1.5,
+    "switch_gap_seconds": 2.0,
+    "switch_in_seconds": 2.5,
+    "fast_under_seconds": 20,
     "play_seconds": [
       150,
       240
