@@ -657,6 +657,7 @@ func _build_resources() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	panel.add_child(row)
+	_res_rows["resources"] = panel   # the whole strip
 	var money := _stat(row, "Money", "money")
 	_res_rows["money"] = money[1]
 	_money_val = money[0]
@@ -1134,6 +1135,7 @@ func _anchor_rect(anchor: String) -> Rect2:
 		return row.get_global_rect() if row != null else Rect2()
 	match anchor:
 		"toolbar": return _tray.get_global_rect()
+		"resources": return _res_rows["resources"].get_global_rect()
 		"minimap": return _radar_unit.get_global_rect()
 		"info": return _info.get_global_rect()
 		"volume": return volume_slider.get_global_rect()

@@ -426,7 +426,8 @@ func test_walkthrough_comes_first_and_points_at_the_controls() -> void:
 	for t in tips.slice(0, 7):
 		eq(t["character"], "ginger", "Ginger walks through " + t["id"])
 		eq(t["when"], "setup", "in setup")
-	eq(tips[1]["arrow"], "toolbar", "the toolbar")
+	eq(tips[1]["anchor"], "toolbar", "the toolbar, spotlit like the admiral's tip")
+	eq(tips[2]["anchor"], "resources", "the whole resource strip stays lit while the arrow moves")
 	eq(tips[2]["arrows"].map(func(a): return a[0]), ["res:money", "res:fuel", "res:research"], "the resources, one after another")
 	eq(tips[5]["arrows"].map(func(a): return a[0]), ["volume", "status"], "volume, then base health")
 	# OK on each brings the next.

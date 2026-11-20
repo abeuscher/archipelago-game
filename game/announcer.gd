@@ -412,6 +412,10 @@ func _draw_spot() -> void:
 	var view := get_viewport_rect().size
 	var tip: Dictionary = _msg.get("tip", {}) if _msg != null else {}
 	var hole := _rect_of(tip, "anchor")
+	var moving: Array = tip.get("arrows", [])
+	var pointed_at := _rect_of(tip, "arrow") if not moving.is_empty() else Rect2()
+	if not hole.has_area() and pointed_at.has_area():
+		hole = pointed_at   # no anchor: the spotlight moves along with the arrow
 	if not hole.has_area():
 		# An arrow-only tip points without dimming anything.
 		var pointed := _rect_of(tip, "arrow")
@@ -426,7 +430,8 @@ func _draw_spot() -> void:
 	_spot.draw_rect(Rect2(0, hole.position.y, hole.position.x, hole.size.y), DIM)
 	_spot.draw_rect(Rect2(hole.end.x, hole.position.y, view.x - hole.end.x, hole.size.y), DIM)
 	_spot.draw_rect(hole, SPOT_EDGE, false, 2.0)
-	_draw_arrow(hole)   # over the dimming, so it stands out
+	# Over the dimming, so it stands out; a moving arrow points at its own step.
+	_draw_arrow(pointed_at.grow(6.0) if pointed_at.has_area() else hole)
 
 
 ## Where a tip's "anchor" (dim around it, with an arrow) or "arrow" (just

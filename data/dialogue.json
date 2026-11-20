@@ -1,6 +1,6 @@
 {
   "_about": "Everything the characters say to the player, and who says it. character is an id from data/characters.json (ginger, admiral, pilot, mechanic, scientist). Edit the text freely; keep {placeholders} as they are.",
-  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control and points an arrow at it; arrow only points the arrow, without dimming. Both take: timer, tool:<building> for a toolbar building button, button:<label> for a toolbar button by its label, weapons for the first weapon in targeting, hex:damaged for our first building waiting for repair, hex:targeted_launcher for the launcher the enemy keeps hitting, or hex:suspected_base for an enemy potential base with hits on it. Also toolbar, res:money, res:fuel, res:research, minimap, info, volume and status. arrows: a list of [where, seconds] for an arrow that moves along while the tip is up (each entry from that many seconds after it appears). from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
+  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control and points an arrow at it; arrow only points the arrow, without dimming. Both take: timer, tool:<building> for a toolbar building button, button:<label> for a toolbar button by its label, weapons for the first weapon in targeting, hex:damaged for our first building waiting for repair, hex:targeted_launcher for the launcher the enemy keeps hitting, or hex:suspected_base for an enemy potential base with hits on it. Also toolbar, resources (the whole strip), res:money, res:fuel, res:research, minimap, info, volume and status. arrows: a list of [where, seconds] for an arrow that moves along while the tip is up (each entry from that many seconds after it appears); with an anchor the dimming stays on the anchor, without one it moves with the arrow. from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
   "tips": [
     {
       "id": "intro_welcome",
@@ -12,13 +12,14 @@
       "id": "intro_toolbar",
       "character": "ginger",
       "when": "setup",
-      "arrow": "toolbar",
+      "anchor": "toolbar",
       "text": "On the left-hand side you'll find the toolbar. It holds the tools you need for each phase of the game."
     },
     {
       "id": "intro_resources",
       "character": "ginger",
       "when": "setup",
+      "anchor": "resources",
       "arrows": [
         [
           "res:money",
@@ -39,14 +40,14 @@
       "id": "intro_minimap",
       "character": "ginger",
       "when": "setup",
-      "arrow": "minimap",
+      "anchor": "minimap",
       "text": "This is the minimap. Use it to move around the map, and the buttons beneath it to rotate and zoom your view."
     },
     {
       "id": "intro_info",
       "character": "ginger",
       "when": "setup",
-      "arrow": "info",
+      "anchor": "info",
       "text": "And this is the info panel. It reads out whatever's relevant to what you're doing as you move through the game."
     },
     {
