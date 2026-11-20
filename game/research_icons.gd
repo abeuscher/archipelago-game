@@ -12,6 +12,8 @@ const COLORS := {
 	"bunker": Color(0.72, 0.71, 0.66),
 	"docks": Color(0.38, 0.78, 0.76),
 	"coastal_cannon": Color(0.60, 0.70, 0.86),
+	"nuclear_silo": Color(0.91, 0.76, 0.18),
+	"bank_upgrade": Color(0.80, 0.64, 0.72),
 }
 
 
@@ -81,5 +83,24 @@ static func draw(ci: CanvasItem, item: String, c: Vector2, r: float, ink: Color)
 			ci.draw_arc(c + Vector2(-r * 0.15, r * 0.25), r * 0.5, PI, TAU, 14, ink, 3.0, true)
 			ci.draw_line(c + Vector2(-r * 0.65, r * 0.25), c + Vector2(r * 0.35, r * 0.25), ink, 3.0, true)
 			ci.draw_line(c + Vector2(-r * 0.05, -r * 0.05), c + Vector2(r * 0.85, -r * 0.6), ink, 5.0, true)
+		"nuclear_silo":
+			# The radiation trefoil: three blades round a hub.
+			for k in 3:
+				var a := -PI / 2.0 + TAU * k / 3.0
+				var pts := PackedVector2Array([c])
+				for j in 7:
+					var t := a - 0.52 + 1.04 * j / 6.0
+					pts.append(c + Vector2(cos(t), sin(t)) * r * 0.85)
+				ci.draw_colored_polygon(pts, ink)
+			ci.draw_circle(c, r * 0.3, COLORS["nuclear_silo"])
+			ci.draw_circle(c, r * 0.18, ink)
+		"bank_upgrade":
+			# A stack of coins with an up arrow.
+			for k in 3:
+				var y := r * (0.65 - 0.3 * k)
+				ci.draw_rect(Rect2(c + Vector2(-r * 0.75, y - r * 0.12), Vector2(r * 0.8, r * 0.24)), ink, false, 2.0)
+			ci.draw_line(c + Vector2(r * 0.55, r * 0.7), c + Vector2(r * 0.55, -r * 0.6), ink, 2.4, true)
+			ci.draw_line(c + Vector2(r * 0.55, -r * 0.7), c + Vector2(r * 0.25, -r * 0.3), ink, 2.4, true)
+			ci.draw_line(c + Vector2(r * 0.55, -r * 0.7), c + Vector2(r * 0.85, -r * 0.3), ink, 2.4, true)
 		_:
 			ci.draw_circle(c, r * 0.35, ink)

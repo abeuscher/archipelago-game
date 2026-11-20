@@ -14,7 +14,7 @@ To watch in play-testing: the enemy rarely gets coastal cannons before its first
 Aim: 9 or 10 levels, each adding one new thing (a unit or building) and one new upgrade, then a final challenge, then the end of the world (spec). Both sides always get everything new and the AI plays it to win.
 
 - **Level 1:** the base game. **Level 2:** one stronghold per side (built).
-- **Level 3: the nuke, plus a bank upgrade.**
+- **Level 3: the nuke, plus a bank upgrade.** Built in session 012 (ASSUMPTIONS D108): to play-test.
   - Silo research, then each nuke costs money and takes rounds to build (one round to start; lengthen if nukes are too strong).
   - Gated by progress as well as cost: only after a number of research items are done (research rather than buildings, which can be padded with cheap decoys). Pick the number from AI-against-AI runs so nukes land mid to late game.
   - On impact: 2 hits to the building on the centre hex (a base falls outright), 1 hit to each of the 6 hexes around it.

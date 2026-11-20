@@ -93,6 +93,7 @@
     "buy_decoys_at_setup": true,
     "base_min_spacing": 3,
     "repair_priority": [
+      "nuclear_silo",
       "basic_launcher",
       "ballistic_launcher",
       "anti_air",
@@ -119,6 +120,7 @@
     },
     "targeting": {
       "weapon_priority": [
+        "nuclear_silo",
         "basic_launcher",
         "ballistic_launcher",
         "radar",
@@ -205,6 +207,38 @@
         "bunker"
       ],
       "silence_gun_first": true
+    },
+    "nukes": {
+      "_note": "Levels with the nuclear silo. The silo research goes first in the research order (it can't start until enough other research is done) and the bank upgrade right after the stronghold items. Once researched, a silo goes up as soon as there is money, and a nuke is built whenever the silo is empty. While a nuke is armed or being built, its fuel is kept back from other shots. A nuke is fired at the known hex whose blast scores best: values[type] for what is on the centre hex (a base there falls), ring_values[type] for each hex around it; only if the score reaches min_value. extra_labs: more labs right after the first, to reach the silo research sooner.",
+      "bank_upgrade_at": 2,
+      "min_value": 10.0,
+      "values": {
+        "suspected_base": 12.0,
+        "stronghold": 30.0,
+        "nuclear_silo": 8.0,
+        "basic_launcher": 4.0,
+        "ballistic_launcher": 4.0,
+        "airport": 4.0,
+        "docks": 3.0,
+        "anti_air": 3.0,
+        "radar": 2.0,
+        "decoy": 0.0,
+        "default": 1.0
+      },
+      "ring_values": {
+        "suspected_base": 5.0,
+        "stronghold": 1.0,
+        "nuclear_silo": 4.0,
+        "basic_launcher": 3.0,
+        "ballistic_launcher": 3.0,
+        "airport": 3.0,
+        "docks": 2.0,
+        "anti_air": 2.0,
+        "radar": 1.5,
+        "decoy": 0.0,
+        "default": 0.8
+      },
+      "extra_labs": 2
     }
   },
   "batch": {

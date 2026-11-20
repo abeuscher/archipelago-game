@@ -197,10 +197,20 @@ func compute_income(data) -> Dictionary:
 		"research": int(eco["baseline_research"]),
 	}
 	for b in buildings_sorted():
-		var produces: Dictionary = data.building(b.type).get("produces", {})
+		var produces := produces_of(b.type, data)
 		for res in produces:
 			inc[res] += output_of(b, int(produces[res]), data)
 	return inc
+
+
+## What a building of this type makes a round at full strength: its
+## upgraded amounts once the upgrade's research is done.
+func produces_of(type: String, data) -> Dictionary:
+	var def: Dictionary = data.building(type)
+	var up: Dictionary = def.get("upgrade", {})
+	if not up.is_empty() and is_unlocked(String(up["research"])):
+		return up["produces"]
+	return def.get("produces", {})
 
 
 # --- Placement checks ------------------------------------------------------
@@ -262,6 +272,10 @@ func _add_building(type: String, hex: int, data, round_number: int) -> Variant:
 	b.hex = hex
 	b.hp = data.max_hp(type)
 	b.built_round = round_number
+	# A silo starts empty: its first nuke is built like a replacement.
+	var ms: Array = data.building(type).get("missiles", [])
+	if not ms.is_empty() and bool(data.missile(String(ms[0])).get("spent_on_launch", false)):
+		b.carrier_lost = true
 	buildings[hex] = b
 	return b
 
@@ -366,7 +380,7 @@ func oldest_project() -> Variant:
 func research_available(data) -> Array:
 	var out: Array = []
 	for item in data.research_items():
-		if is_unlocked(item) or not bool(data.research_item(item).get("available", true)):
+		if is_unlocked(item) or not bool(data.research_item(item).get("available", true)) 				or researched_count() < int(data.research_item(item).get("needs_researched", 0)):
 			continue
 		var p = project_for_item(item)
 		if p != null and int(p["lab_id"]) != -1:
@@ -387,6 +401,9 @@ func can_start_research(lab_id: int, item: String, data) -> String:
 		return "Already researched"
 	if not bool(data.research_item(item).get("available", true)):
 		return "Coming soon"
+	var needs := int(data.research_item(item).get("needs_researched", 0))
+	if researched_count() < needs:
+		return "Needs %d research done first (%d/%d)" % [needs, researched_count(), needs]
 	var p = project_for_item(item)
 	if p != null:
 		if int(p["lab_id"]) != -1:
@@ -395,6 +412,11 @@ func can_start_research(lab_id: int, item: String, data) -> String:
 	if money < int(data.research_item(item)["cost"]):
 		return "Not enough money"
 	return ""
+
+
+## How many research items this side has finished.
+func researched_count() -> int:
+	return unlocked.size()
 
 
 func start_research(lab_id: int, item: String, data) -> String:
@@ -466,6 +488,13 @@ func _accrue_research(data, points_baseline: int) -> Array:
 
 # --- Round flow ------------------------------------------------------------
 
+## Nukes being built get a round closer to ready.
+func _advance_loading() -> void:
+	for b in buildings.values():
+		if b.loading > 0:
+			b.loading -= 1
+
+
 func _finish_repairs() -> void:
 	for b in buildings.values():
 		if b.repairing:
@@ -482,6 +511,7 @@ func begin_round(round_number: int, data) -> Dictionary:
 	var out_first: bool = data.flag("damage", "repair_takes_building_out")
 	if not out_first:
 		_finish_repairs()
+	_advance_loading()
 	var result := {"income": {}, "research_completed": []}
 	if round_number >= data.integer("economy", "income_from_round"):
 		var inc := compute_income(data)
@@ -526,9 +556,11 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 		if not weapon_active(b):
 			return "Launcher is out of action"
 		if b.carrier_lost:
-			return "Transport lost" if data.role(b.type) == "airport" else "Boat lost"
+			return {"airport": "Transport lost", "silo": "No nuke"}.get(data.role(b.type), "Boat lost")
 		if b.boat_out:
 			return "Boat at sea"
+		if b.loading > 0:
+			return "Nuke not ready"
 		var m := String(o["missile"])
 		if not data.building(b.type)["missiles"].has(m):
 			return "That launcher cannot fire that missile"
@@ -550,7 +582,7 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 	return ""
 
 
-const LAUNCH_ROLES := ["launcher", "airport", "docks"]
+const LAUNCH_ROLES := ["launcher", "airport", "docks", "silo"]
 
 
 func launch_money(orders: Array, data) -> int:
@@ -570,6 +602,8 @@ func can_replace_carrier(hex: int, data) -> String:
 	var b = buildings.get(hex)
 	if b == null or not b.carrier_lost:
 		return "Nothing to replace"
+	if data.role(b.type) == "silo" and not weapon_active(b):
+		return "Repair the silo first"
 	if money < carrier_cost(b, data):
 		return "Not enough money"
 	return ""
@@ -580,8 +614,11 @@ func replace_carrier(hex: int, data) -> String:
 	var e := can_replace_carrier(hex, data)
 	if e != "":
 		return e
-	money -= carrier_cost(buildings[hex], data)
-	buildings[hex].carrier_lost = false
+	var b = buildings[hex]
+	money -= carrier_cost(b, data)
+	b.carrier_lost = false
+	var ms: Array = data.building(b.type).get("missiles", [])
+	b.loading = int(data.missile(String(ms[0])).get("build_rounds", 0)) if not ms.is_empty() else 0
 	return ""
 
 

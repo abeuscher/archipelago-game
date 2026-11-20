@@ -42,6 +42,11 @@ static func resolve(m) -> Array:
 				events.append({"type": "boat_launch", "side": s, "id": ms["id"], "launcher": ms["launcher"],
 					"target": ms["target"], "dir": bt["dir"], "lands_round": bt["lands_round"]})
 				continue
+			if bool(mdef0.get("spent_on_launch", false)):
+				# A nuke leaves its silo empty, whether or not it gets through.
+				var silo = m.sides[s].building_at(ms["launcher"])
+				if silo != null:
+					silo.carrier_lost = true
 			missiles[s].append(ms)
 			m.stats[s]["fired"] += 1
 			m.stats[s]["fired_" + ms["missile"]] = int(m.stats[s].get("fired_" + ms["missile"], 0)) + 1
@@ -107,6 +112,9 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 				continue
 			a["left"] = int(a["left"]) - 1
 			var acc := float(aa_cfg["accuracy_with_radar"]) if a["covered"] else float(aa_cfg["accuracy"])
+			var md: Dictionary = data.missile(ms["missile"])
+			if md.has("anti_air_accuracy"):   # the nuke is far harder to hit
+				acc = float(md["anti_air_accuracy_with_radar"]) if a["covered"] else float(md["anti_air_accuracy"])
 			var hit: bool = m.dice.chance(acc)
 			events.append({"type": "engage", "side": defender, "anti_air": a["b"].hex,
 				"id": ms["id"], "hit": hit, "accuracy": acc})
@@ -143,19 +151,25 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		var dmin := int(mdef["damage_min"])
 		var dmax := int(mdef["damage_max"])
 		var damaged: Array = []
+		var centre_factor := float(mdef.get("centre_factor", 1.0))
+		var crosses_here := bool(mdef.get("blast_crosses_height_step", crosses))
+		var breaks := bool(mdef.get("breaks_strongholds", false))
 		if int(mdef["blast_radius"]) >= 0 and (dmax > 0 or hits_on_base > 0.0):
 			for h in grid.within(impact, int(mdef["blast_radius"])):
-				if not crosses and isl.level[h] != lvl:
+				if not crosses_here and isl.level[h] != lvl:
 					continue
 				var b = def.building_at(h)
 				if b == null:
 					continue
+				var k := centre_factor if h == impact else 1.0
 				var p: Dictionary = pending.get(h, {"damage": 0, "hits": 0.0})
 				if data.is_base_like(b.type):
-					p["hits"] = float(p["hits"]) + hits_on_base
-					damaged.append({"hex": h, "hits": hits_on_base})
+					p["hits"] = float(p["hits"]) + hits_on_base * k
+					if breaks:
+						p["breaking_hits"] = float(p.get("breaking_hits", 0.0)) + hits_on_base * k
+					damaged.append({"hex": h, "hits": hits_on_base * k})
 				else:
-					var dmg: int = m.dice.rand_int(dmin, dmax)
+					var dmg: int = roundi(m.dice.rand_int(dmin, dmax) * k)
 					p["damage"] = int(p["damage"]) + dmg
 					damaged.append({"hex": h, "damage": dmg})
 				pending[h] = p
@@ -297,6 +311,11 @@ static func _seek(m, def, start: int) -> int:
 	return start
 
 
+## Hits from a stronghold-breaking missile (the nuke) in one round that bring
+## a stronghold down: the centre of a nuke's blast.
+const STRONGHOLD_BREAK_HITS := 2.0
+
+
 static func _apply_damage(m, defender: int, pending: Dictionary, events: Array) -> void:
 	var data = m.data
 	var def = m.sides[defender]
@@ -310,9 +329,11 @@ static func _apply_damage(m, defender: int, pending: Dictionary, events: Array) 
 		b.repairing = false
 		if bool(p.get("destroy", false)):
 			destroyed = true   # overrun by a platoon
+		elif data.is_missile_proof(b.type) and float(p.get("breaking_hits", 0.0)) >= STRONGHOLD_BREAK_HITS:
+			destroyed = true   # a nuke on it: the one missile it can't stand
 		elif data.is_missile_proof(b.type):
 			# A stronghold: a hit knocks out its gun and gives it away, but
-			# only troops can take it. Its hits only count for the reveal.
+			# only troops (or a nuke) can take it. Its hits only count for the reveal.
 			if float(p["hits"]) > 0.0:
 				if b.hits <= 0.0:
 					events.append({"type": "stronghold_revealed", "side": defender, "hex": h})

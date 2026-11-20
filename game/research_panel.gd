@@ -227,6 +227,8 @@ func show_state(st, data, editable: bool) -> void:
 		var prompt := _label("START RESEARCH: _" if editable else "CHOOSE RESEARCH IN THE BUILD AND REPAIR PHASE.", 16, ALERT, true)
 		_items.add_child(prompt)
 	for item in data.research_items():
+		if not bool(data.research_item(item).get("available", true)):
+			continue   # not in this level
 		if String(data.research_item(item).get("tab", "upgrades")) == _tab:
 			_items.add_child(_item_button(st, data, lab, item, own != null))
 

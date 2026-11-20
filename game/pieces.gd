@@ -9,12 +9,12 @@ const NAMES := {
 	"bank": "Bank", "refinery": "Refinery", "lab": "Lab",
 	"basic_launcher": "Missile launcher", "anti_air": "Anti-air", "radar": "Radar",
 	"ballistic_launcher": "Ballistic launcher", "airport": "Airport", "bunker": "Bunker",
-	"docks": "Docks", "coastal_cannon": "Coastal cannon",
+	"docks": "Docks", "coastal_cannon": "Coastal cannon", "nuclear_silo": "Nuclear silo",
 }
 const SHORT := {
 	"base": "BASE", "decoy": "BASE", "suspected_base": "?", "stronghold": "SH", "bank": "$", "refinery": "F",
 	"lab": "R", "basic_launcher": "M", "anti_air": "AA", "radar": "RD", "ballistic_launcher": "BM",
-	"airport": "AP", "bunker": "BK", "docks": "DK", "coastal_cannon": "CC",
+	"airport": "AP", "bunker": "BK", "docks": "DK", "coastal_cannon": "CC", "nuclear_silo": "N",
 }
 const COLORS := {
 	"base": Color(0.85, 0.85, 0.9), "decoy": Color(0.85, 0.85, 0.9),
@@ -24,9 +24,10 @@ const COLORS := {
 	"radar": Color(0.70, 0.45, 0.90), "ballistic_launcher": Color(0.60, 0.15, 0.15),
 	"airport": Color(0.62, 0.62, 0.92), "bunker": Color(0.62, 0.62, 0.58),
 	"docks": Color(0.38, 0.72, 0.72), "coastal_cannon": Color(0.5, 0.6, 0.78),
+	"nuclear_silo": Color(0.45, 0.36, 0.32),
 }
 const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile",
-	"transport": "Air transport", "boat": "Boat"}
+	"transport": "Air transport", "boat": "Boat", "nuke": "Nuke"}
 ## One-line descriptions for tooltips and the research panel. Numbers are
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
@@ -44,11 +45,13 @@ const BUILDING_TEXT := {
 	"bunker": "Wipes out enemy platoons that land or march within range.",
 	"docks": "Sends a boat with a platoon to the enemy coast. It lands the round after it sails. Built on the coast.",
 	"coastal_cannon": "Fires on enemy boats coming ashore nearby. Built on the coast.",
+	"nuclear_silo": "Holds one nuke. Building a nuke takes a round; it hits its target twice as hard as a missile and every hex around it as hard as one. Anti-air rarely stops it, and it can take a stronghold.",
 }
 const RESEARCH_NAMES := {
 	"radar": "Radar", "scouting_missile": "Scouting missile", "anti_air_capacity": "Anti-air capacity",
 	"motion_sensor": "Motion sensor", "ballistic_launcher": "Ballistic launcher",
 	"airport": "Airport", "bunker": "Bunker", "docks": "Docks", "coastal_cannon": "Coastal cannon",
+	"nuclear_silo": "Nuclear silo", "bank_upgrade": "Bank upgrade",
 }
 const RESEARCH_TEXT := {
 	"radar": "Unlocks the radar building, which raises the accuracy of anti-air inside its range.",
@@ -60,6 +63,8 @@ const RESEARCH_TEXT := {
 	"bunker": "Unlocks the bunker, which wipes out enemy platoons that land or march near it.",
 	"docks": "Unlocks the docks, which send a boat carrying a platoon to the enemy coast.",
 	"coastal_cannon": "Unlocks the coastal cannon, which fires on enemy boats landing nearby.",
+	"nuclear_silo": "Unlocks the nuclear silo, which builds and fires nukes. Needs other research done first.",
+	"bank_upgrade": "Every bank makes more money each round.",
 }
 
 
@@ -78,6 +83,7 @@ const SHEET_FOR := {
 	"basic_launcher": "missile_launcher", "ballistic_launcher": "ballistic_launcher",
 	"anti_air": "anti_air", "radar": "radar",
 	"airport": "airport", "bunker": "bunker", "docks": "docks", "coastal_cannon": "coastal_cannon",
+	"nuclear_silo": "nuclear_silo",
 }
 ## Toolbar tile colours, one per building, so a tile reads without its name.
 const TILE_COLORS := {
@@ -86,6 +92,7 @@ const TILE_COLORS := {
 	"radar": Color(0.56, 0.78, 0.96), "ballistic_launcher": Color(0.88, 0.42, 0.36), "airport": Color(0.74, 0.72, 0.94),
 	"bunker": Color(0.76, 0.66, 0.50), "docks": Color(0.42, 0.74, 0.86), "coastal_cannon": Color(0.95, 0.70, 0.30),
 	"base": Color(0.86, 0.86, 0.82), "stronghold": Color(0.74, 0.70, 0.60),
+	"nuclear_silo": Color(0.84, 0.74, 0.40),
 }
 
 
@@ -96,7 +103,8 @@ const ART_PENDING := []
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
 ## Sheets with a <name>_damaged version: hit and not yet repaired.
 const DAMAGED_SHEETS := ["missile_launcher", "ballistic_launcher", "anti_air", "radar", "bank",
-	"refinery", "lab", "base", "decoy", "airport", "bunker", "docks", "coastal_cannon", "stronghold"]
+	"refinery", "lab", "base", "decoy", "airport", "bunker", "docks", "coastal_cannon", "stronghold",
+	"nuclear_silo"]
 
 static var _sheets: Dictionary = {}
 static var _meta = null
@@ -132,7 +140,18 @@ static func sheet_name(b: Dictionary) -> String:
 		return n + "_damaged"
 	if n in EMPTY_SHEETS and b.get("empty", false):
 		n += "_empty"
+	if n == "nuclear_silo":
+		# Lid open and empty, open with a nuke going in, or shut on an armed one.
+		var nuke := "none" if b.get("empty", false) else String(b.get("nuke", "armed"))
+		n = {"none": "nuclear_silo_open", "loading": "nuclear_silo_open_loaded"}.get(nuke, n)
 	return n
+
+
+## A silo's nuke: "none", "loading" (being built) or "armed".
+static func nuke_state(b) -> String:
+	if b.carrier_lost:
+		return "none"
+	return "loading" if b.loading > 0 else "armed"
 
 
 static func is_hit(b: Dictionary) -> bool:

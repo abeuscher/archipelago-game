@@ -427,6 +427,8 @@ static func own_tiles(st, data, enemy_seen: Dictionary = {}, bombed: Dictionary 
 				"damaged": b.hp < data.max_hp(b.type), "disabled": b.disabled, "repairing": b.repairing,
 				"half": st.is_half_strength(b, data),
 			}
+			if data.role(b.type) == "silo":
+				t["building"]["nuke"] = Pieces.nuke_state(b)
 		out.append(t)
 	return out
 

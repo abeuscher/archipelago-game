@@ -65,6 +65,8 @@ static func _buildings(data) -> String:
 		if not bool(data.building(type).get("buildable", true)):
 			continue   # bases and strongholds are placed in setup
 		var def: Dictionary = data.building(type)
+		if def.has("requires") and not bool(data.research_item(String(def["requires"])).get("available", true)):
+			continue   # not in this level
 		var bits: Array = ["%d money" % int(def["cost"])]
 		var produces: Dictionary = def.get("produces", {})
 		for res in produces:
@@ -81,6 +83,12 @@ static func _missiles(data) -> String:
 		var m: Dictionary = data.missile(name)
 		if m.has("carries"):
 			continue   # the transport is described under Troops
+		if name == "nuke":
+			if bool(data.research_item("nuclear_silo").get("available", true)):
+				out.append("[b]Nuke[/b]: fired from a nuclear silo, %d fuel; a nuke costs %d money and takes a round to build. %d to %d damage on the hex it hits and %d to %d on each hex around it (2 hits and 1 hit on a base); it can destroy a stronghold. Anti-air hits it %d%% of the time, %d%% with radar." % [
+					int(m["fuel"]), int(m.get("replace_money", 0)), int(m["damage_min"] * m.get("centre_factor", 1.0)), int(m["damage_max"] * m.get("centre_factor", 1.0)),
+					int(m["damage_min"]), int(m["damage_max"]), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
+			continue
 		var bits: Array = ["%d fuel" % int(m["fuel"])]
 		if int(m["damage_max"]) > 0:
 			bits.append("%d to %d damage" % [int(m["damage_min"]), int(m["damage_max"])])

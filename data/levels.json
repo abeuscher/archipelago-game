@@ -10,9 +10,21 @@
     },
     {
       "name": "Level 2",
-      "set": { "rules.bases.strongholds_per_side": 1 },
+      "set": {
+        "rules.bases.strongholds_per_side": 1
+      },
       "win_award_money": 0,
       "intro": "level_2_intro"
+    },
+    {
+      "name": "Level 3",
+      "set": {
+        "rules.bases.strongholds_per_side": 1,
+        "rules.research.nuclear_silo.available": true,
+        "rules.research.bank_upgrade.available": true
+      },
+      "win_award_money": 0,
+      "intro": "level_3_intro"
     }
   ]
 }

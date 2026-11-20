@@ -11,6 +11,7 @@ var repairing: bool    ## Repair ordered this round; finishes at the next round 
 var built_round: int
 var carrier_lost: bool ## An airport or docks whose carrier was lost, until it is replaced.
 var boat_out: bool     ## Docks whose boat is at sea, until it has landed.
+var loading: int       ## A silo's nuke being built: rounds until it can be fired (0: none being built).
 
 
 func duplicate_building():
@@ -25,6 +26,7 @@ func duplicate_building():
 	b.built_round = built_round
 	b.carrier_lost = carrier_lost
 	b.boat_out = boat_out
+	b.loading = loading
 	return b
 
 
@@ -32,4 +34,5 @@ func to_dict() -> Dictionary:
 	return {
 		"id": id, "type": type, "hex": hex, "hp": hp, "hits": hits,
 		"disabled": disabled, "repairing": repairing, "built_round": built_round, "carrier_lost": carrier_lost, "boat_out": boat_out,
+		"loading": loading,
 	}

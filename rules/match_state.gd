@@ -253,13 +253,17 @@ func _public_building(b) -> Dictionary:
 			shown = b.type   # a missile hit gave the stronghold away
 		if bdef.has("reveals_as_decoy_at_hits") and b.hits >= float(bdef["reveals_as_decoy_at_hits"]):
 			shown = "decoy"
-	return {
+	var out := {
 		"type": shown,
 		"hits": b.hits,
 		"damaged": b.hp < data.max_hp(b.type),
 		"disabled": b.disabled,
 		"repairing": b.repairing,
 	}
+	if data.role(b.type) == "silo":
+		# Whoever sees a silo sees its lid: open (empty or loading) or shut (armed).
+		out["nuke"] = "none" if b.carrier_lost else ("loading" if b.loading > 0 else "armed")
+	return out
 
 
 func view_for(side: int):

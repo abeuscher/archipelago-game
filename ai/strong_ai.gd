@@ -52,6 +52,18 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 		for item in first:
 			research.erase(item)
 		research = first + research
+	# Nuke levels: the silo first (it waits on other research anyway), the
+	# bank upgrade early.
+	if _in_level("nuclear_silo"):
+		research.push_front("nuclear_silo")
+	if _in_level("bank_upgrade"):
+		var at := int(cfg["nukes"]["bank_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
+		research.insert(mini(research.size(), at), "bank_upgrade")
+
+
+## A research item this level offers.
+func _in_level(item: String) -> bool:
+	return data.rules["research"].has(item) and bool(data.research_item(item).get("available", true))
 
 
 func _strongholds() -> int:
@@ -62,6 +74,12 @@ func _strongholds() -> int:
 
 func _build_order() -> Array:
 	var order: Array = cfg[String(hc["build_order"])]
+	if _in_level("nuclear_silo"):
+		# Nuke levels: more labs right after the first, to reach the silo sooner.
+		order = order.duplicate()
+		var lab_at := order.find("lab")
+		for k in int(cfg["nukes"].get("extra_labs", 0)):
+			order.insert(lab_at + 1 if lab_at >= 0 else 0, "lab")
 	if _strongholds() <= 0:
 		return order
 	# Stronghold levels: the troop buildings move up to just after the lab.
@@ -215,8 +233,9 @@ func choose_build(view) -> Array:
 			if b.type == type and st.can_repair(b.hex, data) == "":
 				st.repair(b.hex, data)
 				actions.append({"action": "repair", "hex": b.hex})
-	# A transport shot down is replaced as soon as there is money for it.
-	for port in st.of_role(data, "airport") + st.of_role(data, "docks"):
+	# A transport shot down is replaced as soon as there is money for it, and
+	# an empty silo gets a new nuke.
+	for port in st.of_role(data, "airport") + st.of_role(data, "docks") + st.of_role(data, "silo"):
 		if st.can_replace_carrier(port.hex, data) == "":
 			st.replace_carrier(port.hex, data)
 			actions.append({"action": "replace_carrier", "hex": port.hex})
@@ -256,6 +275,11 @@ func choose_build(view) -> Array:
 			var th := _place_strong(st, t, view)
 			if th >= 0 and st.build(t, th, data, view.settings, view.round_number) == "":
 				actions.append({"action": "build", "type": t, "hex": th})
+	# A silo as soon as it is researched and affordable.
+	if data.has_building("nuclear_silo") and st.building_unlocked("nuclear_silo", data) 			and st.count_role(data, "silo") == 0 and st.money >= data.cost("nuclear_silo"):
+		var sh := _place_strong(st, "nuclear_silo", view)
+		if sh >= 0 and st.build("nuclear_silo", sh, data, view.settings, view.round_number) == "":
+			actions.append({"action": "build", "type": "nuclear_silo", "hex": sh})
 	while true:
 		var type := _next_in_order(st)
 		if type == "" or st.money < data.cost(type):
@@ -599,7 +623,20 @@ func choose_targets(view) -> Array:
 				wish.erase(h)
 			wish.push_front(h)
 
-	# Troop drops first: they are the strongest single strike.
+	# The nuke first: aimed where its blast does the most, if anything known
+	# is worth it. Until it fires, its fuel is kept back from other shots.
+	for silo in st.of_role(data, "silo"):
+		if not st.weapon_active(silo) or silo.carrier_lost:
+			continue
+		var nuke_fuel := int(data.missile("nuke")["fuel"])
+		var aim := _nuke_aim(know) if silo.loading == 0 and fuel >= nuke_fuel else -1
+		if aim >= 0:
+			orders.append({"launcher": silo.hex, "missile": "nuke", "target": aim})
+			for h in g.within(aim, 1):
+				while wish.has(h):
+					wish.erase(h)
+		fuel -= mini(fuel, nuke_fuel)   # spent now, or saved for it
+	# Troop drops next: they are the strongest single strike.
 	var money: int = st.money
 	for port in st.of_role(data, "airport"):
 		if not st.weapon_active(port) or port.carrier_lost:
@@ -735,6 +772,43 @@ func _plan_drop(know: Dictionary, cover: Callable, coast_only: bool = false) -> 
 			if score > best_score:
 				best_score = score
 				best = {"target": start, "dir": dir, "path": path}
+	return best
+
+
+## The known hex where a nuke does the most: what stands on it counts at
+## the centre value, what is around it at the ring value. -1 if nothing
+## reaches min_value.
+func _nuke_aim(know: Dictionary) -> int:
+	var g := _enemy_grid
+	var nc: Dictionary = cfg["nukes"]
+	var vals: Dictionary = nc["values"]
+	var ring: Dictionary = nc["ring_values"]
+	var worth := func(h: int, table: Dictionary) -> float:
+		var b = know.get(h, {}).get("building")
+		if b == null:
+			return 0.0
+		return float(table.get(String(b["type"]), table["default"]))
+	var best := -1
+	var best_score := float(nc["min_value"]) - 0.001
+	var cands := {}
+	for h in know:
+		if know[h].get("building") != null:
+			for n in g.within(h, 1):
+				cands[n] = true
+	var keys := cands.keys()
+	keys.sort()
+	for c in keys:
+		var s: float = worth.call(c, vals)
+		for n in g.neighbors(c):
+			var b = know.get(n, {}).get("building")
+			# A base that has already taken a hit falls to the edge of the blast too.
+			if b != null and String(b["type"]) == "suspected_base" and float(b["hits"]) >= 1.0:
+				s += float(vals["suspected_base"])
+			else:
+				s += worth.call(n, ring)
+		if s > best_score:
+			best_score = s
+			best = c
 	return best
 
 

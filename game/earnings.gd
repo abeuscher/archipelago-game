@@ -27,7 +27,7 @@ static func project(st, data, current_round: int) -> Dictionary:
 	var basis = st.duplicate_state() if data.flag("damage", "repair_takes_building_out") else future
 	var groups := {}
 	for b in basis.buildings_sorted():
-		var produces: Dictionary = data.building(b.type).get("produces", {})
+		var produces: Dictionary = basis.produces_of(b.type, data)
 		for res_name in produces:
 			var v: int = basis.output_of(b, int(produces[res_name]), data)
 			var state := "out" if basis.out_for_repair(b, data) else ("half" if basis.is_half_strength(b, data) else "")

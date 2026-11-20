@@ -107,6 +107,14 @@
       "character": "ginger",
       "text": "General! Enemy boat coming ashore! They're landing troops on our coast!"
     },
+    "incoming_nuke": {
+      "character": "ginger",
+      "text": "General! Nuclear missile incoming! Brace for impact!"
+    },
+    "level_3_intro": {
+      "character": "admiral",
+      "text": "Well done, General. Our scientists have cracked the atom. Finish enough research and they can build us a nuclear silo. A nuke hits twice as hard as any missile and flattens everything around it, and anti-air will rarely stop one. Expect the enemy to be working on the same."
+    },
     "level_2_intro": {
       "character": "admiral",
       "text": "Congratulations on your victory, General. As you have been fighting, our scientists have come up with a new type of base: a stronghold. It is impervious to air attack and comes with a mounted anti-aircraft missile on its roof. The only way it can be taken is with ground troops."

@@ -689,6 +689,10 @@ func _rules_error(e: String) -> void:
 			hud.show_notice(Hud.NOTICE_BOAT_LOST)
 		"Boat at sea":
 			hud.show_notice(Hud.NOTICE_BOAT_OUT)
+		"No nuke":
+			hud.show_notice(Hud.NOTICE_NO_NUKE)
+		"Nuke not ready":
+			hud.show_notice(Hud.NOTICE_NUKE_LOADING)
 		_:
 			hud.add_log("[color=salmon]%s[/color]" % e)
 
@@ -841,21 +845,32 @@ func _next_free_launcher(need_fuel: bool = false) -> int:
 	return -1
 
 
-const SideLaunchRoles := ["launcher", "airport", "docks"]
+const SideLaunchRoles := ["launcher", "airport", "docks", "silo"]
 
 
-## Everything that can attack: missile launchers, airports, docks.
+## Everything that can attack: missile launchers, airports, docks, silos.
 func _attackers(st) -> Array:
-	return st.of_role(data, "launcher") + st.of_role(data, "airport") + st.of_role(data, "docks")
+	return st.of_role(data, "launcher") + st.of_role(data, "airport") + st.of_role(data, "docks") + st.of_role(data, "silo")
 
 
-## Why an airport or docks can't launch now, as a notice ("" if it can).
+## Why an airport, docks or silo can't launch now, as a notice ("" if it can).
 func _carrier_block(b) -> String:
 	if b.carrier_lost:
-		return Hud.NOTICE_TRANSPORT if data.role(b.type) == "airport" else Hud.NOTICE_BOAT_LOST
+		return {"airport": Hud.NOTICE_TRANSPORT, "silo": Hud.NOTICE_NO_NUKE}.get(data.role(b.type), Hud.NOTICE_BOAT_LOST)
 	if b.boat_out:
 		return Hud.NOTICE_BOAT_OUT
+	if b.loading > 0:
+		return Hud.NOTICE_NUKE_LOADING
 	return ""
+
+
+## The few words on a weapon tile that can't launch (see _carrier_block).
+func _carrier_block_short(b) -> String:
+	if b.boat_out:
+		return "Boat at sea"
+	if b.loading > 0:
+		return "Nuke being built"
+	return {"airport": "Transport lost", "silo": "No nuke"}.get(data.role(b.type), "Boat lost")
 
 
 ## Money the orders placed so far will spend at the playout (troop launches).
@@ -1136,7 +1151,7 @@ func _build_toolbar(st) -> void:
 					continue
 				if _carrier_block(b) != "":
 					var why: String = _carrier_block(b)
-					var short: String = "Boat at sea" if b.boat_out else ("Transport lost" if data.role(b.type) == "airport" else "Boat lost")
+					var short: String = _carrier_block_short(b)
 					hud.add_piece_button(b.type, name, "", short, func(): hud.show_notice(why), false, false, why,
 						false, true, "", false, true)
 					continue
@@ -1463,7 +1478,7 @@ func _research_progress(st, item: String) -> String:
 ## What a building does right now, for the info box.
 func _building_detail_lines(st, b) -> Array:
 	var out: Array = []
-	var produces: Dictionary = data.building(b.type).get("produces", {})
+	var produces: Dictionary = st.produces_of(b.type, data)
 	for res in produces:
 		out.append("Makes %d %s a round" % [st.output_of(b, int(produces[res]), data), res])
 	match data.role(b.type):
@@ -1491,6 +1506,13 @@ func _building_detail_lines(st, b) -> Array:
 				out.append("Boat at sea")
 			if b.carrier_lost:
 				out.append("[color=salmon]Boat lost: replace it to launch again[/color]")
+		"silo":
+			var nk: Dictionary = data.missile("nuke")
+			out.append("One nuke at a time: %d money to build, ready the round after; %d fuel to fire" % [int(nk.get("replace_money", 0)), int(nk["fuel"])])
+			match Pieces.nuke_state(b):
+				"none": out.append("[color=salmon]Empty: build a nuke to fire[/color]")
+				"loading": out.append("Nuke being built: ready next round")
+				_: out.append("Nuke ready to fire")
 		"coastal_cannon":
 			out.append("Fires on boats landing within %d hexes, hitting %d%% of the time" % [int(data.section("troops")["cannon_range"]),
 				roundi(float(data.section("troops")["cannon_accuracy"]) * 100.0)])
@@ -1527,12 +1549,14 @@ func _info_actions_for(st, b) -> void:
 		var hx2: int = b.hex
 		var cost2: int = st.carrier_cost(b, data)
 		var err2: String = st.can_replace_carrier(b.hex, data)
-		hud.add_info_action("Replace %s (%d)" % ["transport" if data.role(b.type) == "airport" else "boat", cost2], func():
+		var silo: bool = data.role(b.type) == "silo"
+		var label: String = "Build nuke (%d)" % cost2 if silo else "Replace %s (%d)" % ["transport" if data.role(b.type) == "airport" else "boat", cost2]
+		hud.add_info_action(label, func():
 			var e: String = m.build_action(MatchState.PLAYER, {"action": "replace_carrier", "hex": hx2})
 			if e != "":
 				_rules_error(e)
 			else:
-				hud.add_log("Replacement ready.")
+				hud.add_log("Building a nuke: ready next round." if silo else "Replacement ready.")
 			_refresh(), err2 != "", err2)
 	if data.role(b.type) == "lab":
 		# Only a lab without a project of its own can start one.
@@ -1637,7 +1661,9 @@ func _run_playout() -> void:
 		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
 		var key := "incoming_one" if n == 1 else "incoming_many"
-		if launches[1].any(func(e): return data.missile(String(e["missile"])).has("carries")):
+		if launches[1].any(func(e): return String(e["missile"]) == "nuke") and lines.has("incoming_nuke"):
+			key = "incoming_nuke"
+		elif launches[1].any(func(e): return data.missile(String(e["missile"])).has("carries")):
 			key = "incoming_troops"
 		elif not arrivals[1].is_empty():
 			key = "incoming_boat"
@@ -1933,6 +1959,19 @@ func _march(board, p: Dictionary, ground: Vector2, color: Color, side: String, r
 ## `reveal_tiles`, when given, holds the after-playout tiles for the enemy
 ## space; the hexes this impact reveals switch to them as it lands. On our
 ## own island the revealed hexes are marked as seen by the enemy.
+## A nuke going off: a white flash and a big fireball on the centre, then
+## the ring of hexes around it bursting a beat later.
+func _nuke_blast(board, centre: int, ground: Vector2) -> void:
+	effects.explosion(ground, 46.0, Color(1.0, 0.97, 0.85))
+	effects.explosion(ground, 95.0, Color(1.0, 0.5, 0.12))
+	audio.effect("missile_explode", 4.0)
+	var ring: Array = Array(board.iso.grid.neighbors(centre))
+	await _wait(0.12)
+	for n in ring:
+		effects.explosion(board.position + board.tile_center(int(n)), 34.0, Color(1.0, 0.6, 0.18))
+	audio.effect("missile_explode")
+
+
 func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: float, reveal_tiles: Array = []) -> void:
 	await _wait(delay)
 	var ground: Vector2 = board.position + board.tile_center(target)
@@ -1967,8 +2006,11 @@ func _strike(board, isl, info: Dictionary, target: int, color: Color, delay: flo
 	effects.remove_missile(ms)
 	var imp: Dictionary = info.get("impact", {})
 	var is_scout: bool = String(imp.get("missile", "")) == "scouting"
-	effects.explosion(ground, 18.0 if is_scout else 40.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
-	audio.effect("missile_explode", -10.0 if is_scout else 0.0)
+	if String(imp.get("missile", "")) == "nuke":
+		_nuke_blast(board, int(imp.get("hex", target)), ground)
+	else:
+		effects.explosion(ground, 18.0 if is_scout else 40.0, Color(0.6, 0.8, 1.0) if is_scout else Color(1.0, 0.55, 0.15))
+		audio.effect("missile_explode", -10.0 if is_scout else 0.0)
 	for h in imp.get("revealed", []):
 		if not reveal_tiles.is_empty():
 			board.tiles[int(h)] = reveal_tiles[int(h)]

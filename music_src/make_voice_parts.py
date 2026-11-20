@@ -26,6 +26,8 @@ ANNOUNCE_WHEN = {
     "incoming_many": "Alarm: several enemy missiles are about to land.",
     "incoming_troops": "Alarm: an enemy transport is about to drop troops.",
     "incoming_boat": "Alarm: an enemy boat is coming ashore.",
+    "incoming_nuke": "Alarm: an enemy nuke is about to land.",
+    "level_3_intro": "Start of level 3, introducing the nuclear silo.",
     "level_2_intro": "Start of level 2, introducing the stronghold.",
     "enemy_stronghold": "Level 2, when our missile first reveals the enemy's stronghold.",
     "attack_unaimed": "First time the player presses Attack with weapons not aimed.",
