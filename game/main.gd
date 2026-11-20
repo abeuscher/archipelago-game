@@ -901,10 +901,20 @@ func _next_free_launcher(need_fuel: bool = false) -> int:
 		var mdef: Dictionary = data.missile(_missile_for(b.hex))
 		if int(mdef.get("money", 0)) > money_left:
 			continue
-		if need_fuel and int(mdef["fuel"]) > fuel_left:
-			continue
+		if need_fuel and _cheapest_fuel(b.hex) > fuel_left:
+			continue   # not even its cheapest missile (a scout) fits
 		return b.hex
 	return -1
+
+
+## The least fuel any missile this launcher can fire costs.
+func _cheapest_fuel(launcher_hex: int) -> int:
+	var least := -1
+	for mt in _missile_options(launcher_hex):
+		var f := int(data.missile(mt)["fuel"])
+		if least < 0 or f < least:
+			least = f
+	return maxi(least, 0)
 
 
 const SideLaunchRoles := ["launcher", "airport", "docks", "silo"]
