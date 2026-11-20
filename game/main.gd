@@ -976,7 +976,8 @@ func _refresh() -> void:
 	var next_income: Dictionary = Earnings.project(own_state, data, m.round_number)["income"]
 	hud.set_resources(own_state.money, own_state.fuel,
 		own_state.compute_income(data)["research"] if own_state.count_role(data, "lab") > 0 else 0,
-		int(next_income["money"]) if next_income.has("money") else -1)
+		int(next_income["money"]) if next_income.has("money") else -1,
+		own_state.fuel - _fuel_planned() if ui == Ui.TARGETING else -1)
 	_build_toolbar(own_state)
 	_build_strip(own_state)
 	if hud.earnings_visible():

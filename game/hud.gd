@@ -50,6 +50,7 @@ var announcer
 var _portrait_slot: Control
 var _money_val: Label
 var _money_next: Label
+var _fuel_left: Label     ## in targeting: the fuel the aimed shots leave
 var _fuel_val: Label
 var _research_val: Label
 var _round: Label          ## the phase, big on the title plate
@@ -583,8 +584,11 @@ func alarm_on() -> bool:
 
 
 ## money_next: next round's money income, or -1 when there is none to show
-## (setup, before round 1).
-func set_resources(money: int, fuel: int, research: int, money_next: int = -1) -> void:
+## (setup, before round 1). fuel_left: in targeting, the fuel the aimed shots
+## leave, or -1 to hide it.
+func set_resources(money: int, fuel: int, research: int, money_next: int = -1, fuel_left: int = -1) -> void:
+	_fuel_left.visible = fuel_left >= 0
+	_fuel_left.text = "(%d left)" % maxi(fuel_left, 0)
 	_money_val.text = str(money)
 	_money_next.visible = money_next >= 0
 	_money_next.text = "(+%d)" % maxi(money_next, 0)
@@ -649,7 +653,15 @@ func _build_resources() -> Control:
 	_money_next.mouse_filter = Control.MOUSE_FILTER_PASS
 	money[1].add_child(_money_next)
 	row.add_child(_divider())
-	_fuel_val = _stat(row, "Fuel", "fuel")[0]
+	var fuel := _stat(row, "Fuel", "fuel")
+	_fuel_val = fuel[0]
+	_fuel_left = Label.new()
+	_fuel_left.add_theme_font_size_override("font_size", 13)
+	_fuel_left.add_theme_color_override("font_color", RES_NEXT)
+	_fuel_left.size_flags_vertical = Control.SIZE_SHRINK_END
+	_fuel_left.mouse_filter = Control.MOUSE_FILTER_PASS
+	_fuel_left.visible = false
+	fuel[1].add_child(_fuel_left)
 	row.add_child(_divider())
 	_research_val = _stat(row, "Research", "research")[0]
 	return panel
