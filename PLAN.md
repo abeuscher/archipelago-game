@@ -9,6 +9,28 @@
 
 To watch in play-testing: the enemy rarely gets coastal cannons before its first boat lands, and a platoon kills a base outright, so boats hit hard (in AI-against-AI games, about one base in four matches falls to troops). Levers: cannon research earlier in data/ai.json, platoon base damage, boat cost.
 
+## Campaign plan (discussed 2026-11-19, nothing built yet)
+
+Aim: 9 or 10 levels, each adding one new thing (a unit or building) and one new upgrade, then a final challenge, then the end of the world (spec). Both sides always get everything new and the AI plays it to win.
+
+- **Level 1:** the base game. **Level 2:** one stronghold per side (built).
+- **Level 3: the nuke, plus a bank upgrade.**
+  - Silo research, then each nuke costs money and takes rounds to build (one round to start; lengthen if nukes are too strong).
+  - Gated by progress as well as cost: only after a number of research items are done (research rather than buildings, which can be padded with cheap decoys). Pick the number from AI-against-AI runs so nukes land mid to late game.
+  - On impact: 2 hits to the building on the centre hex (a base falls outright), 1 hit to each of the 6 hexes around it.
+  - Open: can anti-air shoot a nuke down (suggested: a low chance, about 20%, that radar doesn't raise)? Does it hit strongholds (would make it the stronghold-breaker)? One built nuke at a time, or a stockpile? Is the silo hidden from the enemy (needed for the spy to matter)? Two strongholds per side here or later?
+  - Bank upgrade: not yet defined.
+- **Level 4: the spy.** An add-on to the airport: costs money, takes a round to build, and the airport does nothing else that round. Flown in; if he lands on land he reveals the enemy's nukes (just those hexes, fog cleared). Must beat scouting missiles (1 fuel, 19 hexes) on value: his edge is certainty. Ideas: he stays and reports new silos as they're built; anti-air can shoot him down on the way in.
+- **Level 5 (likely): the saboteur upgrade.** Once a nuke has been found, the spy goes in a second time and permanently disables it and its hex. Needs the nuke build time long enough for the spy-then-saboteur chain to catch the next nuke. Suggested: the silo is hardened (missile-proof or many hits) so sabotage is the clean answer; a disabled silo can be rebuilt elsewhere at full cost.
+- Caution: gate + cost + build time + counters stacked too hard means nukes never appear (median match today is about 19 rounds). Set each moderately and tune with batch runs.
+
+### Ideas for later levels (unsure, just kept in mind)
+
+- **Stealth missile silo:** missiles anti-air can't hit, doing less damage (0.5 hit each).
+- **Barracks:** upgrades for the airport, bunker and docks: soldiers march farther and are harder to hit on the way in.
+- **Logistics:** radar and anti-air bonuses.
+- **Radar scrambler:** a chance to disable radar and anti-air in a seven-hex patch of the enemy island.
+
 ## Waiting on a spec
 
 - **To discuss: selling unused fuel.** Raised as a counter to a launcher being kept out of action (a side that can't fire could sell its fuel for money). Parked: it may be an unwelcome complication in a simple game. Notes: it should be a manual choice in the build phase (stockpiling fuel is a real strategy); the price must stay well under 5 money per fuel (around 2) or refineries become better banks; it helps most with a stockpile and little in the first rounds; the AI would need to learn it.
