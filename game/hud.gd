@@ -50,7 +50,12 @@ var announcer
 var _portrait_slot: Control
 var _money_val: Label
 var _money_next: Label
+var _tray: Control           ## the toolbar's tool tray (a tip can point at it)
+var _res_rows: Dictionary = {}   ## "money", "fuel", "research" -> the stat's row
+var _radar_unit: Control
 var _fuel_left: Label     ## in targeting: the fuel the aimed shots leave
+var _fuel_next: Label
+var _research_next: Label
 var _fuel_val: Label
 var _research_val: Label
 var _round: Label          ## the phase, big on the title plate
@@ -148,6 +153,7 @@ func _ready() -> void:
 	_tool_title.add_theme_color_override("font_color", Color(0.16, 0.15, 0.12))
 	plate.add_child(_tool_title)
 	var tray := PanelContainer.new()
+	_tray = tray
 	tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tray.add_theme_stylebox_override("panel", _plate_box(TRAY, Color(0.12, 0.12, 0.11), 3, 8, 6))
 	lv.add_child(tray)
@@ -361,6 +367,7 @@ func _ready() -> void:
 			["zoom_in", "Zoom in", func(): zoom_requested.emit(1)]]:
 		keys.append(_map_key(k[0], k[1], k[2]))
 	var radar := DevicePanel.radar(minimap, keys)
+	_radar_unit = radar
 	_corner(radar, 8)
 	root.add_child(radar)
 
@@ -585,15 +592,21 @@ func alarm_on() -> bool:
 
 ## money_next: next round's money income, or -1 when there is none to show
 ## (setup, before round 1). fuel_left: in targeting, the fuel the aimed shots
-## leave, or -1 to hide it.
-func set_resources(money: int, fuel: int, research: int, money_next: int = -1, fuel_left: int = -1) -> void:
+## leave, or -1 to hide it. fuel_next, research_next: next round's income of
+## each, -1 to hide.
+func set_resources(money: int, fuel: int, research: int, money_next: int = -1, fuel_left: int = -1,
+		fuel_next: int = -1, research_next: int = -1) -> void:
 	_fuel_left.visible = fuel_left >= 0
 	_fuel_left.text = "(%d left)" % maxi(fuel_left, 0)
+	_fuel_next.visible = fuel_next >= 0 and fuel_left < 0
+	_fuel_next.text = "(+%d)" % maxi(fuel_next, 0)
+	_research_next.visible = research_next >= 0
+	_research_next.text = "(+%d)" % maxi(research_next, 0)
 	_money_val.text = str(money)
 	_money_next.visible = money_next >= 0
 	_money_next.text = "(+%d)" % maxi(money_next, 0)
 	_fuel_val.text = str(fuel)
-	_research_val.text = "+%d" % research
+	_research_val.text = str(research)
 
 
 ## A chunky coloured key on the radar for rotating or zooming the view.
@@ -645,6 +658,7 @@ func _build_resources() -> Control:
 	row.add_theme_constant_override("separation", 14)
 	panel.add_child(row)
 	var money := _stat(row, "Money", "money")
+	_res_rows["money"] = money[1]
 	_money_val = money[0]
 	_money_next = Label.new()
 	_money_next.add_theme_font_size_override("font_size", 13)
@@ -654,6 +668,7 @@ func _build_resources() -> Control:
 	money[1].add_child(_money_next)
 	row.add_child(_divider())
 	var fuel := _stat(row, "Fuel", "fuel")
+	_res_rows["fuel"] = fuel[1]
 	_fuel_val = fuel[0]
 	_fuel_left = Label.new()
 	_fuel_left.add_theme_font_size_override("font_size", 13)
@@ -662,9 +677,26 @@ func _build_resources() -> Control:
 	_fuel_left.mouse_filter = Control.MOUSE_FILTER_PASS
 	_fuel_left.visible = false
 	fuel[1].add_child(_fuel_left)
+	_fuel_next = _next_label()
+	fuel[1].add_child(_fuel_next)
 	row.add_child(_divider())
-	_research_val = _stat(row, "Research", "research")[0]
+	var res := _stat(row, "Research", "research")
+	_res_rows["research"] = res[1]
+	_research_val = res[0]
+	_research_next = _next_label()
+	res[1].add_child(_research_next)
 	return panel
+
+
+## The small green "(+N)" beside a resource.
+func _next_label() -> Label:
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", RES_NEXT)
+	l.size_flags_vertical = Control.SIZE_SHRINK_END
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	l.visible = false
+	return l
 
 
 ## Adds one stat: its icon and value, named only in the tooltip. Returns
@@ -1061,8 +1093,8 @@ func show_tip(tip) -> void:
 ## A line from the character. It stays until OK unless `seconds` > 0.
 ## id/can_hide: see announcer.gd.
 func announce(text: String, id: String = "", seconds: float = 0.0, can_hide: bool = true, character: String = "",
-		hold: bool = true) -> void:
-	announcer.announce(text, id, seconds, can_hide, character, hold)
+		hold: bool = true, click_away: bool = false) -> void:
+	announcer.announce(text, id, seconds, can_hide, character, hold, click_away)
 
 
 ## How long the alarm light takes to turn `turns` times.
@@ -1097,6 +1129,15 @@ func _anchor_rect(anchor: String) -> Rect2:
 		return Rect2()
 	if anchor == "timer":
 		return _timer.get_global_rect()
+	if anchor.begins_with("res:"):
+		var row = _res_rows.get(anchor.substr(4))
+		return row.get_global_rect() if row != null else Rect2()
+	match anchor:
+		"toolbar": return _tray.get_global_rect()
+		"minimap": return _radar_unit.get_global_rect()
+		"info": return _info.get_global_rect()
+		"volume": return volume_slider.get_global_rect()
+		"status": return status_gauge.get_global_rect()
 	if anchor.begins_with("tool:"):
 		var type := anchor.substr(5)
 		var found: Array = []

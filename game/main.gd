@@ -141,8 +141,7 @@ func _ready() -> void:
 	hud.hex_anchor = _hex_anchor
 	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
-	hud.research_panel.start_requested.connect(_start_research)
-	hud.research_panel.use_stored_requested.connect(_use_stored_research)
+	hud.research_panel.research_requested.connect(_do_research)
 	hud.research_panel.closed.connect(_refresh)
 	hud.esc_menu.setup(data.settings, prefs)
 	_update_rules_text()
@@ -261,9 +260,9 @@ func _start_round() -> void:
 			_log_event(ev)
 	if report != "":
 		# The build clock runs while it is read, as for the income line.
-		hud.announce((report + " " + income_said).strip_edges(), "", 0.0, false, _line_character("battle_report"), false)
+		hud.announce((report + " " + income_said).strip_edges(), "", 0.0, false, _line_character("battle_report"), false, true)
 	elif income_said != "":
-		hud.announce(income_said, "", 0.0, false, _line_character("income"), false)
+		hud.announce(income_said, "", 0.0, false, _line_character("income"), false, true)
 	if m.boats[MatchState.ENEMY].any(func(bt): return int(bt["lands_round"]) == m.round_number):
 		hud.announce(_line_text("boat_spotted"), "", 0.0, false, _line_character("boat_spotted"))
 	# The enemy commits its build for the round from its own view.
@@ -991,10 +990,13 @@ func _refresh() -> void:
 		_show_boats()
 	hud.minimap.queue_redraw()
 	var next_income: Dictionary = Earnings.project(own_state, data, m.round_number)["income"]
-	hud.set_resources(own_state.money, own_state.fuel,
-		own_state.compute_income(data)["research"] if own_state.count_role(data, "lab") > 0 else 0,
+	if next_income.is_empty() and ui != Ui.OVER:
+		next_income = own_state.compute_income(data)   # before income starts: what a round makes
+	hud.set_resources(own_state.money, own_state.fuel, own_state.research,
 		int(next_income["money"]) if next_income.has("money") else -1,
-		own_state.fuel - _fuel_planned() if ui == Ui.TARGETING else -1)
+		own_state.fuel - _fuel_planned() if ui == Ui.TARGETING else -1,
+		int(next_income["fuel"]) if next_income.has("fuel") else -1,
+		int(next_income["research"]) if next_income.has("research") else -1)
 	_build_toolbar(own_state)
 	_build_strip(own_state)
 	if hud.earnings_visible():
@@ -1318,24 +1320,10 @@ func _build_toolbar(st) -> void:
 			hud.add_label("Missiles in flight.", true)
 
 
-## The right-hand strip: a beaker per research project. Also sets the status
-## gauge (our bases' hits left) on the comms set.
+## Sets the status gauge (our bases' hits left) on the comms set. The
+## right-hand strip is empty now research is a plain resource.
 func _build_strip(st) -> void:
 	var items: Array = []
-	var labs: Array = st.of_role(data, "lab")
-	var projects: Array = st.projects.duplicate()
-	projects.sort_custom(func(a, b): return int(a["order"]) < int(b["order"]))
-	for p in projects:
-		var item := String(p["item"])
-		var need := int(data.research_item(item)["points"])
-		var left := Earnings.rounds_left(st, data, item)
-		var details := "%s: %d / %d points, %s" % [Pieces.research_name(item), int(p["progress"]), need,
-			"stalled" if left < 0 else "about %d round%s left" % [left, "" if left == 1 else "s"]]
-		if int(p["lab_id"]) == -1:
-			details += " (its lab was destroyed)"
-		var lab_id: int = int(p["lab_id"]) if int(p["lab_id"]) != -1 else (labs[0].id if not labs.is_empty() else -1)
-		items.append({"kind": "beaker", "fraction": float(p["progress"]) / need, "details": details,
-			"action": func(): _open_research(lab_id), "enabled": ui == Ui.BUILD and lab_id != -1})
 	var per_side: int = data.integer("bases", "per_side")
 	var max_hits := float(data.building("base")["hits_to_destroy"])
 	var bases: Array = st.of_role(data, "base")
@@ -1357,28 +1345,16 @@ func _open_research(lab_id: int) -> void:
 	_update_tips()   # the Scientist explains research the first time
 
 
-func _start_research(lab_id: int, item: String) -> void:
+## Buys a research item with money and research points: done at once.
+func _do_research(item: String) -> void:
 	if ui != Ui.BUILD:
 		return
-	var e: String = m.build_action(MatchState.PLAYER, {"action": "research", "lab": lab_id, "item": item})
+	var e: String = m.build_action(MatchState.PLAYER, {"action": "research", "item": item})
 	if e != "":
-		hud.add_log("[color=salmon]%s[/color]" % e)
+		_rules_error(e)
 	else:
-		hud.add_log("Research started: %s." % Pieces.research_name(item))
-	_refresh()
-
-
-func _use_stored_research(item: String) -> void:
-	if ui != Ui.BUILD:
-		return
-	var e: String = m.build_action(MatchState.PLAYER, {"action": "use_stored_research", "item": item})
-	if e != "":
-		hud.add_log("[color=salmon]%s[/color]" % e)
-	elif m.sides[0].is_unlocked(item):
-		hud.add_log("Research complete: %s, with stored points." % Pieces.research_name(item))
+		hud.add_log("Research complete: %s." % Pieces.research_name(item))
 		audio.effect("research_complete")
-	else:
-		hud.add_log("Stored points put into %s." % Pieces.research_name(item))
 	_refresh()
 
 
@@ -1433,7 +1409,7 @@ func _tip_context() -> Dictionary:
 		"clock_on": clock_running,
 		"has_launcher": st.count_role(data, "launcher") > 0,
 		"has_anti_air": st.count_role(data, "anti_air") > 0,
-		"radar_started": st.is_unlocked("radar") or st.project_for_item("radar") != null,
+		"radar_started": st.is_unlocked("radar"),
 		"suspected_base_seen": seen,
 		"own_damaged": damaged,
 		"launcher_targeted": targeted,
@@ -1582,15 +1558,6 @@ func _update_info() -> void:
 		hud.set_info("\n".join(lines))
 
 
-## "2/6 points, 2 rounds left" for a research item in progress.
-func _research_progress(st, item: String) -> String:
-	var p = st.project_for_item(item)
-	var need := int(data.research_item(item)["points"])
-	var left := Earnings.rounds_left(st, data, item)
-	var eta := "stalled" if left < 0 else "%d round%s left" % [left, "" if left == 1 else "s"]
-	return "%d/%d points, %s" % [int(p["progress"]), need, eta]
-
-
 ## What a building does right now, for the info box.
 func _building_detail_lines(st, b) -> Array:
 	var out: Array = []
@@ -1633,16 +1600,7 @@ func _building_detail_lines(st, b) -> Array:
 			out.append("Fires on boats landing within %d hexes, hitting %d%% of the time" % [int(data.section("troops")["cannon_range"]),
 				roundi(float(data.section("troops")["cannon_accuracy"]) * 100.0)])
 		"lab":
-			var p = st.project_for_lab(b.id)
-			var oldest = st.oldest_project()
-			if p != null:
-				out.append("Researching %s" % Pieces.research_name(String(p["item"])))
-				out.append(_research_progress(st, String(p["item"])))
-			elif oldest != null:
-				out.append("Helping %s" % Pieces.research_name(String(oldest["item"])))
-				out.append(_research_progress(st, String(oldest["item"])))
-			else:
-				out.append("Idle: choose research")
+			out.append("Research points on hand: %d" % st.research)
 	return out
 
 
@@ -1675,12 +1633,9 @@ func _info_actions_for(st, b) -> void:
 				hud.add_log("Building a nuke: ready next round." if silo else "Replacement ready.")
 			_refresh(), err2 != "", err2)
 	if data.role(b.type) == "lab":
-		# Always open: a busy lab shows its project's progress, and stored
-		# points can be spent on it there.
 		var lab_id: int = b.id
-		var own = st.project_for_lab(lab_id)
 		hud.add_info_action("Research...", func(): _open_research(lab_id), false,
-			"Choose research for this lab" if own == null else "Researching %s: see progress or use stored points" % Pieces.research_name(String(own["item"])))
+			"Spend research points and money on new buildings and upgrades")
 
 
 ## What the enemy knows about one of our hexes: missiles that landed on it

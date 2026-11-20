@@ -12,13 +12,8 @@ var fuel: int
 var buildings: Dictionary = {}   ## hex -> Building
 var next_building_id: int = 1
 var unlocked: Dictionary = {}    ## research item -> true
-## Each project: {"item": String, "progress": int, "order": int, "lab_id": int}
-## lab_id is -1 when the lab that started it has been destroyed.
-var projects: Array = []
-var next_project_order: int = 1
-## Research points earned with no project to go into, and any left over when
-## a project finishes. Spent on a project at will to speed it up or finish it.
-var stored_research: int = 0
+## Research points on hand: labs add to them every round, research spends them.
+var research: int = 0
 var setup_done: bool = false
 
 
@@ -38,9 +33,7 @@ func duplicate_state():
 		c.buildings[h] = buildings[h].duplicate_building()
 	c.next_building_id = next_building_id
 	c.unlocked = unlocked.duplicate()
-	c.projects = projects.duplicate(true)
-	c.next_project_order = next_project_order
-	c.stored_research = stored_research
+	c.research = research
 	c.setup_done = setup_done
 	return c
 
@@ -353,48 +346,21 @@ func repair(hex: int, data) -> String:
 
 
 # --- Research --------------------------------------------------------------
+# Research points are a resource like money and fuel: labs add to the pool
+# every round, and an item is bought outright with its money and points.
 
-func project_for_lab(lab_id: int) -> Variant:
-	for p in projects:
-		if int(p["lab_id"]) == lab_id:
-			return p
-	return null
-
-
-func project_for_item(item: String) -> Variant:
-	for p in projects:
-		if String(p["item"]) == item:
-			return p
-	return null
-
-
-func oldest_project() -> Variant:
-	var best = null
-	for p in projects:
-		if best == null or int(p["order"]) < int(best["order"]):
-			best = p
-	return best
-
-
-## Items this side could start now (ignoring money).
+## Items this side could buy now, money and points aside.
 func research_available(data) -> Array:
 	var out: Array = []
 	for item in data.research_items():
-		if is_unlocked(item) or not bool(data.research_item(item).get("available", true)) 				or researched_count() < int(data.research_item(item).get("needs_researched", 0)):
-			continue
-		var p = project_for_item(item)
-		if p != null and int(p["lab_id"]) != -1:
-			continue
-		out.append(item)
+		if research_block(item, data) == "":
+			out.append(item)
 	return out
 
 
-func can_start_research(lab_id: int, item: String, data) -> String:
-	var lab = building_by_id(lab_id)
-	if lab == null or data.role(lab.type) != "lab":
-		return "No such lab"
-	if project_for_lab(lab_id) != null:
-		return "Lab is already researching"
+## Why an item can't be researched at all yet ("" if it can, money and
+## points aside).
+func research_block(item: String, data) -> String:
 	if not data.rules["research"].has(item):
 		return "Unknown research"
 	if is_unlocked(item):
@@ -404,86 +370,34 @@ func can_start_research(lab_id: int, item: String, data) -> String:
 	var needs := int(data.research_item(item).get("needs_researched", 0))
 	if researched_count() < needs:
 		return "Needs %d research done first (%d/%d)" % [needs, researched_count(), needs]
-	var p = project_for_item(item)
-	if p != null:
-		if int(p["lab_id"]) != -1:
-			return "Another lab is researching that"
-		return ""   # Resuming an orphaned project is free.
+	return ""
+
+
+func can_research(item: String, data) -> String:
+	var e := research_block(item, data)
+	if e != "":
+		return e
 	if money < int(data.research_item(item)["cost"]):
 		return "Not enough money"
+	if research < int(data.research_item(item)["points"]):
+		return "Not enough research"
+	return ""
+
+
+## Pays the item's money and points and unlocks it now.
+func do_research(item: String, data) -> String:
+	var e := can_research(item, data)
+	if e != "":
+		return e
+	money -= int(data.research_item(item)["cost"])
+	research -= int(data.research_item(item)["points"])
+	unlocked[item] = true
 	return ""
 
 
 ## How many research items this side has finished.
 func researched_count() -> int:
 	return unlocked.size()
-
-
-func start_research(lab_id: int, item: String, data) -> String:
-	var e := can_start_research(lab_id, item, data)
-	if e != "":
-		return e
-	var p = project_for_item(item)
-	if p != null:
-		p["lab_id"] = lab_id
-		return ""
-	money -= int(data.research_item(item)["cost"])
-	projects.append({"item": item, "progress": 0, "order": next_project_order, "lab_id": lab_id})
-	next_project_order += 1
-	return ""
-
-
-## Spends stored research points on a running project: as many as it still
-## needs, or all of them. A project that reaches its total finishes now.
-func can_use_stored_research(item: String, data) -> String:
-	if project_for_item(item) == null:
-		return "No such project"
-	if stored_research <= 0:
-		return "No stored research"
-	return ""
-
-
-func use_stored_research(item: String, data) -> String:
-	var e := can_use_stored_research(item, data)
-	if e != "":
-		return e
-	var p = project_for_item(item)
-	var need := int(data.research_item(item)["points"]) - int(p["progress"])
-	var spend := mini(need, stored_research)
-	stored_research -= spend
-	p["progress"] = int(p["progress"]) + spend
-	if int(p["progress"]) >= int(data.research_item(item)["points"]):
-		unlocked[item] = true
-		projects.erase(p)
-	return ""
-
-
-func _accrue_research(data, points_baseline: int) -> Array:
-	var completed: Array = []
-	if projects.is_empty():
-		# Nothing to work on: the labs' points are stored for later.
-		stored_research += points_baseline
-		for lab in of_role(data, "lab"):
-			stored_research += output_of(lab, int(data.building(lab.type)["produces"].get("research", 0)), data)
-		return completed
-	var oldest = oldest_project()
-	if oldest != null:
-		oldest["progress"] = int(oldest["progress"]) + points_baseline
-	for lab in of_role(data, "lab"):
-		var pts := output_of(lab, int(data.building(lab.type)["produces"].get("research", 0)), data)
-		var target = project_for_lab(lab.id)
-		if target == null:
-			target = oldest_project()
-		if target != null:
-			target["progress"] = int(target["progress"]) + pts
-	for p in projects.duplicate():
-		var need := int(data.research_item(String(p["item"]))["points"])
-		if int(p["progress"]) >= need:
-			stored_research += int(p["progress"]) - need   # points past the total are kept
-			unlocked[String(p["item"])] = true
-			projects.erase(p)
-			completed.append(String(p["item"]))
-	return completed
 
 
 # --- Round flow ------------------------------------------------------------
@@ -506,19 +420,19 @@ func _finish_repairs() -> void:
 ## Income is what the side made over the last round, so a building that
 ## spent it out for repair adds nothing; with repair_takes_building_out off,
 ## repairs finish first and pay in full as before.
-## Returns {"income": Dictionary or {}, "research_completed": Array}.
+## Returns {"income": Dictionary or {}}.
 func begin_round(round_number: int, data) -> Dictionary:
 	var out_first: bool = data.flag("damage", "repair_takes_building_out")
 	if not out_first:
 		_finish_repairs()
 	_advance_loading()
-	var result := {"income": {}, "research_completed": []}
+	var result := {"income": {}}
 	if round_number >= data.integer("economy", "income_from_round"):
 		var inc := compute_income(data)
 		money += int(inc["money"])
 		fuel += int(inc["fuel"])
+		research += int(inc["research"])
 		result["income"] = inc
-		result["research_completed"] = _accrue_research(data, data.integer("economy", "baseline_research"))
 	if out_first:
 		_finish_repairs()
 	return result
@@ -528,10 +442,6 @@ func remove_building(hex: int, data) -> void:
 	var b = buildings.get(hex)
 	if b == null:
 		return
-	if data.role(b.type) == "lab":
-		var p = project_for_lab(b.id)
-		if p != null:
-			p["lab_id"] = -1
 	buildings.erase(hex)
 
 
@@ -635,5 +545,4 @@ func _copy_from(other) -> void:
 	buildings = other.buildings
 	next_building_id = other.next_building_id
 	unlocked = other.unlocked
-	projects = other.projects
-	next_project_order = other.next_project_order
+	research = other.research

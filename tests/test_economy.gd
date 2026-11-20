@@ -179,110 +179,59 @@ func test_bases_and_decoys_not_repairable() -> void:
 	err_contains(m.build_action(0, {"action": "repair", "hex": b.hex}), "cannot be repaired")
 
 
-func test_research_one_lab_radar_three_rounds() -> void:
+func test_research_points_pile_up_like_money() -> void:
 	var m = flat_match()
-	var lab = put(m, 0, "lab", 1, 1)
-	m.begin_round()
-	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "radar"}))
-	eq(m.sides[0].money, m.data.integer("economy", "start_money") - 30, "radar research costs 30")
-	for i in 2:
-		m.end_build_phase()
-		m.resolve_playout()
-		m.begin_round()
-		check(not m.sides[0].is_unlocked("radar"), "not yet after %d income rounds" % (i + 1))
-	m.end_build_phase()
-	m.resolve_playout()
-	m.begin_round()
-	check(m.sides[0].is_unlocked("radar"), "radar after 3 rounds of points")
-	ok(m.build_action(0, {"action": "build", "type": "radar", "hex": hex(m, 5, 5)}))
-
-
-func test_research_stored_when_idle_then_spent() -> void:
-	var m = flat_match()
-	var lab = put(m, 0, "lab", 1, 1)
-	for i in 3:
-		play_round(m)   # round 1 pays nothing, rounds 2 and 3 pay 2 points each
-	m.begin_round()     # round 4: another 2
-	eq(m.sides[0].stored_research, 6, "idle lab's points are stored")
-	err_contains(m.build_action(0, {"action": "use_stored_research", "item": "radar"}), "No such project")
-	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "ballistic_launcher"}))
-	ok(m.build_action(0, {"action": "use_stored_research", "item": "ballistic_launcher"}))
-	eq(int(m.sides[0].project_for_item("ballistic_launcher")["progress"]), 6, "stored points speed it up")
-	eq(m.sides[0].stored_research, 0, "all spent")
-	err_contains(m.build_action(0, {"action": "use_stored_research", "item": "ballistic_launcher"}), "No stored")
-
-
-func test_research_stored_finishes_now_and_keeps_change() -> void:
-	var m = flat_match()
-	var lab = put(m, 0, "lab", 1, 1)
-	m.sides[0].stored_research = 10
-	m.begin_round()
-	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "radar"}))
-	ok(m.build_action(0, {"action": "use_stored_research", "item": "radar"}))
-	check(m.sides[0].is_unlocked("radar"), "radar finished at once")
-	eq(m.sides[0].stored_research, 4, "only what it needed was spent")
-	ok(m.build_action(0, {"action": "build", "type": "radar", "hex": hex(m, 5, 5)}), "can build it the same phase")
-
-
-func test_research_points_past_the_total_are_stored() -> void:
-	var m = flat_match()
-	var lab = put(m, 0, "lab", 1, 1)
-	m.begin_round()
-	ok(m.build_action(0, {"action": "research", "lab": lab.id, "item": "radar"}))
-	m.sides[0].project_for_item("radar")["progress"] = 5
-	m.end_build_phase()
-	m.resolve_playout()
-	m.begin_round()   # +2 points: 7 of 6
-	check(m.sides[0].is_unlocked("radar"), "done")
-	eq(m.sides[0].stored_research, 1, "the extra point is stored")
-
-
-func test_research_idle_lab_helps_oldest() -> void:
-	var m = flat_match()
-	var lab1 = put(m, 0, "lab", 1, 1)
-	put(m, 0, "lab", 2, 1)
-	var lab3 = put(m, 0, "lab", 3, 1)
-	m.sides[0].money = 1000
-	m.begin_round()
-	ok(m.build_action(0, {"action": "research", "lab": lab1.id, "item": "motion_sensor"}))
-	ok(m.build_action(0, {"action": "research", "lab": lab3.id, "item": "ballistic_launcher"}))
-	err_contains(m.build_action(0, {"action": "research", "lab": lab1.id, "item": "radar"}), "already")
-	err_contains(m.build_action(0, {"action": "research", "lab": lab3.id + 99, "item": "radar"}), "No such lab")
-	m.end_build_phase()
-	m.resolve_playout()
-	m.begin_round()
-	eq(m.sides[0].project_for_item("motion_sensor")["progress"], 4, "oldest gets own lab + idle lab")
-	eq(m.sides[0].project_for_item("ballistic_launcher")["progress"], 2, "newer gets its own lab only")
-
-
-func test_two_labs_twice_as_fast() -> void:
-	var m = flat_match()
-	var lab1 = put(m, 0, "lab", 1, 1)
+	put(m, 0, "lab", 1, 1)
 	put(m, 0, "lab", 2, 1)
 	m.begin_round()
-	ok(m.build_action(0, {"action": "research", "lab": lab1.id, "item": "scouting_missile"}))
+	eq(m.sides[0].research, 0, "no income in round 1")
 	m.end_build_phase()
 	m.resolve_playout()
 	m.begin_round()
-	check(m.sides[0].is_unlocked("scouting_missile"), "4 points in one round with two labs")
-	eq(m.sides[0].projects.size(), 0, "project cleared")
+	eq(m.sides[0].research, 4, "two labs, 2 points each, in round 2")
+	m.end_build_phase()
+	m.resolve_playout()
+	m.begin_round()
+	eq(m.sides[0].research, 8, "and they keep adding up")
 
 
-func test_research_survives_lab_loss_and_resumes_free() -> void:
+func test_research_bought_with_money_and_points_done_at_once() -> void:
 	var m = flat_match()
-	var lab1 = put(m, 0, "lab", 1, 1)
+	put(m, 0, "lab", 1, 1)
 	m.begin_round()
-	ok(m.build_action(0, {"action": "research", "lab": lab1.id, "item": "radar"}))
-	m.end_build_phase()
-	m.resolve_playout()
-	m.begin_round()
-	m.sides[0].remove_building(lab1.hex, m.data)
-	eq(m.sides[0].project_for_item("radar")["lab_id"], -1, "orphaned")
-	eq(m.sides[0].project_for_item("radar")["progress"], 2, "progress kept")
-	var lab2 = put(m, 0, "lab", 4, 4)
+	err_contains(m.build_action(0, {"action": "research", "item": "radar"}), "research", "no points yet")
+	m.sides[0].research = 7
 	var money: int = m.sides[0].money
-	ok(m.build_action(0, {"action": "research", "lab": lab2.id, "item": "radar"}))
-	eq(m.sides[0].money, money, "resuming is free")
+	ok(m.build_action(0, {"action": "research", "item": "radar"}), "6 points and 30 money")
+	check(m.sides[0].is_unlocked("radar"), "radar at once")
+	eq(m.sides[0].research, 1, "6 points spent, 1 left")
+	eq(m.sides[0].money, money - 30, "30 money spent")
+	ok(m.build_action(0, {"action": "build", "type": "radar", "hex": hex(m, 5, 5)}), "can build it the same phase")
+	err_contains(m.build_action(0, {"action": "research", "item": "radar"}), "Already")
+
+
+func test_research_needs_the_money_too() -> void:
+	var m = flat_match()
+	m.begin_round()
+	m.sides[0].research = 50
+	m.sides[0].money = 10
+	err_contains(m.build_action(0, {"action": "research", "item": "radar"}), "money")
+	check(not m.sides[0].is_unlocked("radar"), "not bought")
+	eq(m.sides[0].research, 50, "points kept")
+
+
+func test_research_points_survive_losing_the_labs() -> void:
+	var m = flat_match()
+	var lab = put(m, 0, "lab", 1, 1)
+	play_round(m)
+	play_round(m)
+	m.begin_round()
+	eq(m.sides[0].research, 4, "two rounds of points")
+	m.sides[0].remove_building(lab.hex, m.data)
+	m.end_build_phase()
+	m.resolve_playout()
+	m.begin_round()
+	eq(m.sides[0].research, 4, "kept, but no more coming in")
 
 
 func test_launch_validation() -> void:
@@ -315,9 +264,9 @@ func test_research_tabs_and_coming_soon() -> void:
 		check(String(d.research_item(item).get("tab", "")) in ["buildings", "upgrades"], "tab for " + item)
 	eq(String(d.research_item("radar")["tab"]), "buildings", "radar unlocks a building")
 	eq(String(d.research_item("scouting_missile")["tab"]), "upgrades", "scouting missile is an upgrade")
-	var lab = put(m, 0, "lab", 1, 1)
 	m.sides[0].money = 500
+	m.sides[0].research = 500
 	for item in d.research_items():
 		if not bool(d.research_item(item).get("available", true)):
-			eq(m.sides[0].can_start_research(lab.id, item, d), "Coming soon", "not yet researchable: " + item)
+			eq(m.sides[0].can_research(item, d), "Coming soon", "not yet researchable: " + item)
 			check(not m.sides[0].research_available(d).has(item), "not offered: " + item)

@@ -131,13 +131,13 @@ func test_silo_research_waits_for_four_other_items() -> void:
 	var m = flat_match(d)
 	var st = m.sides[0]
 	st.money = 1000
-	var lab = put(m, 0, "lab", 0, 0)
+	st.research = 100
 	check(not st.research_available(d).has("nuclear_silo"), "not offered with nothing researched")
-	err_contains(st.can_start_research(lab.id, "nuclear_silo", d), "4 research", "says what it needs")
+	err_contains(st.can_research("nuclear_silo", d), "4 research", "says what it needs")
 	for item in ["radar", "bunker", "airport", "docks"]:
 		st.unlocked[item] = true
 	check(st.research_available(d).has("nuclear_silo"), "offered after four")
-	ok(st.can_start_research(lab.id, "nuclear_silo", d), "can start it")
+	ok(st.can_research("nuclear_silo", d), "can research it")
 
 
 func test_silo_and_bank_upgrade_only_in_level_3() -> void:

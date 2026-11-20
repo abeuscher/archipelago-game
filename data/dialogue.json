@@ -1,7 +1,76 @@
 {
   "_about": "Everything the characters say to the player, and who says it. character is an id from data/characters.json (ginger, admiral, pilot, mechanic, scientist). Edit the text freely; keep {placeholders} as they are.",
-  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control and points an arrow at it; arrow only points the arrow, without dimming. Both take: timer, tool:<building> for a toolbar building button, button:<label> for a toolbar button by its label, weapons for the first weapon in targeting, hex:damaged for our first building waiting for repair, hex:targeted_launcher for the launcher the enemy keeps hitting, or hex:suspected_base for an enemy potential base with hits on it. from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
+  "_tips": "Shown one at a time, in this order, while the condition in 'when' holds (conditions are named in game/tips.gd). The phase clock holds while a tip is up. anchor dims the screen around a control and points an arrow at it; arrow only points the arrow, without dimming. Both take: timer, tool:<building> for a toolbar building button, button:<label> for a toolbar button by its label, weapons for the first weapon in targeting, hex:damaged for our first building waiting for repair, hex:targeted_launcher for the launcher the enemy keeps hitting, or hex:suspected_base for an enemy potential base with hits on it. Also toolbar, res:money, res:fuel, res:research, minimap, info, volume and status. arrows: a list of [where, seconds] for an arrow that moves along while the tip is up (each entry from that many seconds after it appears). from_round holds a tip back until that round. pause also blocks clicks behind the tip until it is dismissed. {build_clock} is the player's build clock; other {placeholders} come from rules.json.",
   "tips": [
+    {
+      "id": "intro_welcome",
+      "character": "ginger",
+      "when": "setup",
+      "text": "General, let me walk you through the controls. Everything is fully automated: you can command all of our forces from right here."
+    },
+    {
+      "id": "intro_toolbar",
+      "character": "ginger",
+      "when": "setup",
+      "arrow": "toolbar",
+      "text": "On the left-hand side you'll find the toolbar. It holds the tools you need for each phase of the game."
+    },
+    {
+      "id": "intro_resources",
+      "character": "ginger",
+      "when": "setup",
+      "arrows": [
+        [
+          "res:money",
+          0.0
+        ],
+        [
+          "res:fuel",
+          1.8
+        ],
+        [
+          "res:research",
+          3.4
+        ]
+      ],
+      "text": "In the top right is what we have on hand: our money, our fuel, and any research points. In parentheses next to each is how much of it we're producing every round."
+    },
+    {
+      "id": "intro_minimap",
+      "character": "ginger",
+      "when": "setup",
+      "arrow": "minimap",
+      "text": "This is the minimap. Use it to move around the map, and the buttons beneath it to rotate and zoom your view."
+    },
+    {
+      "id": "intro_info",
+      "character": "ginger",
+      "when": "setup",
+      "arrow": "info",
+      "text": "And this is the info panel. It reads out whatever's relevant to what you're doing as you move through the game."
+    },
+    {
+      "id": "intro_comms",
+      "character": "ginger",
+      "when": "setup",
+      "arrows": [
+        [
+          "volume",
+          0.0
+        ],
+        [
+          "status",
+          2.4
+        ]
+      ],
+      "text": "Oh, and you can control the volume here... and track our bases' health here."
+    },
+    {
+      "id": "intro_done",
+      "character": "ginger",
+      "when": "setup",
+      "text": "So now you've got the 411. Good luck out there, General. We're all counting on you."
+    },
     {
       "id": "place_bases",
       "character": "admiral",
@@ -28,7 +97,7 @@
       "id": "research_intro",
       "character": "scientist",
       "when": "research_open",
-      "text": "Ah, General! Welcome to the research lab! One project per lab. Research ticks along each round. More labs, more projects! Idle labs help existing projects go faster."
+      "text": "Ah, General! Welcome to the research lab! Every lab adds research points each round, shown at the top. Spend them here, with a little money, and the research is ours at once. More labs, more points!"
     },
     {
       "id": "repair",

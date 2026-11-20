@@ -57,7 +57,7 @@ func _initialize() -> void:
 		var types := {}
 		for b in st.buildings.values():
 			types[b.type] = int(types.get(b.type, 0)) + 1
-		print("side %d: money %d fuel %d unlocked %s projects %s" % [s, st.money, st.fuel, str(st.unlocked.keys()), str(st.projects.map(func(p): return p["item"]))])
+		print("side %d: money %d fuel %d research %d unlocked %s" % [s, st.money, st.fuel, st.research, str(st.unlocked.keys())])
 		print("   buildings %s" % str(types))
 		var known := {}
 		for h in m.knowledge[s]:

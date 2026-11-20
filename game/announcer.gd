@@ -149,11 +149,21 @@ func set_tip(tip) -> void:
 ## id: remembered when closed with "Don't show this again" ticked (see
 ## announcement_dismissed). can_hide false: no such box.
 ## hold: whether the phase clock waits while this is on screen.
+## click_away: a click anywhere outside the bubble closes it too (the
+## click still does whatever it was for).
 func announce(text: String, id: String = "", seconds: float = ANNOUNCE_SECONDS, can_hide: bool = true,
-		character: String = "", hold: bool = true) -> void:
+		character: String = "", hold: bool = true, click_away: bool = false) -> void:
 	_queue.append({"text": text, "id": id, "seconds": seconds, "can_hide": can_hide and id != "",
-		"character": character, "hold": hold})
+		"character": character, "hold": hold, "click_away": click_away})
 	_refresh()
+
+
+func _input(event: InputEvent) -> void:
+	if _msg == null or not bool(_msg.get("click_away", false)) or not _box.visible:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT 			and not _box.get_global_rect().has_point(event.position):
+		var shown = _msg
+		(func(): if _msg == shown: _on_ok()).call_deferred()   # after the click has done its own job
 
 
 ## Id of the tip on screen, or "".
@@ -232,7 +242,11 @@ func _process(delta: float) -> void:
 
 # --- Showing ---------------------------------------------------------------
 
+var _shown_ms: int = 0   ## when the message on screen appeared, for arrows that move along
+
+
 func _show_msg() -> void:
+	_shown_ms = Time.get_ticks_msec()
 	var who := String(_msg.get("character", ""))
 	if who == "" or not characters.has(who):
 		who = default_character
@@ -419,6 +433,14 @@ func _draw_spot() -> void:
 ## the arrow) is on screen; empty if it has none or it isn't showing.
 func _rect_of(tip: Dictionary, key: String) -> Rect2:
 	var name := String(tip.get(key, ""))
+	var steps: Array = tip.get("arrows", [])
+	if key == "arrow" and not steps.is_empty():
+		# An arrow that moves on: the last step whose time has come.
+		var t := (Time.get_ticks_msec() - _shown_ms) / 1000.0
+		name = String(steps[0][0])
+		for st in steps:
+			if t >= float(st[1]):
+				name = String(st[0])
 	if name == "" or not anchor_rect.is_valid():
 		return Rect2()
 	return anchor_rect.call(name)
@@ -428,6 +450,9 @@ func _rect_of(tip: Dictionary, key: String) -> Rect2:
 ## when there is no room above it).
 func _draw_arrow(hole: Rect2) -> void:
 	var bob := sin(Time.get_ticks_msec() / 1000.0 * 5.0) * 6.0
+	if hole.size.y > 260.0 and hole.position.x < 300.0:
+		_draw_side_arrow(hole, bob)   # something tall on the left (the toolbar): point at its side
+		return
 	var down := hole.position.y > 70.0
 	var tip := Vector2(hole.get_center().x, hole.position.y - 6.0 + bob) if down \
 		else Vector2(hole.get_center().x, hole.end.y + 6.0 - bob)
@@ -440,6 +465,19 @@ func _draw_arrow(hole: Rect2) -> void:
 	_spot.draw_rect(shaft.grow(2.0), edge)
 	var outline := PackedVector2Array([head[0] + Vector2(0, 3 * dir), head[1] + Vector2(-3, -2 * dir), head[2] + Vector2(3, -2 * dir)])
 	_spot.draw_colored_polygon(outline, edge)
+	_spot.draw_rect(shaft, fill)
+	_spot.draw_colored_polygon(head, fill)
+
+
+## The arrow lying on its side, to the right of `hole`, pointing left at it.
+func _draw_side_arrow(hole: Rect2, bob: float) -> void:
+	var tip := Vector2(hole.end.x + 6.0 + bob, hole.position.y + hole.size.y * 0.3)
+	var head := PackedVector2Array([tip, tip + Vector2(20, -16), tip + Vector2(20, 16)])
+	var shaft := Rect2(tip.x + 20.0, tip.y - 6.0, 32.0, 12.0)
+	var edge := Color(0.10, 0.09, 0.08)
+	var fill := Color(1.0, 0.82, 0.25)
+	_spot.draw_rect(shaft.grow(2.0), edge)
+	_spot.draw_colored_polygon(PackedVector2Array([head[0] + Vector2(-3, 0), head[1] + Vector2(2, -3), head[2] + Vector2(2, 3)]), edge)
 	_spot.draw_rect(shaft, fill)
 	_spot.draw_colored_polygon(head, fill)
 

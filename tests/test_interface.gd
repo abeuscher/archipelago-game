@@ -53,7 +53,7 @@ func test_old_settings_take_the_new_default_clocks() -> void:
 
 func test_tips_load_with_numbers_from_data() -> void:
 	var d = data()
-	var tips: Array = Tips.load_tips(d)
+	var tips: Array = _game_tips(d)
 	check(tips.size() >= 2, "tips loaded")
 	eq(tips[0]["id"], "place_bases", "first tip, in setup")
 	eq(tips[0]["anchor"], "tool:base", "points at the base button")
@@ -76,11 +76,11 @@ func test_tips_load_with_numbers_from_data() -> void:
 	var radar: Dictionary = tips.filter(func(t): return t["id"] == "research_radar")[0]
 	check(String(radar["text"]).contains("90%"), "radar accuracy from data")
 	d.set_path("rules.anti_air.accuracy_with_radar", 0.8)
-	check(String(Tips.load_tips(d).filter(func(t): return t["id"] == "research_radar")[0]["text"]).contains("80%"), "follows the data")
+	check(String(_game_tips(d).filter(func(t): return t["id"] == "research_radar")[0]["text"]).contains("80%"), "follows the data")
 
 
 func test_tips_order_and_completion() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var ctx := {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, ctx, [], null)
 	eq(r["current"]["id"], "build_anti_air", "anti-air first")
@@ -109,8 +109,7 @@ func test_earnings_projection_matches_next_round() -> void:
 	put(m, 0, "refinery", 2, 1)
 	var damaged = put(m, 0, "bank", 3, 1)
 	damaged.hp = 10
-	var lab = put(m, 0, "lab", 4, 1)
-	ok(m.sides[0].start_research(lab.id, "radar", m.data), "start radar")
+	put(m, 0, "lab", 4, 1)
 	m.begin_round()
 	var money_before: int = m.sides[0].money
 	var p: Dictionary = Earnings.project(m.sides[0], m.data, m.round_number)
@@ -119,7 +118,7 @@ func test_earnings_projection_matches_next_round() -> void:
 	eq(p["income"]["fuel"], 3 + 3, "baseline + refinery")
 	eq(p["income"]["research"], 2, "one lab")
 	eq(m.sides[0].money, money_before, "projection leaves the state alone")
-	eq(m.sides[0].project_for_item("radar")["progress"], 0, "projection leaves research alone")
+	eq(m.sides[0].research, 0, "projection leaves research alone")
 	m.end_build_phase()
 	ok(m.set_launch_orders(0, []))
 	ok(m.set_launch_orders(1, []))
@@ -145,21 +144,17 @@ func test_earnings_round_one_has_no_income_before_round_two() -> void:
 	check(p["income"].is_empty(), "setup projects round 1: no income")
 
 
-func test_research_rate_and_rounds_left() -> void:
+func test_rounds_to_afford_research() -> void:
 	var m = flat_match()
 	var d = m.data
 	var st = m.sides[0]
-	var lab1 = put(m, 0, "lab", 1, 1)
-	ok(st.start_research(lab1.id, "radar", d), "radar")
-	eq(Earnings.research_rate(st, d, "radar"), 2, "one lab")
-	eq(Earnings.rounds_left(st, d, "radar"), 3, "6 points at 2 a round")
+	eq(Earnings.rounds_to_afford(st, d, "radar"), -1, "no labs: never")
+	put(m, 0, "lab", 1, 1)
+	eq(Earnings.rounds_to_afford(st, d, "radar"), 3, "6 points at 2 a round")
 	put(m, 0, "lab", 2, 1)
-	eq(Earnings.research_rate(st, d, "radar"), 4, "idle lab helps the oldest project")
-	eq(Earnings.rounds_left(st, d, "radar"), 2, "twice as fast")
-	st.remove_building(lab1.hex, d)
-	eq(Earnings.research_rate(st, d, "radar"), 2, "orphaned project still helped by the idle lab")
-	st.remove_building(st.of_role(d, "lab")[0].hex, d)
-	eq(Earnings.rounds_left(st, d, "radar"), -1, "stalled without labs")
+	eq(Earnings.rounds_to_afford(st, d, "radar"), 2, "two labs: twice as fast")
+	st.research = 6
+	eq(Earnings.rounds_to_afford(st, d, "radar"), 0, "already affordable")
 
 
 func test_timer_readout() -> void:
@@ -173,7 +168,7 @@ func test_timer_readout() -> void:
 
 
 func test_tips_phase_change_and_snooze() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var build := {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, build, [], null)
 	eq(r["current"]["id"], "build_anti_air", "shown in build")
@@ -266,7 +261,7 @@ func test_next_round_money_matches_projection() -> void:
 
 
 func test_first_build_tips_timer_then_launcher() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var ctx := {"phase": "build", "round": 2, "has_lab": true, "clock_on": true, "has_launcher": false, "has_anti_air": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, ctx, [], null)
 	eq(r["current"]["id"], "round_timer", "timer tip first while the clock runs")
@@ -294,18 +289,18 @@ func test_characters_data() -> void:
 
 func test_every_line_has_a_known_speaker() -> void:
 	var chars: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/characters.json"))["characters"]
-	for t in Tips.load_tips(data()):
+	for t in _game_tips(data()):
 		check(chars.has(t["character"]), "tip %s spoken by a known character" % t["id"])
 	var lines: Dictionary = Tips.load_lines()
 	for key in lines:
 		if key.begins_with("_"):
 			continue
 		check(chars.has(String(lines[key]["character"])), "line %s spoken by a known character" % key)
-	eq(Tips.load_tips(data())[0]["character"], "admiral", "the Admiral asks for careful base placement")
+	eq(_game_tips(data())[0]["character"], "admiral", "the Admiral asks for careful base placement")
 
 
 func test_setup_done_tip_after_bases_and_decoys() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var r: Dictionary = Tips.update(tips, {"phase": "setup", "setup_complete": false}, ["place_bases"], null)
 	eq(r["current"], null, "nothing while still placing")
 	r = Tips.update(tips, {"phase": "setup", "setup_complete": true}, ["place_bases"], null)
@@ -331,13 +326,13 @@ func test_game_rules_page_filled_from_data() -> void:
 
 
 func test_damage_tip_cost_from_data() -> void:
-	var t: Array = Tips.load_tips(data()).filter(func(x): return x["id"] == "repair")
+	var t: Array = _game_tips(data()).filter(func(x): return x["id"] == "repair")
 	check(String(t[0]["text"]).contains("30% of their original cost"), "repair cost filled in")
 	eq(t[0]["character"], "mechanic", "said by the Mechanic")
 
 
 func test_rebuild_tip_when_a_launcher_is_kept_down() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var done: Array = ["place_bases", "setup_done", "round_timer", "repair"]
 	var ctx := {"phase": "build", "round": 2, "has_lab": true, "has_launcher": true, "has_anti_air": true, "radar_started": true, "own_damaged": true}
 	var r: Dictionary = Tips.update(tips, ctx, done, null)
@@ -349,7 +344,7 @@ func test_rebuild_tip_when_a_launcher_is_kept_down() -> void:
 
 
 func test_anti_air_tip_from_round_two() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var done: Array = ["place_bases", "setup_done", "round_timer"]
 	var ctx := {"phase": "build", "round": 1, "has_launcher": true, "has_anti_air": false, "has_lab": false}
 	var r: Dictionary = Tips.update(tips, ctx, done, null)
@@ -363,7 +358,7 @@ func test_anti_air_tip_from_round_two() -> void:
 
 
 func test_radar_tip_after_first_lab() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var done: Array = ["place_bases", "setup_done", "round_timer", "build_anti_air"]
 	var ctx := {"phase": "build", "round": 2, "has_launcher": true, "has_anti_air": true, "has_lab": false, "radar_started": false}
 	var r: Dictionary = Tips.update(tips, ctx, done, null)
@@ -374,7 +369,7 @@ func test_radar_tip_after_first_lab() -> void:
 
 
 func test_scientist_explains_research_when_it_first_opens() -> void:
-	var tips: Array = Tips.load_tips(data())
+	var tips: Array = _game_tips(data())
 	var done: Array = ["place_bases", "setup_done", "round_timer"]
 	var ctx := {"phase": "build", "round": 1, "has_launcher": true, "has_anti_air": true, "has_lab": true, "radar_started": true}
 	var r: Dictionary = Tips.update(tips, ctx, done, null)
@@ -416,3 +411,29 @@ func test_battle_report_counts_and_skips_zeros() -> void:
 		"We lost eight soldiers.",
 		"We stopped eight of their soldiers.",
 	], "the Admiral's sentences")
+
+
+## The tips after the opening walkthrough (Ginger's intro_* tips, which come
+## first in setup).
+func _game_tips(d) -> Array:
+	return Tips.load_tips(d).filter(func(t): return not String(t["id"]).begins_with("intro_"))
+
+
+func test_walkthrough_comes_first_and_points_at_the_controls() -> void:
+	var tips: Array = Tips.load_tips(data())
+	var ids: Array = tips.map(func(t): return String(t["id"]))
+	eq(ids.slice(0, 7), ["intro_welcome", "intro_toolbar", "intro_resources", "intro_minimap", "intro_info", "intro_comms", "intro_done"], "in order, before anything else")
+	for t in tips.slice(0, 7):
+		eq(t["character"], "ginger", "Ginger walks through " + t["id"])
+		eq(t["when"], "setup", "in setup")
+	eq(tips[1]["arrow"], "toolbar", "the toolbar")
+	eq(tips[2]["arrows"].map(func(a): return a[0]), ["res:money", "res:fuel", "res:research"], "the resources, one after another")
+	eq(tips[5]["arrows"].map(func(a): return a[0]), ["volume", "status"], "volume, then base health")
+	# OK on each brings the next.
+	var done: Array = []
+	var r: Dictionary = Tips.update(tips, {"phase": "setup"}, done, null)
+	for k in 7:
+		eq(r["current"]["id"], ids[k], "step %d" % (k + 1))
+		done.append(ids[k])
+		r = Tips.update(tips, {"phase": "setup"}, done, null)
+	eq(r["current"]["id"], "place_bases", "then the Admiral on placing bases")

@@ -19,7 +19,7 @@ static func load_tips(data, path: String = PATH) -> Array:
 	var fill := placeholders(data)
 	for t in parsed.get("tips", []):
 		out.append({"id": String(t["id"]), "when": String(t["when"]), "text": String(t["text"]).format(fill),
-			"anchor": String(t.get("anchor", "")), "arrow": String(t.get("arrow", "")), "pause": bool(t.get("pause", false)),
+			"anchor": String(t.get("anchor", "")), "arrow": String(t.get("arrow", "")), "arrows": Array(t.get("arrows", [])), "pause": bool(t.get("pause", false)),
 			"character": String(t.get("character", "")), "from_round": int(t.get("from_round", 0))})
 	return out
 
