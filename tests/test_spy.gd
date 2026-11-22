@@ -203,13 +203,14 @@ func test_strong_ai_keeps_the_spy_home_once_a_silo_is_known() -> void:
 	eq(orders.filter(func(o): return o["missile"] == "spy").size(), 0, "no spy")
 
 
-func test_strong_ai_researches_the_spy_after_the_silo_and_the_refinery_upgrade() -> void:
+func test_strong_ai_researches_the_spy_after_the_airport_and_the_refinery_upgrade() -> void:
 	var d4 = Levels.data_for(data(), 4)
 	for s in [1, 2, 3, 4]:
 		var ai = StrongAI.new(1, d4, s)
 		var sp: int = ai.research.find("spy")
-		check(sp > ai.research.find("airport") and sp > ai.research.find("nuclear_silo"), "spy after the airport and the silo (seed %d)" % s)
-		check(ai.research.has("refinery_upgrade"), "refinery upgrade")
+		var ap: int = ai.research.find("airport")
+		check(ap >= 0 and sp > ap and sp > ai.research.find("refinery_upgrade"), "spy after the airport and the refinery upgrade (seed %d)" % s)
+		check(not ai.research.has("nuclear_silo") and not ai.research.has("bank_upgrade"), "carried-over research is not in the order")
 	var d3 = Levels.data_for(data(), 3)
 	var ai3 = StrongAI.new(1, d3, 1)
 	check(not ai3.research.has("spy") and not ai3.research.has("refinery_upgrade"), "neither in level 3")
@@ -231,3 +232,15 @@ func test_strong_ai_waits_for_its_own_silo_research_before_spying() -> void:
 	m.end_build_phase()
 	var ai = StrongAI.new(1, m.data, 5)
 	eq(ai.choose_targets(m.view_for(1)).filter(func(o): return o["missile"] == "spy").size(), 0, "no spy yet")
+
+
+func test_level_4_starts_both_sides_with_level_3_research_done() -> void:
+	var m = MatchState.create(Levels.data_for(data(), 4), 7)
+	for side in 2:
+		var st = m.sides[side]
+		check(st.is_unlocked("nuclear_silo") and st.is_unlocked("bank_upgrade"), "side %d has the silo and the bank upgrade" % side)
+		check(not st.is_unlocked("spy") and not st.is_unlocked("refinery_upgrade"), "side %d: level 4's own research still to do" % side)
+		check(st.building_unlocked("nuclear_silo", m.data), "side %d can build a silo at once" % side)
+	var m3 = MatchState.create(Levels.data_for(data(), 3), 7)
+	eq(m3.sides[0].unlocked.size(), 0, "level 3 starts with nothing researched")
+	eq(m3.sides[1].unlocked.size(), 0, "nor does its enemy")

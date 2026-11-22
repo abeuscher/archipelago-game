@@ -28,6 +28,8 @@ func _init(side_index: int = 0, isl = null, data = null) -> void:
 	if data != null:
 		money = data.integer("economy", "start_money")
 		fuel = data.integer("economy", "start_fuel")
+		for item in starting_research(data):
+			unlocked[item] = true
 
 
 func duplicate_state():
@@ -43,6 +45,18 @@ func duplicate_state():
 	c.stored_research = stored_research
 	c.setup_done = setup_done
 	return c
+
+
+## Research both sides start a level with, carried over from the levels
+## before it (start_researched in data/levels.json's "set").
+static func starting_research(data) -> Array:
+	var out: Array = []
+	for item in data.research_items():
+		var def = data.rules["research"][item]
+		if def is Dictionary and bool(def.get("start_researched", false)) and bool(def.get("available", true)):
+			out.append(item)
+	out.sort()
+	return out
 
 
 # --- Queries ---------------------------------------------------------------

@@ -76,12 +76,12 @@
     "scouting_missile":   { "cost": 20, "points": 4,  "tab": "upgrades" },
     "anti_air_capacity":  { "cost": 20, "points": 4,  "tab": "upgrades" },
     "motion_sensor":      { "cost": 50, "points": 12, "tab": "upgrades" },
-    "nuclear_silo":       { "cost": 100, "points": 20, "tab": "buildings", "available": false, "needs_researched": 4 },
-    "bank_upgrade":       { "cost": 60, "points": 12, "tab": "upgrades", "available": false },
-    "spy":                { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "needs": "airport" },
-    "refinery_upgrade":   { "cost": 60, "points": 12, "tab": "upgrades", "available": false }
+    "nuclear_silo":       { "cost": 100, "points": 20, "tab": "buildings", "available": false, "needs_researched": 4, "start_researched": false },
+    "bank_upgrade":       { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false },
+    "spy":                { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false, "needs": "airport" },
+    "refinery_upgrade":   { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false }
   },
-  "_note_research": "available: false hides an item until a level turns it on (data/levels.json). needs_researched: how many other items must be done before it can be started. needs: one item that must be done first.",
+  "_note_research": "available: false hides an item until a level turns it on (data/levels.json). needs_researched: how many other items must be done before it can be started. needs: one item that must be done first. start_researched: both sides start the match with it done (a level sets it for what earlier levels brought in).",
 
   "anti_air": {
     "radius": 3,

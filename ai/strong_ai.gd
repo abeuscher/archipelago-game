@@ -67,6 +67,9 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 		research.insert(mini(research.size(), at2), "refinery_upgrade")
 	if _in_level("spy"):
 		_place_spy_research()
+	# Research the level starts with done (carried over) needs no slot.
+	for item in SideState.starting_research(data):
+		research.erase(item)
 
 
 ## The spy goes into the research order where the silo will really be
@@ -75,7 +78,7 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 func _place_spy_research() -> void:
 	var after := maxi(research.find("airport"), research.find("refinery_upgrade"))
 	var si := research.find("nuclear_silo")
-	if si >= 0:
+	if si >= 0 and not SideState.starting_research(data).has("nuclear_silo"):
 		after = maxi(after, si + int(data.research_item("nuclear_silo").get("needs_researched", 0)))
 	research.insert(mini(research.size(), after + 1), "spy")
 

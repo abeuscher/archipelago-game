@@ -32,7 +32,9 @@
         "rules.bases.strongholds_per_side": 1,
         "rules.research.nuclear_silo.available": true,
         "rules.research.bank_upgrade.available": true,
-        "rules.research.spy.available": true,
+        "rules.research.nuclear_silo.start_researched": true,
+    "rules.research.bank_upgrade.start_researched": true,
+    "rules.research.spy.available": true,
         "rules.research.refinery_upgrade.available": true
       },
       "win_award_money": 0,
