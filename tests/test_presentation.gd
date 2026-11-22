@@ -55,3 +55,49 @@ func test_edge_neighbor_matches_the_drawn_outline() -> void:
 			var expect: Vector2 = c + ((top[k] + top[(k + 1) % 6]) / 2.0 - c) * 2.0
 			check(bv.iso.top_center(n, 0, false).distance_to(expect) < 0.5, "edge %d, rotation %d faces its neighbour" % [k, r])
 	bv.free()
+
+
+# --- Batch: shapes collected into one triangle list ------------------------
+
+const Batch = preload("res://game/batch.gd")
+
+
+func test_batch_polygon_is_triangulated_as_godot_does() -> void:
+	var node := Node2D.new()
+	var g := Batch.new(node)
+	var hex := Iso.hex_at(Vector2(10, 10))
+	g.draw_colored_polygon(hex, Color.RED)
+	eq(g._pts.size(), Geometry2D.triangulate_polygon(hex).size(), "same triangles as Godot's own polygon")
+	eq(g._pts.size(), 12, "a hex is four triangles")
+	check(g._cols.has(Color.RED) and g._cols.count(Color.RED) == 12, "every vertex in the polygon's colour")
+	node.free()
+
+
+func test_batch_line_matches_godot_geometry() -> void:
+	var node := Node2D.new()
+	var g := Batch.new(node)
+	g.draw_line(Vector2(0, 0), Vector2(10, 0), Color.WHITE, 2.0)
+	eq(g._pts.size(), 6, "a plain line is one quad")
+	check(is_equal_approx(absf(g._pts[0].y - g._pts[1].y), 2.0), "full width without antialiasing")
+	g = Batch.new(node)
+	g.draw_line(Vector2(0, 0), Vector2(10, 0), Color.WHITE, 1.2, true)
+	eq(g._pts.size(), 9 * 6, "antialiased: the line, four feathered edges and four corners")
+	check(is_equal_approx(absf(g._pts[0].y - g._pts[1].y), 0.6), "width compensated for the feather, as Godot 4.7")
+	eq(g._cols[1].a, 1.0, "the line itself is solid")
+	node.free()
+
+
+func test_batch_polyline_strip_counts() -> void:
+	var node := Node2D.new()
+	var g := Batch.new(node)
+	var pts := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(10, 10)])
+	g.draw_polyline(pts, Color.WHITE, 2.0)
+	eq(g._pts.size(), (pts.size() * 2 - 2) * 3, "plain: one strip")
+	g = Batch.new(node)
+	g.draw_polyline(pts, Color.WHITE, 2.0, true)
+	var n := pts.size()
+	eq(g._pts.size(), ((n * 2 + 4 - 2) + 2 * (n * 2 + 5 - 2)) * 3, "antialiased open line: middle strip and two feathers")
+	g = Batch.new(node)
+	g.flush()   # nothing collected: no command, no error
+	eq(g._pts.size(), 0, "empty")
+	node.free()

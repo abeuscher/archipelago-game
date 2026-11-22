@@ -23,6 +23,12 @@ var boards: Array = []     ## [own BoardView, enemy BoardView]
 var ocean
 var camera: Camera2D
 var _since: float = 0.0
+## The sea's triangles, kept until the sea or the fit changes. Every hex is
+## sent as one triangle list in a single draw call: thousands of separate
+## polygons a few times a second stalled the frame on macOS (MoltenVK).
+var _sea_key: Array = []
+var _sea_pts := PackedVector2Array()
+var _sea_cols := PackedColorArray()
 
 
 func setup(own_board, enemy_board, ocean_view, cam: Camera2D) -> void:
@@ -73,22 +79,41 @@ func _draw() -> void:
 	var f := _fit()
 	var s: float = f["scale"]
 	var off: Vector2 = f["offset"]
-	var wb: Rect2 = ocean.world_rect()
-	for c in ocean.cells:
-		if not wb.has_point(c):
-			continue
-		draw_colored_polygon(_scaled(Iso.hex_at(c), Vector2.ZERO, s, off), SEA)
+	var key := [ocean.version, s, off]
+	if key != _sea_key:
+		_sea_key = key
+		_sea_pts = PackedVector2Array()
+		_sea_cols = PackedColorArray()
+		var wb: Rect2 = ocean.world_rect()
+		for c in ocean.cells:
+			if wb.has_point(c):
+				_add_hex(_sea_pts, _sea_cols, _scaled(Iso.hex_at(c), Vector2.ZERO, s, off), SEA)
+	var pts := _sea_pts.duplicate()
+	var cols := _sea_cols.duplicate()
 	for b in boards:
 		if b.iso == null:
 			continue
 		for i in b.tiles.size():
-			draw_colored_polygon(_scaled(b.iso.top_polygon(i, 0, false), b.position, s, off), _color(b.tiles[i]))
+			_add_hex(pts, cols, _scaled(b.iso.top_polygon(i, 0, false), b.position, s, off), _color(b.tiles[i]))
+	if not pts.is_empty():
+		RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), PackedInt32Array(), pts, cols)
 	if camera != null:
 		var vs := camera.get_viewport_rect().size / camera.zoom
 		var view := Rect2((camera.position - vs / 2.0) * s + off, vs * s)
 		view = view.intersection(Rect2(Vector2.ONE, size - Vector2(2, 2)))
 		if view.has_area():
 			draw_rect(view, FRAME, false, 1.0)
+
+
+## A hex as four triangles fanned from its first corner, appended to a
+## triangle list.
+static func _add_hex(pts: PackedVector2Array, cols: PackedColorArray, hex: PackedVector2Array, col: Color) -> void:
+	for k in range(1, 5):
+		pts.append(hex[0])
+		pts.append(hex[k])
+		pts.append(hex[k + 1])
+	for k in 12:
+		cols.append(col)
 
 
 static func _scaled(poly: PackedVector2Array, origin: Vector2, s: float, off: Vector2) -> PackedVector2Array:

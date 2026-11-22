@@ -7,12 +7,14 @@ extends Node2D
 
 const Iso = preload("res://game/iso.gd")
 const Palette = preload("res://game/palette.gd")
+const Batch = preload("res://game/batch.gd")
 const MARGIN_HEXES := 2       ## open sea framed by the minimap beyond the outermost island hex
 const FAR_HEXES := 26         ## sea drawn this far out, so it reaches the screen edges when zoomed out
 
 var cells: Array = []         ## screen centres of the sea hexes
 var show_grid: bool = false   ## outline every sea hex (the "Show grid" option)
 var _rect := Rect2()          ## screen bounds of the whole sea
+var version: int = 0          ## bumped whenever `cells` is rebuilt (the minimap caches its sea by it)
 
 
 ## Recomputes the sea for the boards' current rotation and positions.
@@ -47,6 +49,7 @@ func rebuild(boards: Array) -> void:
 			cells.append(Vector2(p.x, p.y * Iso.SQUASH))
 	_rect = Rect2(Vector2(map_rect.position.x, map_rect.position.y * Iso.SQUASH),
 		Vector2(map_rect.size.x, map_rect.size.y * Iso.SQUASH)).grow(Iso.HEX_SIZE)
+	version += 1
 	queue_redraw()
 
 
@@ -56,12 +59,16 @@ func world_rect() -> Rect2:
 	return _rect
 
 
+## Through a Batch: thousands of separate sea hexes took seconds to redraw
+## on macOS.
 func _draw() -> void:
+	var g := Batch.new(self)
 	for c in cells:
 		var poly := Iso.hex_at(c)
-		draw_colored_polygon(poly, Palette.SEA)
+		g.draw_colored_polygon(poly, Palette.SEA)
 		if show_grid:
 			var closed := poly.duplicate()
 			closed.append(poly[0])
-			draw_polyline(closed, Palette.SEA_LINE, 1.0)
-		Palette.draw_wave(self, c, Palette.hash_v(c))
+			g.draw_polyline(closed, Palette.SEA_LINE, 1.0)
+		Palette.draw_wave(g, c, Palette.hash_v(c))
+	g.flush()

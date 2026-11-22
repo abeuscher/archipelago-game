@@ -6,6 +6,7 @@ extends Node2D
 const Iso = preload("res://game/iso.gd")
 const Pieces = preload("res://game/pieces.gd")
 const Palette = preload("res://game/palette.gd")
+const Batch = preload("res://game/batch.gd")
 
 ## One tile per hex:
 ## {"known": bool, "land": bool, "level": int, "stale": bool,
@@ -29,6 +30,14 @@ var _time: float = 0.0
 var _since_redraw: float = 0.0
 var _has_fog: bool = false
 var _edge: Dictionary = {}        ## hexes on the border of the space
+## Shapes are drawn through a Batch, which sends them as a few triangle
+## lists instead of one draw command each (see batch.gd).
+var _g
+## Drawn just after this board, as before, in their own layers: the
+## drifting fog, which animates without redrawing the board under it, then
+## where aimed shots land, drops and target markers on top.
+var _fog_layer := Node2D.new()
+var _marks_layer := Node2D.new()
 
 const SEA := Palette.SEA
 const LAND_TOP := Palette.LAND_TOP
@@ -60,6 +69,13 @@ const HOVER_WIDTH := 1.5
 const SELECTED_WIDTH := 2.0
 
 
+func _init() -> void:
+	add_child(_fog_layer)
+	add_child(_marks_layer)
+	_fog_layer.draw.connect(_draw_fog_layer)
+	_marks_layer.draw.connect(_draw_marks_layer)
+
+
 func setup(grid) -> void:
 	iso = Iso.new(grid)
 	_order = iso.draw_order()
@@ -88,7 +104,7 @@ func _process(delta: float) -> void:
 	_since_redraw += delta
 	if _since_redraw >= 1.0 / FOG_FPS:
 		_since_redraw = 0.0
-		queue_redraw()
+		_fog_layer.queue_redraw()
 
 
 func bounds() -> Rect2:
@@ -121,6 +137,7 @@ func hex_at(local: Vector2) -> int:
 func _draw() -> void:
 	if iso == null or tiles.is_empty():
 		return
+	_g = Batch.new(self)
 	var font := ThemeDB.fallback_font
 	var rings_at := {}
 	for ring in range_rings:
@@ -139,12 +156,12 @@ func _draw() -> void:
 		if not t.get("known", false):
 			_draw_fog(i, top)
 		else:
-			draw_colored_polygon(top, Palette.SEA_SHALLOW if _near_land(i) else SEA)
+			_g.draw_colored_polygon(top, Palette.SEA_SHALLOW if _near_land(i) else SEA)
 			if show_grid:
-				draw_polyline(_closed(top), Palette.SEA_LINE, 1.0)
-			Palette.draw_wave(self, iso.top_center(i, 0, false), Palette.hash_i(i))
+				_g.draw_polyline(_closed(top), Palette.SEA_LINE, 1.0)
+			Palette.draw_wave(_g, iso.top_center(i, 0, false), Palette.hash_i(i))
 			if t.get("stale", false):
-				draw_colored_polygon(top, STALE_TINT)
+				_g.draw_colored_polygon(top, STALE_TINT)
 		_draw_tile_extras(i, t, top, rings_at, font)
 	for i in _order:
 		if not _land(tiles[i]):
@@ -155,7 +172,7 @@ func _draw() -> void:
 			var poly := PackedVector2Array()
 			for v in foot:
 				poly.append(c0 + (v - c0) * float(layer[0]))
-			draw_colored_polygon(poly, layer[1])
+			_g.draw_colored_polygon(poly, layer[1])
 	for i in _order:
 		var t: Dictionary = tiles[i]
 		if not _land(t):
@@ -163,28 +180,44 @@ func _draw() -> void:
 		var lvl := _lvl(t)
 		var top := iso.top_polygon(i, lvl, true)
 		_draw_walls(i, top, lvl)
-		draw_colored_polygon(top, LAND_TOP[clampi(lvl, 0, 2)])
-		Palette.draw_ground_marks(self, iso.top_center(i, lvl, true), lvl, Palette.hash_i(i))
+		_g.draw_colored_polygon(top, LAND_TOP[clampi(lvl, 0, 2)])
+		Palette.draw_ground_marks(_g, iso.top_center(i, lvl, true), lvl, Palette.hash_i(i))
 		_draw_land_edges(i, top, lvl)
 		if t.get("stale", false):
-			draw_colored_polygon(top, STALE_TINT)
+			_g.draw_colored_polygon(top, STALE_TINT)
 		_draw_tile_extras(i, t, top, rings_at, font)
 
-	if _has_fog:
-		_draw_fog_overlay()
+	_g.flush()
+	_fog_layer.queue_redraw()
+	_marks_layer.queue_redraw()
+
+
+func _draw_fog_layer() -> void:
+	if iso == null or tiles.is_empty() or not _has_fog:
+		return
+	_g = Batch.new(_fog_layer)
+	_draw_fog_overlay()
+	_g.flush()
+
+
+func _draw_marks_layer() -> void:
+	if iso == null or tiles.is_empty():
+		return
+	_g = Batch.new(_marks_layer)
 	# Where aimed shots will land, over the fog as well as known ground.
 	for h in blast_fill:
 		var tb: Dictionary = tiles[h]
-		draw_colored_polygon(iso.top_polygon(h, _lvl(tb), _land(tb)), blast_fill[h])
+		_g.draw_colored_polygon(iso.top_polygon(h, _lvl(tb), _land(tb)), blast_fill[h])
 	for dr in drops:
 		_draw_drop(int(dr["target"]), int(dr["dir"]))
 	for h in markers:
 		var t3: Dictionary = tiles[h]
 		var mc := iso.top_center(h, _lvl(t3), _land(t3))
 		var col: Color = markers[h]
-		draw_arc(mc, 11.0, 0, TAU, 20, col, 2.0)
-		draw_line(mc + Vector2(-15, 0), mc + Vector2(15, 0), col, 2.0)
-		draw_line(mc + Vector2(0, -9), mc + Vector2(0, 9), col, 2.0)
+		_g.draw_arc(mc, 11.0, 0, TAU, 20, col, 2.0)
+		_g.draw_line(mc + Vector2(-15, 0), mc + Vector2(15, 0), col, 2.0)
+		_g.draw_line(mc + Vector2(0, -9), mc + Vector2(0, 9), col, 2.0)
+	_g.flush()
 
 
 ## Ink on the edges of a land hex that face the sea, fog, the edge of the
@@ -196,7 +229,7 @@ func _draw_land_edges(i: int, top: PackedVector2Array, lvl: int) -> void:
 		var open := n >= 0 and _land(tiles[n]) and _lvl(tiles[n]) == lvl
 		if open and not show_grid:
 			continue
-		draw_line(top[k], top[(k + 1) % 6], GRID_INK if open else Palette.INK, 1.0 if open else 1.3, true)
+		_g.draw_line(top[k], top[(k + 1) % 6], GRID_INK if open else Palette.INK, 1.0 if open else 1.3, true)
 
 
 ## The hex across edge k (from corner k to corner k+1) of hex i's outline
@@ -216,12 +249,12 @@ const DROP_COLOR := Color(0.80, 0.55, 1.0)
 func _draw_drop(target: int, dir: int) -> void:
 	var t: Dictionary = tiles[target]
 	var c := iso.top_center(target, _lvl(t), _land(t))
-	draw_arc(c, 13.0, 0, TAU, 24, DROP_COLOR, 2.5, true)
-	draw_circle(c, 4.0, DROP_COLOR)
+	_g.draw_arc(c, 13.0, 0, TAU, 24, DROP_COLOR, 2.5, true)
+	_g.draw_circle(c, 4.0, DROP_COLOR)
 	if dir < 0:
 		for k in 8:
 			var a := TAU * k / 8.0
-			draw_line(c + Vector2(cos(a), sin(a) * Iso.SQUASH) * 18.0, c + Vector2(cos(a), sin(a) * Iso.SQUASH) * 24.0, DROP_COLOR, 2.0, true)
+			_g.draw_line(c + Vector2(cos(a), sin(a) * Iso.SQUASH) * 18.0, c + Vector2(cos(a), sin(a) * Iso.SQUASH) * 24.0, DROP_COLOR, 2.0, true)
 		return
 	var pts := PackedVector2Array([c])
 	var h := target
@@ -232,12 +265,12 @@ func _draw_drop(target: int, dir: int) -> void:
 		h = n
 		var tn: Dictionary = tiles[h]
 		pts.append(iso.top_center(h, _lvl(tn), _land(tn)))
-	draw_polyline(pts, DROP_COLOR, 3.0, true)
+	_g.draw_polyline(pts, DROP_COLOR, 3.0, true)
 	if pts.size() >= 2:
 		var tip := pts[pts.size() - 1]
 		var back := (pts[pts.size() - 2] - tip).normalized()
 		var side := back.orthogonal()
-		draw_colored_polygon(PackedVector2Array([tip - back * 4.0, tip + back * 12.0 + side * 7.0, tip + back * 12.0 - side * 7.0]), DROP_COLOR)
+		_g.draw_colored_polygon(PackedVector2Array([tip - back * 4.0, tip + back * 12.0 + side * 7.0, tip + back * 12.0 - side * 7.0]), DROP_COLOR)
 
 
 ## A known sea hex next to known land is drawn as shallow water.
@@ -253,22 +286,22 @@ func _draw_tile_extras(i: int, t: Dictionary, top: PackedVector2Array, rings_at:
 	var lvl := _lvl(t)
 	var land := _land(t)
 	if t.get("enemy_seen", false):
-		draw_colored_polygon(top, ENEMY_SEEN_TINT)
+		_g.draw_colored_polygon(top, ENEMY_SEEN_TINT)
 	if placement_ok.has(i):
-		draw_colored_polygon(top, Color(1, 1, 1, 0.10))
+		_g.draw_colored_polygon(top, Color(1, 1, 1, 0.10))
 	if range_shade.has(i):
-		draw_colored_polygon(top, range_shade[i])
+		_g.draw_colored_polygon(top, range_shade[i])
 	if range_fill.has(i):
-		draw_colored_polygon(top, range_fill[i])
+		_g.draw_colored_polygon(top, range_fill[i])
 	var c := iso.top_center(i, lvl, land)
 	_draw_outlines(i, c, top, rings_at.get(i, []))
 	var b = t.get("building")
 	if b != null:
-		Pieces.draw_piece(self, font, c, b, iso.rotation_step)
+		Pieces.draw_piece(_g, font, c, b, iso.rotation_step)
 		if show_hits and String(b["type"]) in ["suspected_base", "decoy"] and float(b["hits"]) > 0.0:
 			_draw_yard_number(font, c, b)
 	elif String(t.get("destroyed", "")) != "":
-		Pieces.draw_rubble(self, c, String(t["destroyed"]), iso.rotation_step)
+		Pieces.draw_rubble(_g, c, String(t["destroyed"]), iso.rotation_step)
 
 
 ## Range rings, hit outline, hover and selection for one hex, in that
@@ -290,7 +323,7 @@ func _inset_outline(c: Vector2, top: PackedVector2Array, col: Color, width: floa
 	var poly := PackedVector2Array()
 	for v in top:
 		poly.append(c + (v - c) * k)
-	draw_polyline(_closed(poly), col, width, true)
+	_g.draw_polyline(_closed(poly), col, width, true)
 
 
 func _draw_walls(i: int, top: PackedVector2Array, lvl: int) -> void:
@@ -305,15 +338,15 @@ func _draw_walls(i: int, top: PackedVector2Array, lvl: int) -> void:
 		var shade: Color = WALL[clampi(lvl, 0, 2)]
 		if (b - a).x * (b - a).y < 0.0:
 			shade = shade.darkened(0.15)
-		draw_colored_polygon(wall, shade)
-		draw_line(a + Vector2(0, drop), b + Vector2(0, drop), Palette.INK, 1.3, true)
-		draw_line(a, a + Vector2(0, drop), Color(Palette.INK, 0.5), 1.0, true)
+		_g.draw_colored_polygon(wall, shade)
+		_g.draw_line(a + Vector2(0, drop), b + Vector2(0, drop), Palette.INK, 1.3, true)
+		_g.draw_line(a, a + Vector2(0, drop), Color(Palette.INK, 0.5), 1.0, true)
 
 
 ## Fog has a fixed speckle pattern in board space, so it visibly moves when
 ## the view pans or rotates.
 func _draw_fog(i: int, top: PackedVector2Array) -> void:
-	draw_colored_polygon(top, FOG)
+	_g.draw_colored_polygon(top, FOG)
 	# Fixed blotches, so the fog has a texture that moves when you pan.
 	var c := iso.top_center(i, 0, false)
 	var h := _hash(i)
@@ -361,7 +394,7 @@ func _draw_fog_overlay() -> void:
 func _soft_ellipse(c: Vector2, r: float, col: Color, layers: int) -> void:
 	for k in layers:
 		var rr := r * (1.0 - float(k) / layers)
-		draw_colored_polygon(_ellipse_points(c, rr, rr * Iso.SQUASH, 18), Color(col, col.a / layers * (k + 1) * 0.6))
+		_g.draw_colored_polygon(_ellipse_points(c, rr, rr * Iso.SQUASH, 18), Color(col, col.a / layers * (k + 1) * 0.6))
 
 
 ## A short spiral curl lying flat on the hex.
@@ -373,7 +406,7 @@ func _swirl(c: Vector2, r: float, start: float, col: Color) -> void:
 		var ang := start + t * 4.2
 		var rr := r * (0.35 + 0.65 * t)
 		pts.append(c + Vector2(cos(ang) * rr, sin(ang) * rr * Iso.SQUASH))
-	draw_polyline(pts, col, 1.6, true)
+	_g.draw_polyline(pts, col, 1.6, true)
 
 
 static func _ellipse_points(c: Vector2, rx: float, ry: float, n: int) -> PackedVector2Array:
@@ -396,9 +429,9 @@ static func _next(h: int) -> int:
 func _draw_yard_number(font: Font, c: Vector2, b: Dictionary) -> void:
 	var hits := float(b["hits"])
 	var text := str(int(hits)) if is_equal_approx(hits, roundf(hits)) else "%.1f" % hits
-	draw_set_transform(c + Vector2(0, 9), 0.0, Vector2(1.0, Iso.SQUASH))
-	draw_string(font, Vector2(-20, 8), text, HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(1, 1, 1, 0.95))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_g.draw_set_transform(c + Vector2(0, 9), 0.0, Vector2(1.0, Iso.SQUASH))
+	_g.draw_string(font, Vector2(-20, 8), text, HORIZONTAL_ALIGNMENT_CENTER, 40, 22, Color(1, 1, 1, 0.95))
+	_g.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 static func _closed(poly: PackedVector2Array) -> PackedVector2Array:

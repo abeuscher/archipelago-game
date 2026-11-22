@@ -163,7 +163,7 @@ static func is_hit(b: Dictionary) -> bool:
 ## Draws one frame of a sheet with its anchor on `c` (the centre of the hex
 ## top face). `view` is the board rotation step. Returns false if the sheet
 ## is missing, so the caller can fall back to the placeholder.
-static func draw_sheet(ci: CanvasItem, name: String, c: Vector2, view: int, scale: float = 1.0,
+static func draw_sheet(ci, name: String, c: Vector2, view: int, scale: float = 1.0,
 		modulate: Color = Color.WHITE) -> bool:  # modulate tints the frame
 	var tex := sheet(name)
 	var meta := sprite_meta()
@@ -182,7 +182,7 @@ static func draw_sheet(ci: CanvasItem, name: String, c: Vector2, view: int, scal
 ## b: {"type", "hits", "damaged", "disabled", "repairing", "empty"}. The
 ## owner's decoy uses its own sheet (sandy tan) so the owner can tell it
 ## apart; the enemy sees a base. `view` is the board rotation step.
-static func draw_piece(ci: CanvasItem, font: Font, c: Vector2, b: Dictionary, view: int = 0, scale: float = 1.0) -> void:
+static func draw_piece(ci, font: Font, c: Vector2, b: Dictionary, view: int = 0, scale: float = 1.0) -> void:
 	var type := String(b["type"])
 	var w := 22.0
 	var h := 26.0
@@ -215,7 +215,7 @@ static func draw_piece(ci: CanvasItem, font: Font, c: Vector2, b: Dictionary, vi
 
 
 ## Common under-construction graphic for a hex under repair.
-static func _draw_scaffold(ci: CanvasItem, top: Vector2, w: float, h: float) -> void:
+static func _draw_scaffold(ci, top: Vector2, w: float, h: float) -> void:
 	var col := Color(0.95, 0.75, 0.2)
 	var l := top.x - w / 2.0 - 3
 	var r := top.x + w / 2.0 + 3
@@ -227,7 +227,7 @@ static func _draw_scaffold(ci: CanvasItem, top: Vector2, w: float, h: float) -> 
 	ci.draw_line(Vector2(r, top.y + 13), Vector2(l, top.y + 22), col, 1.0)
 
 
-static func draw_rubble(ci: CanvasItem, c: Vector2, _type: String, view: int = 0) -> void:
+static func draw_rubble(ci, c: Vector2, _type: String, view: int = 0) -> void:
 	if draw_sheet(ci, "rubble", c, view):
 		return
 	var col := Color(0.25, 0.22, 0.2)

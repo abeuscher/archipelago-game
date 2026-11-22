@@ -31,7 +31,7 @@ static func hash_v(c: Vector2) -> int:
 
 
 ## A small "~" wave mark on about one sea hex in three.
-static func draw_wave(ci: CanvasItem, c: Vector2, h: int) -> void:
+static func draw_wave(ci, c: Vector2, h: int) -> void:
 	if h % 3 != 0:
 		return
 	var h2 := next_h(h)
@@ -44,7 +44,7 @@ static func draw_wave(ci: CanvasItem, c: Vector2, h: int) -> void:
 
 
 ## A couple of grass tufts on lowland, or a few specks on higher ground.
-static func draw_ground_marks(ci: CanvasItem, c: Vector2, level: int, h: int) -> void:
+static func draw_ground_marks(ci, c: Vector2, level: int, h: int) -> void:
 	var n := 2 if level == 0 else 1
 	for k in n:
 		h = next_h(h)
