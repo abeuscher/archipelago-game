@@ -117,12 +117,16 @@ func test_spy_research_needs_the_airport_and_level_4() -> void:
 		check(not sn.research_available(dn).has("spy"), "no spy in level %d" % n)
 		check(not sn.research_available(dn).has("refinery_upgrade"), "no refinery upgrade in level %d" % n)
 	var d = Levels.data_for(data(), 4)
-	var st = flat_match(d).sides[0]
-	err_contains(st.research_block("spy", d), "Airport", "the airport first")
+	var m4 = flat_match(d)
+	var st = m4.sides[0]
+	st.money = 500
+	var lab = put(m4, 0, "lab", 0, 0)
+	err_contains(st.can_start_research(lab.id, "spy", d), "Airport", "the airport first")
+	check(not st.research_available(d).has("spy"), "not offered before the airport")
 	st.unlocked["airport"] = true
-	eq(st.research_block("spy", d), "", "then the spy")
+	eq(st.can_start_research(lab.id, "spy", d), "", "then the spy")
 	check(st.research_available(d).has("refinery_upgrade"), "refinery upgrade in level 4")
-	check(st.research_available(d).has("nuclear_silo") or st.research_block("nuclear_silo", d).begins_with("Needs"), "silos in level 4")
+	check(bool(d.research_item("nuclear_silo").get("available", false)), "silos in level 4")
 
 
 func test_refinery_upgrade_doubles_refinery_fuel() -> void:

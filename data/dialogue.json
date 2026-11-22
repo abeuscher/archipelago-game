@@ -98,7 +98,7 @@
       "id": "research_intro",
       "character": "scientist",
       "when": "research_open",
-      "text": "Ah, General! Welcome to the research lab! Every lab adds research points each round, shown at the top. Spend them here, with a little money, and the research is ours at once. More labs, more points!"
+      "text": "Ah, General! Welcome to the research lab! One project per lab. Research ticks along each round. More labs, more projects! Idle labs help existing projects go faster."
     },
     {
       "id": "repair",

@@ -1,9 +1,10 @@
 ## The research screen (section 14), styled as an old mainframe monitor.
 ## It covers everything right of the toolbar, so the island is hidden while
-## it is open and the toolbar stays usable. It shows the research points and
-## money on hand, and every research item as a coloured button with an icon:
-## pressing one buys it with its money and points, done at once. Belongs to
-## the build and repair phase; outside it the screen is read-only.
+## it is open and the toolbar stays usable. One lab per page, with a pager
+## when there are several. The screen shows the lab, its project (or what it
+## is helping), and every research item as a coloured button with an icon:
+## pressing one starts the lab on it. Belongs to the build and repair phase;
+## outside it the screen is read-only.
 extends Control
 
 const Pieces = preload("res://game/pieces.gd")
@@ -11,7 +12,8 @@ const Earnings = preload("res://game/earnings.gd")
 const Icons = preload("res://game/research_icons.gd")
 const ItemButton = preload("res://game/research_item_button.gd")
 
-signal research_requested(item: String)
+signal start_requested(lab_id: int, item: String)
+signal use_stored_requested(item: String)
 signal closed
 
 const BACKDROP := Color(0.05, 0.07, 0.09, 1.0)
@@ -24,12 +26,17 @@ const DIM_TEXT := Color(0.58, 0.68, 0.58)
 const ALERT := Color(1.0, 0.88, 0.35)
 const LED_COLORS := [Color(0.95, 0.25, 0.2), Color(0.35, 0.9, 0.35), Color(0.98, 0.85, 0.25)]
 
+var lab_index: int = 0
 var _font: Font
 var _bold: Font
 var _title: Label
 var _lab_line: Label
 var _status: Label
+var _project: VBoxContainer
 var _items: VBoxContainer
+var _prev: Button
+var _next: Button
+var _pager: Label
 var _tab: String = "buildings"         ## "buildings" or "upgrades"
 var _tab_buttons: Dictionary = {}
 var _st
@@ -71,6 +78,16 @@ func _ready() -> void:
 	_title = _label("RESEARCH", 26, TEXT, true)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(_title)
+	_prev = _flat_button("<", func(): _page(-1))
+	_prev.tooltip_text = "Previous lab"
+	head.add_child(_prev)
+	_pager = _label("", 15, TEXT, true)
+	_pager.custom_minimum_size = Vector2(96, 0)
+	_pager.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.add_child(_pager)
+	_next = _flat_button(">", func(): _page(1))
+	_next.tooltip_text = "Next lab"
+	head.add_child(_next)
 	var close := Button.new()
 	close.text = "CLOSE"
 	close.focus_mode = Control.FOCUS_NONE
@@ -103,6 +120,9 @@ func _ready() -> void:
 	v.add_child(_lab_line)
 	_status = _label("", 16, ALERT, true)
 	v.add_child(_status)
+	_project = VBoxContainer.new()
+	_project.add_theme_constant_override("separation", 4)
+	v.add_child(_project)
 	_items = VBoxContainer.new()
 	_items.add_theme_constant_override("separation", 7)
 	v.add_child(_items)
@@ -148,8 +168,21 @@ func _side_panel(left: bool) -> Control:
 
 # --- State -----------------------------------------------------------------
 
-## Opens the screen (from any lab; they all share the side's points).
-func open_lab(st, data, _lab_id: int, editable: bool) -> void:
+func _page(d: int) -> void:
+	if _st == null:
+		return
+	var n: int = _st.of_role(_data, "lab").size()
+	if n > 0:
+		lab_index = (lab_index + d + n) % n
+	show_state(_st, _data, _editable)
+
+
+## Open on the lab with this building id.
+func open_lab(st, data, lab_id: int, editable: bool) -> void:
+	var labs: Array = st.of_role(data, "lab")
+	for i in labs.size():
+		if labs[i].id == lab_id:
+			lab_index = i
 	visible = true
 	show_state(st, data, editable)
 
@@ -159,43 +192,114 @@ func show_state(st, data, editable: bool) -> void:
 	_data = data
 	_editable = editable
 	_style_tabs()
-	for c in _items.get_children():
+	for c in _project.get_children() + _items.get_children():
 		c.queue_free()
-	var rate := int(st.compute_income(data)["research"])
-	_lab_line.text = "RESEARCH POINTS %d (+%d A ROUND)    MONEY %d" % [st.research, rate, st.money]
-	if st.count_role(data, "lab") == 0:
-		_status.text = "NO LABS. BUILD A LAB TO EARN RESEARCH POINTS."
-	elif not editable:
-		_status.text = "RESEARCH IN THE BUILD AND REPAIR PHASE."
+	var labs: Array = st.of_role(data, "lab")
+	_prev.visible = labs.size() > 1
+	_next.visible = labs.size() > 1
+	if labs.is_empty():
+		_pager.text = ""
+		_lab_line.text = "MONEY %d" % st.money
+		_status.text = "NO LABS. BUILD A LAB TO RESEARCH."
+		return
+	lab_index = clampi(lab_index, 0, labs.size() - 1)
+	var lab = labs[lab_index]
+	_pager.text = "LAB %d OF %d" % [lab_index + 1, labs.size()]
+	var pts: int = st.output_of(lab, int(data.building(lab.type)["produces"].get("research", 0)), data)
+	var note := ""
+	if st.out_for_repair(lab, data):
+		note = ", UNDER REPAIR"
+	elif st.is_half_strength(lab, data):
+		note = ", DAMAGED"
+	_lab_line.text = "LAB %d (HP %d/%d, +%d PTS/ROUND%s)    MONEY %d    STORED %d PTS" % [lab_index + 1, lab.hp, data.max_hp(lab.type), pts, note, st.money, st.stored_research]
+
+	var own = st.project_for_lab(lab.id)
+	var oldest = st.oldest_project()
+	if own != null:
+		_status.text = "RESEARCHING:"
+		_project_block(st, data, String(own["item"]))
+	elif oldest != null:
+		_status.text = "NO PROJECT OF ITS OWN. HELPING:"
+		_project_block(st, data, String(oldest["item"]))
 	else:
-		_status.text = "CHOOSE RESEARCH: _"
+		_status.text = "NO ACTIVE PROJECT! POINTS EARNED ARE STORED FOR LATER."
+	if own == null:
+		var prompt := _label("START RESEARCH: _" if editable else "CHOOSE RESEARCH IN THE BUILD AND REPAIR PHASE.", 16, ALERT, true)
+		_items.add_child(prompt)
 	for item in data.research_items():
 		if not bool(data.research_item(item).get("available", true)):
 			continue   # not in this level
 		if String(data.research_item(item).get("tab", "upgrades")) == _tab:
-			_items.add_child(_item_button(st, data, item))
+			_items.add_child(_item_button(st, data, lab, item, own != null))
 
 
-func _item_button(st, data, item: String) -> Control:
+func _item_button(st, data, lab, item: String, lab_busy: bool) -> Control:
 	var def: Dictionary = data.research_item(item)
 	var b := ItemButton.new()
 	b.font = _bold
 	b.item = item
 	b.title = Pieces.research_name(item)
-	b.detail = "%d money, %d points" % [int(def["cost"]), int(def["points"])]
-	var err: String = st.can_research(item, data)
-	if st.is_unlocked(item):
+	var p = st.project_for_item(item)
+	b.detail = "%s, %d points" % ["resume free" if p != null else "%d money" % int(def["cost"]), int(def["points"])]
+	if p != null and int(p["progress"]) > 0:
+		b.detail += "  (%d done)" % int(p["progress"])
+	var err: String = st.can_start_research(lab.id, item, data)
+	if not bool(def.get("available", true)):
+		b.state = "COMING SOON"
+	elif st.is_unlocked(item):
 		b.state = "RESEARCHED"
-	elif err == "Not enough research":
-		var left := Earnings.rounds_to_afford(st, data, item)
-		var more: int = int(def["points"]) - st.research
-		b.state = "NEEDS %d MORE POINTS%s" % [more, "" if left < 0 else " (ABOUT %d ROUND%s)" % [left, "" if left == 1 else "S"]]
-	elif err != "":
+	elif p != null and int(p["lab_id"]) != -1 and int(p["lab_id"]) != lab.id:
+		b.state = "IN PROGRESS IN ANOTHER LAB"
+	elif p != null and int(p["lab_id"]) == lab.id:
+		b.state = "IN PROGRESS HERE"
+	elif not lab_busy and err != "":
 		b.state = err.to_upper()
-	b.disabled = not _editable or err != ""
+	b.disabled = not _editable or lab_busy or err != ""
 	b.tooltip_text = Pieces.RESEARCH_TEXT.get(item, "")
-	b.pressed.connect(func(): research_requested.emit(item))
+	var lab_id: int = lab.id
+	b.pressed.connect(func(): start_requested.emit(lab_id, item))
 	return b
+
+
+func _project_block(st, data, item: String) -> void:
+	var p = st.project_for_item(item)
+	var need := int(data.research_item(item)["points"])
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	_project.add_child(row)
+	var icon := Control.new()
+	icon.custom_minimum_size = Vector2(40, 40)
+	icon.draw.connect(func():
+		icon.draw_style_box(_box(Icons.color_of(item), Color(0.1, 0.09, 0.08), 2, 6, [0, 0, 0, 0]), Rect2(Vector2.ZERO, icon.size))
+		Icons.draw(icon, item, icon.size / 2.0, 13.0, Color(0.1, 0.09, 0.08)))
+	row.add_child(icon)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	col.add_child(_label(Pieces.research_name(item).to_upper(), 20, TEXT, true))
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(0, 14)
+	var frac := clampf(float(p["progress"]) / maxf(need, 1.0), 0.0, 1.0)
+	bar.draw.connect(func():
+		bar.draw_rect(Rect2(Vector2.ZERO, bar.size), Color(0.06, 0.09, 0.08))
+		bar.draw_rect(Rect2(Vector2.ZERO, Vector2(bar.size.x * frac, bar.size.y)), Icons.color_of(item))
+		bar.draw_rect(Rect2(Vector2.ZERO, bar.size), DIM_TEXT, false, 1.0))
+	col.add_child(bar)
+	var left := Earnings.rounds_left(st, data, item)
+	var eta := "STALLED: NO LAB IS WORKING ON IT" if left < 0 else "%d ROUND%s LEFT" % [left, "" if left == 1 else "S"]
+	col.add_child(_label("%d / %d POINTS, %s" % [int(p["progress"]), need, eta], 14, DIM_TEXT))
+	# Stored points can go into the project: enough to finish it, or all there are.
+	if st.stored_research > 0:
+		var still := need - int(p["progress"])
+		var spend := mini(still, st.stored_research)
+		var text := "> USE %d STORED POINTS: %s" % [spend, "FINISH NOW" if spend >= still else "SPEED UP"]
+		var use := _flat_button(text, func(): use_stored_requested.emit(item))
+		use.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		use.add_theme_color_override("font_color", ALERT)
+		use.add_theme_color_override("font_hover_color", TEXT)
+		use.disabled = not _editable
+		use.tooltip_text = "Research earned while no project was running is stored. Spend it here."
+		col.add_child(use)
 
 
 # --- Bits ------------------------------------------------------------------

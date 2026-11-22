@@ -681,7 +681,7 @@ func _build_resources() -> Control:
 	_fuel_next = _next_label()
 	fuel[1].add_child(_fuel_next)
 	row.add_child(_divider())
-	var res := _stat(row, "Research", "research")
+	var res := _stat(row, "Research: points stored for later, made while no project was running (in brackets, what the labs make a round)", "research")
 	_res_rows["research"] = res[1]
 	_research_val = res[0]
 	_research_next = _next_label()

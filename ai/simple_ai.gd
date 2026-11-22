@@ -70,7 +70,20 @@ func choose_build(view) -> Array:
 				st.repair(b.hex, data)
 				actions.append({"action": "repair", "hex": b.hex})
 
-	_buy_research(st, cfg["research_order"], actions)
+	for lab in st.of_role(data, "lab"):
+		if st.project_for_lab(lab.id) != null:
+			continue
+		for item in cfg["research_order"]:
+			if st.can_start_research(lab.id, item, data) == "":
+				st.start_research(lab.id, item, data)
+				actions.append({"action": "research", "lab": lab.id, "item": item})
+				break
+
+	# Stored research goes straight into the oldest project.
+	var first = st.oldest_project()
+	if first != null and st.can_use_stored_research(String(first["item"]), data) == "":
+		st.use_stored_research(String(first["item"]), data)
+		actions.append({"action": "use_stored_research", "item": String(first["item"])})
 
 	while true:
 		var type := _next_in_order(st)
@@ -91,22 +104,6 @@ func choose_build(view) -> Array:
 
 
 ## The first build-order entry not yet satisfied. Rebuilds anything lost.
-## Research in order: the next item it can research is bought as soon as
-## the money and points are there, then the one after. Returns the money to
-## keep back for the next item once its points are in hand (0 if none).
-func _buy_research(st, queue: Array, actions: Array) -> int:
-	for item in queue:
-		if st.research_block(item, data) != "":
-			continue   # done, not in this level, or waiting on other research
-		if st.can_research(item, data) == "":
-			st.do_research(item, data)
-			actions.append({"action": "research", "item": item})
-			continue
-		var cost := int(data.research_item(item)["cost"])
-		return cost if st.research >= int(data.research_item(item)["points"]) else 0
-	return 0
-
-
 ## Waits on items still being researched; skips launchers it cannot fuel.
 func _next_in_order(st) -> String:
 	var need := {}

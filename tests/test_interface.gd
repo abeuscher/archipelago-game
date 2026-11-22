@@ -109,7 +109,8 @@ func test_earnings_projection_matches_next_round() -> void:
 	put(m, 0, "refinery", 2, 1)
 	var damaged = put(m, 0, "bank", 3, 1)
 	damaged.hp = 10
-	put(m, 0, "lab", 4, 1)
+	var lab = put(m, 0, "lab", 4, 1)
+	ok(m.sides[0].start_research(lab.id, "radar", m.data), "start radar")
 	m.begin_round()
 	var money_before: int = m.sides[0].money
 	var p: Dictionary = Earnings.project(m.sides[0], m.data, m.round_number)
@@ -118,7 +119,7 @@ func test_earnings_projection_matches_next_round() -> void:
 	eq(p["income"]["fuel"], 3 + 3, "baseline + refinery")
 	eq(p["income"]["research"], 2, "one lab")
 	eq(m.sides[0].money, money_before, "projection leaves the state alone")
-	eq(m.sides[0].research, 0, "projection leaves research alone")
+	eq(m.sides[0].project_for_item("radar")["progress"], 0, "projection leaves research alone")
 	m.end_build_phase()
 	ok(m.set_launch_orders(0, []))
 	ok(m.set_launch_orders(1, []))
@@ -144,17 +145,21 @@ func test_earnings_round_one_has_no_income_before_round_two() -> void:
 	check(p["income"].is_empty(), "setup projects round 1: no income")
 
 
-func test_rounds_to_afford_research() -> void:
+func test_research_rate_and_rounds_left() -> void:
 	var m = flat_match()
 	var d = m.data
 	var st = m.sides[0]
-	eq(Earnings.rounds_to_afford(st, d, "radar"), -1, "no labs: never")
-	put(m, 0, "lab", 1, 1)
-	eq(Earnings.rounds_to_afford(st, d, "radar"), 3, "6 points at 2 a round")
+	var lab1 = put(m, 0, "lab", 1, 1)
+	ok(st.start_research(lab1.id, "radar", d), "radar")
+	eq(Earnings.research_rate(st, d, "radar"), 2, "one lab")
+	eq(Earnings.rounds_left(st, d, "radar"), 3, "6 points at 2 a round")
 	put(m, 0, "lab", 2, 1)
-	eq(Earnings.rounds_to_afford(st, d, "radar"), 2, "two labs: twice as fast")
-	st.research = 6
-	eq(Earnings.rounds_to_afford(st, d, "radar"), 0, "already affordable")
+	eq(Earnings.research_rate(st, d, "radar"), 4, "idle lab helps the oldest project")
+	eq(Earnings.rounds_left(st, d, "radar"), 2, "twice as fast")
+	st.remove_building(lab1.hex, d)
+	eq(Earnings.research_rate(st, d, "radar"), 2, "orphaned project still helped by the idle lab")
+	st.remove_building(st.of_role(d, "lab")[0].hex, d)
+	eq(Earnings.rounds_left(st, d, "radar"), -1, "stalled without labs")
 
 
 func test_timer_readout() -> void:

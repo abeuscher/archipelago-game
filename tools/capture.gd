@@ -211,9 +211,14 @@ func _run() -> void:
 	await _shot("06b_research_upgrades")
 	main.hud.research_panel._tab = "buildings"
 	main.hud.research_panel.show_state(main.m.sides[0], main.data, true)
-	main.m.sides[0].research = 6
-	main._do_research("radar")
-	await _shot("07_research_done")
+	main._start_research(lab.id, "radar")
+	await _shot("07_research_started")
+	# Stored research offered on the running project (then put back).
+	main.m.sides[0].stored_research = 4
+	main._refresh()
+	await _shot("07b_stored_points")
+	main.m.sides[0].stored_research = 0
+	main._refresh()
 	main.hud.research_panel.visible = false
 	main.hud.status_gauge.set_hits(2.5, 6)   # a battered gauge, for the record
 	await _shot("07c_status_gauge")

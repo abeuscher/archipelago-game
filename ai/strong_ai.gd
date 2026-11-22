@@ -274,8 +274,20 @@ func choose_build(view) -> Array:
 	for t in threats:
 		queue.erase(t)
 	queue = threats + queue
-	# Money is kept back for the next item once its points are in.
-	var reserve := _buy_research(st, queue, actions)
+	for lab in st.of_role(data, "lab"):
+		if st.project_for_lab(lab.id) != null:
+			continue
+		for item in queue:
+			if st.can_start_research(lab.id, item, data) == "":
+				st.start_research(lab.id, item, data)
+				actions.append({"action": "research", "lab": lab.id, "item": item})
+				break
+
+	# Stored research goes straight into the oldest project.
+	var first = st.oldest_project()
+	if first != null and st.can_use_stored_research(String(first["item"]), data) == "":
+		st.use_stored_research(String(first["item"]), data)
+		actions.append({"action": "use_stored_research", "item": String(first["item"])})
 	# Under threat, one of each counter goes up before the usual order.
 	for t in threats:
 		if st.building_unlocked(t, data) and st.count_role(data, data.role(t)) == 0 and st.money >= data.cost(t):
@@ -289,7 +301,7 @@ func choose_build(view) -> Array:
 			actions.append({"action": "build", "type": "nuclear_silo", "hex": sh})
 	while true:
 		var type := _next_in_order(st)
-		if type == "" or st.money - reserve < data.cost(type):
+		if type == "" or st.money < data.cost(type):
 			break
 		var hex := _place_strong(st, type, view)
 		if hex < 0 or st.build(type, hex, data, view.settings, view.round_number) != "":
