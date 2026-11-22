@@ -62,6 +62,13 @@ func test_edge_neighbor_matches_the_drawn_outline() -> void:
 const Batch = preload("res://game/batch.gd")
 
 
+func test_interface_scales_with_the_window() -> void:
+	# Without a stretch mode the panels are drawn in physical pixels and come
+	# out half size on a Retina Mac while the board fills the window.
+	eq(ProjectSettings.get_setting("display/window/stretch/mode"), "canvas_items")
+	eq(ProjectSettings.get_setting("display/window/stretch/aspect"), "expand")
+
+
 func test_batch_polygon_is_triangulated_as_godot_does() -> void:
 	var node := Node2D.new()
 	var g := Batch.new(node)
