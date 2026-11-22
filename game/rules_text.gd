@@ -89,6 +89,11 @@ static func _missiles(data) -> String:
 					int(m["fuel"]), int(m.get("replace_money", 0)), int(m["damage_min"] * m.get("centre_factor", 1.0)), int(m["damage_max"] * m.get("centre_factor", 1.0)),
 					int(m["damage_min"]), int(m["damage_max"]), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
 			continue
+		if m.has("finds_role"):
+			if bool(data.research_item(String(m["requires"])).get("available", true)):
+				out.append("[b]Spy[/b]: sent from an airport instead of its transport, %d fuel and %d money a trip; needs Spy research. He flies in by helicopter, lands on any hex you choose and finds every enemy nuclear silo, then flies home. Anti-air hits his helicopter %d%% of the time, %d%% with radar; shot down, he finds nothing, but the airport keeps its transport." % [
+					int(m["fuel"]), int(m.get("money", 0)), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
+			continue
 		var bits: Array = ["%d fuel" % int(m["fuel"])]
 		if int(m["damage_max"]) > 0:
 			bits.append("%d to %d damage" % [int(m["damage_min"]), int(m["damage_max"])])

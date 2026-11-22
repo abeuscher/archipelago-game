@@ -367,6 +367,9 @@ func research_block(item: String, data) -> String:
 		return "Already researched"
 	if not bool(data.research_item(item).get("available", true)):
 		return "Coming soon"
+	var first := String(data.research_item(item).get("needs", ""))
+	if first != "" and not is_unlocked(first):
+		return "Needs %s research first" % first.capitalize()
 	var needs := int(data.research_item(item).get("needs_researched", 0))
 	if researched_count() < needs:
 		return "Needs %d research done first (%d/%d)" % [needs, researched_count(), needs]
@@ -465,13 +468,13 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 		used[hex] = true
 		if not weapon_active(b):
 			return "Launcher is out of action"
-		if b.carrier_lost:
+		var m := String(o["missile"])
+		if b.carrier_lost and not bool(data.missile(m).get("own_aircraft", false)):
 			return {"airport": "Transport lost", "silo": "No nuke"}.get(data.role(b.type), "Boat lost")
 		if b.boat_out:
 			return "Boat at sea"
 		if b.loading > 0:
 			return "Nuke not ready"
-		var m := String(o["missile"])
 		if not data.building(b.type)["missiles"].has(m):
 			return "That launcher cannot fire that missile"
 		if not missile_unlocked(m, data):

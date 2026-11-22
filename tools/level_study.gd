@@ -5,6 +5,8 @@
 ##
 ## Prints one line per level, e.g.
 ##   Level 3: median 31 rounds (10%: 24, 90%: 36), wins [74, 76], errors 0; research items by round 15: median 2; nukes in 34 matches (42 fired)
+## and, where there are any, spy trips (how many found a silo, how many were
+## shot down) and silos destroyed.
 extends SceneTree
 
 const GameData = preload("res://rules/game_data.gd")
@@ -37,6 +39,7 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 	var nuke_matches := 0
 	var nukes := 0
 	var first_err := ""
+	var spy := {"sent": 0, "found": 0, "lost": 0, "silos_destroyed": 0}
 	for s in n:
 		var m = MatchState.create(d, first_seed + s)
 		var ais := [StrongAI.new(0, d, first_seed + s), StrongAI.new(1, d, first_seed + 4000 + s)]
@@ -64,6 +67,14 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 			for e in m.resolve_playout():
 				if e["type"] == "launch" and e["missile"] == "nuke":
 					fired += 1
+				elif e["type"] == "launch" and e["missile"] == "spy":
+					spy["sent"] += 1
+				elif e["type"] == "spy" and not e["found"].is_empty():
+					spy["found"] += 1
+				elif e["type"] == "spy_lost":
+					spy["lost"] += 1
+				elif e["type"] == "destroyed" and e["building"] == "nuclear_silo":
+					spy["silos_destroyed"] += 1
 			if m.phase == MatchState.Phase.COIN_FLIP:
 				m.resolve_coin_flip()
 		rounds.append(m.round_number)
@@ -77,3 +88,5 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 	var med := func(a: Array): return a[a.size() / 2] if not a.is_empty() else -1
 	print("Level %d: median %d rounds (10%%: %d, 90%%: %d), wins %s, errors %d%s; research items by round 15: median %d; nukes in %d matches (%d fired)" % [
 		lvl, med.call(rounds), rounds[n / 10], rounds[n * 9 / 10], str(wins), errors, first_err, med.call(researched_at_15), nuke_matches, nukes])
+	if int(spy["sent"]) > 0 or int(spy["silos_destroyed"]) > 0:
+		print("    spy trips %d (found a silo %d, shot down %d); silos destroyed %d" % [spy["sent"], spy["found"], spy["lost"], spy["silos_destroyed"]])

@@ -30,9 +30,12 @@ static func sentences(events: Array, parts: Dictionary) -> Array:
 
 static func counts(events: Array) -> Dictionary:
 	var transports := {}   # missile ids that were transports shot down
+	var spies := {}        # spy helicopters shot down: the log tells of them, not the report
 	for ev in events:
 		if ev["type"] == "carrier_lost":
 			transports[ev["id"]] = true
+		elif ev["type"] == "spy_lost":
+			spies[ev["id"]] = true
 	var c := {"hit_us": 0, "hit_them": 0, "shot_down_by_us": 0, "transports_shot_down_by_us": 0,
 		"our_shot_down": 0, "our_transports_shot_down": 0, "our_platoons_lost": 0, "enemy_platoons_lost": 0}
 	var damaged := [{}, {}]     # side -> hexes hit this round
@@ -45,7 +48,7 @@ static func counts(events: Array) -> Dictionary:
 				for d in ev["damaged"]:
 					damaged[1 - side][int(d["hex"])] = true
 			"engage":   # side is the defender
-				if bool(ev["hit"]):
+				if bool(ev["hit"]) and not spies.has(ev["id"]):
 					var key: String
 					if side == PLAYER:
 						key = "transports_shot_down_by_us" if transports.has(ev["id"]) else "shot_down_by_us"

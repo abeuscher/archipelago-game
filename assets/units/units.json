@@ -167,6 +167,72 @@
         "NW",
         "NE"
       ]
+    },
+    "helicopter_player": {
+      "file": "helicopter_player.png",
+      "frame_width": 120,
+      "frame_height": 90,
+      "anchor": [
+        60,
+        45
+      ],
+      "columns": [
+        "rotor_1",
+        "rotor_2"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "helicopter_enemy": {
+      "file": "helicopter_enemy.png",
+      "frame_width": 120,
+      "frame_height": 90,
+      "anchor": [
+        60,
+        45
+      ],
+      "columns": [
+        "rotor_1",
+        "rotor_2"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "spy_player": {
+      "file": "spy_player.png",
+      "frame_width": 48,
+      "frame_height": 64,
+      "anchor": [
+        24,
+        60
+      ],
+      "columns": [
+        "stand",
+        "step",
+        "report"
+      ],
+      "rows": [
+        "single"
+      ]
+    },
+    "spy_enemy": {
+      "file": "spy_enemy.png",
+      "frame_width": 48,
+      "frame_height": 64,
+      "anchor": [
+        24,
+        60
+      ],
+      "columns": [
+        "stand",
+        "step",
+        "report"
+      ],
+      "rows": [
+        "single"
+      ]
     }
   }
 }

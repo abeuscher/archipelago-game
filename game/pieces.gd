@@ -27,7 +27,7 @@ const COLORS := {
 	"nuclear_silo": Color(0.45, 0.36, 0.32),
 }
 const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile",
-	"transport": "Air transport", "boat": "Boat", "nuke": "Nuke"}
+	"transport": "Air transport", "boat": "Boat", "nuke": "Nuke", "spy": "Spy"}
 ## One-line descriptions for tooltips and the research panel. Numbers are
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
@@ -41,7 +41,7 @@ const BUILDING_TEXT := {
 	"anti_air": "Shoots at incoming missiles aimed near it. Uses no fuel.",
 	"radar": "Anti-air inside its range hits far more often. Range grows with height.",
 	"ballistic_launcher": "Fires one ballistic missile a round: less damage, wider blast.",
-	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near.",
+	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near. Once researched, it can send a spy instead.",
 	"bunker": "Wipes out enemy platoons that land or march within range.",
 	"docks": "Sends a boat with a platoon to the enemy coast. It lands the round after it sails. Built on the coast.",
 	"coastal_cannon": "Fires on enemy boats coming ashore nearby. Built on the coast.",
@@ -52,6 +52,7 @@ const RESEARCH_NAMES := {
 	"motion_sensor": "Motion sensor", "ballistic_launcher": "Ballistic launcher",
 	"airport": "Airport", "bunker": "Bunker", "docks": "Docks", "coastal_cannon": "Coastal cannon",
 	"nuclear_silo": "Nuclear silo", "bank_upgrade": "Bank upgrade",
+	"spy": "Spy", "refinery_upgrade": "Refinery upgrade",
 }
 const RESEARCH_TEXT := {
 	"radar": "Unlocks the radar building, which raises the accuracy of anti-air inside its range.",
@@ -65,6 +66,8 @@ const RESEARCH_TEXT := {
 	"coastal_cannon": "Unlocks the coastal cannon, which fires on enemy boats landing nearby.",
 	"nuclear_silo": "Unlocks the nuclear silo, which builds and fires nukes. Needs other research done first.",
 	"bank_upgrade": "Every bank makes more money each round.",
+	"spy": "The airport can send a spy by helicopter instead of its transport. Wherever he lands, he finds every enemy nuclear silo and flies home to report. Anti-air hits him half as often as a missile.",
+	"refinery_upgrade": "Every refinery makes twice as much fuel each round.",
 }
 
 

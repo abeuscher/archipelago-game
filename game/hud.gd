@@ -1250,8 +1250,11 @@ func choice_menu(screen_pos: Vector2, title: String, choices: Array) -> void:
 		var b := Button.new()
 		b.text = String(ch["text"]).to_upper()
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(230, 40)
 		_key_button(b, ch["color"])
+		# Room for the text plus a margin each side, the key's edges being tight.
+		var font: Font = b.get_theme_font("font")
+		var fs: int = b.get_theme_font_size("font_size")
+		b.custom_minimum_size = Vector2(maxf(230.0, font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 32.0), 40)
 		if bool(ch.get("disabled", false)):
 			b.disabled = true
 			b.modulate = Color(1, 1, 1, 0.45)

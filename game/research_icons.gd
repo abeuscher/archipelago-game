@@ -14,6 +14,8 @@ const COLORS := {
 	"coastal_cannon": Color(0.60, 0.70, 0.86),
 	"nuclear_silo": Color(0.91, 0.76, 0.18),
 	"bank_upgrade": Color(0.80, 0.64, 0.72),
+	"spy": Color(0.62, 0.66, 0.74),
+	"refinery_upgrade": Color(0.90, 0.52, 0.30),
 }
 
 
@@ -102,5 +104,29 @@ static func draw(ci: CanvasItem, item: String, c: Vector2, r: float, ink: Color)
 			ci.draw_line(c + Vector2(r * 0.55, r * 0.7), c + Vector2(r * 0.55, -r * 0.6), ink, 2.4, true)
 			ci.draw_line(c + Vector2(r * 0.55, -r * 0.7), c + Vector2(r * 0.25, -r * 0.3), ink, 2.4, true)
 			ci.draw_line(c + Vector2(r * 0.55, -r * 0.7), c + Vector2(r * 0.85, -r * 0.3), ink, 2.4, true)
+		"spy":
+			# A man in a tuxedo: hat brim and crown, head, lapels and a bow tie.
+			ci.draw_rect(Rect2(c + Vector2(-r * 0.6, -r * 0.62), Vector2(r * 1.2, r * 0.12)), ink)
+			ci.draw_rect(Rect2(c + Vector2(-r * 0.34, -r * 0.95), Vector2(r * 0.68, r * 0.36)), ink)
+			ci.draw_arc(c + Vector2(0, -r * 0.3), r * 0.28, 0.0, TAU, 16, ink, 2.0, true)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.75, r * 0.95), c + Vector2(-r * 0.6, r * 0.15),
+				c + Vector2(-r * 0.12, r * 0.12), c + Vector2(0, r * 0.95)]), ink)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.75, r * 0.95), c + Vector2(r * 0.6, r * 0.15),
+				c + Vector2(r * 0.12, r * 0.12), c + Vector2(0, r * 0.95)]), ink)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, r * 0.22), c + Vector2(-r * 0.24, r * 0.1),
+				c + Vector2(-r * 0.24, r * 0.34)]), ink)
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(0, r * 0.22), c + Vector2(r * 0.24, r * 0.1),
+				c + Vector2(r * 0.24, r * 0.34)]), ink)
+		"refinery_upgrade":
+			# A fuel drop with an up arrow.
+			var drop := PackedVector2Array([c + Vector2(-r * 0.25, -r * 0.8)])
+			for j in 13:
+				var t := PI * j / 12.0
+				drop.append(c + Vector2(-r * 0.25, r * 0.35) + Vector2(cos(t) * r * 0.5, sin(t) * r * 0.5))
+			drop.append(c + Vector2(-r * 0.25, -r * 0.8))
+			ci.draw_polyline(drop, ink, 2.2, true)
+			ci.draw_line(c + Vector2(r * 0.6, r * 0.7), c + Vector2(r * 0.6, -r * 0.6), ink, 2.4, true)
+			ci.draw_line(c + Vector2(r * 0.6, -r * 0.7), c + Vector2(r * 0.3, -r * 0.3), ink, 2.4, true)
+			ci.draw_line(c + Vector2(r * 0.6, -r * 0.7), c + Vector2(r * 0.9, -r * 0.3), ink, 2.4, true)
 		_:
 			ci.draw_circle(c, r * 0.35, ink)

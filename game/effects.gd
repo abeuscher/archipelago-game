@@ -30,6 +30,7 @@ var flashes: Array = []
 var planes: Array = []
 var chutes: Array = []
 var squads: Array = []
+var agents: Array = []         ## the spy on the ground
 var sea_boats: Array = []      ## boats in the channel (and coming ashore)
 var _clock: float = 0.0
 
@@ -55,6 +56,13 @@ class Aircraft extends RefCounted:
 	var color: Color
 	var side: String = "player"   ## colourway of the unit art
 	var door_open: bool = false
+	var kind: String = "transport"   ## or "helicopter" (the spy's)
+
+
+class Agent extends RefCounted:
+	var ground: Vector2
+	var side: String = "player"
+	var pose: int = 0             ## sheet column: stand, step, report
 
 
 class Chute extends RefCounted:
@@ -88,6 +96,18 @@ func add_plane(ground: Vector2, alt: float, heading: float, color: Color, side: 
 
 func remove_plane(p) -> void:
 	planes.erase(p)
+
+
+func add_agent(ground: Vector2, side: String = "player") -> Agent:
+	var a := Agent.new()
+	a.ground = ground
+	a.side = side
+	agents.append(a)
+	return a
+
+
+func remove_agent(a) -> void:
+	agents.erase(a)
 
 
 func add_chute(ground: Vector2, alt: float, color: Color, side: String = "player") -> Chute:
@@ -167,13 +187,14 @@ func clear() -> void:
 	planes.clear()
 	chutes.clear()
 	squads.clear()
+	agents.clear()
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
 	_clock += delta
 	if missiles.is_empty() and flashes.is_empty() and planes.is_empty() and chutes.is_empty() and squads.is_empty() \
-			and sea_boats.is_empty():
+			and sea_boats.is_empty() and agents.is_empty():
 		return
 	for f in flashes.duplicate():
 		f.t += delta
@@ -191,6 +212,13 @@ func _draw() -> void:
 		_draw_squad(s)
 	for c in chutes:
 		_draw_chute(c)
+	for a in agents:
+		# A pool of light under him: a man in black has to show on the fog too.
+		draw_colored_polygon(_ellipse(a.ground, 15.0, 6.5), Color(1.0, 0.96, 0.8, 0.55))
+		draw_colored_polygon(_ellipse(a.ground, 9.0, 4.0), Color(1.0, 0.98, 0.9, 0.6))
+		if not _unit_frame("spy_" + a.side, a.pose, 0, a.ground, 0.0):
+			draw_rect(Rect2(a.ground + Vector2(-2.5, -11), Vector2(5, 11)), Color(0.08, 0.08, 0.1))
+			draw_circle(a.ground + Vector2(0, -13), 2.6, Color(0.95, 0.8, 0.65))
 	for p in planes:
 		_draw_plane(p)
 	for m in missiles:
@@ -241,8 +269,11 @@ func _draw_plane(p) -> void:
 	var c: Vector2 = p.ground - Vector2(0, p.alt)
 	# The art: nose to the right, turned to the heading; props spin, and the
 	# cargo door opens for the drop.
+	if p.kind == "helicopter":
+		if _unit_frame("helicopter_" + p.side, int(_clock * 24.0) % 2, 0, c, p.heading):
+			return
 	var frame := 2 if p.door_open else int(_clock * 20.0) % 2
-	if _unit_frame("transport_" + p.side, frame, 0, c, p.heading):
+	if p.kind == "transport" and _unit_frame("transport_" + p.side, frame, 0, c, p.heading):
 		return
 	var shape := PackedVector2Array([Vector2(26, 0), Vector2(14, -4), Vector2(4, -4), Vector2(-2, -24), Vector2(-9, -24), Vector2(-6, -4),
 		Vector2(-18, -4), Vector2(-24, -11), Vector2(-28, -11), Vector2(-25, 0), Vector2(-28, 11), Vector2(-24, 11), Vector2(-18, 4),

@@ -9,13 +9,13 @@
 
 To watch in play-testing: the enemy rarely gets coastal cannons before its first boat lands, and a platoon kills a base outright, so boats hit hard (in AI-against-AI games, about one base in four matches falls to troops). Levers: cannon research earlier in data/ai.json, platoon base damage, boat cost.
 
-## Campaign plan (discussed 2026-11-19; levels 1 to 3 built)
+## Campaign plan (discussed 2026-11-19; levels 1 to 4 built)
 
 Aim: 9 or 10 levels, each adding one new thing (a unit or building) and one new upgrade, then a final challenge, then the end of the world (spec). Both sides always get everything new and the AI plays it to win.
 
 - **Level 1:** the base game. **Level 2:** one stronghold per side (built).
 - **Level 3: the nuke, plus a bank upgrade.** Built (ASSUMPTIONS D108, tuned in D111 and D113): to play-test. Silo research needs 4 other items first; a nuke costs 120, is ready the round after, and costs 10 fuel to fire; 2 hits on the centre hex, 1 on the ring; anti-air 5% (20% with radar); 2 nuke hits in a round break a stronghold; bank upgrade makes banks 25. Strong-against-strong: median 31 rounds, a nuke in about 1 match in 4 (`tools/level_study.gd`).
-- **Level 4: the spy (next to build).** An add-on to the airport: costs money, takes a round to build, and the airport does nothing else that round. Flown in; if he lands on land he reveals the enemy's nukes (just those hexes, fog cleared). Must beat scouting missiles (1 fuel, 19 hexes) on value: his edge is certainty. Ideas: he stays and reports new silos as they're built; anti-air can shoot him down on the way in.
+- **Level 4: the spy, plus a refinery upgrade.** Built (ASSUMPTIONS D116): to play-test. Spy research (60 money, 12 points, needs the airport); the airport sends him instead of its transport for 2 fuel and 60 money a trip; anti-air hits him half as often as a missile; if he lands, every enemy silo is revealed and he flies home. Refinery upgrade: 6 fuel per refinery instead of 3. Strong-against-strong it plays like level 3: the AI researches both only after its silo, which it reaches late or not at all, so it rarely sends a spy. To watch in play-testing: whether the enemy should get to the spy sooner.
 - **Level 5 (likely): the saboteur upgrade.** Once a nuke has been found, the spy goes in a second time and permanently disables it and its hex. Needs the nuke build time long enough for the spy-then-saboteur chain to catch the next nuke. Suggested: the silo is hardened (missile-proof or many hits) so sabotage is the clean answer; a disabled silo can be rebuilt elsewhere at full cost.
 - Caution: gate + cost + build time + counters stacked too hard means nukes never appear (level 1's median match is about 19 rounds). Set each moderately and tune with batch runs.
 

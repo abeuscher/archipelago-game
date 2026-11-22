@@ -178,6 +178,10 @@
       "character": "ginger",
       "text": "General! Enemy transport inbound! They're dropping troops on us!"
     },
+    "incoming_spy": {
+      "character": "ginger",
+      "text": "General! An enemy helicopter is coming in low! It could be a spy looking for our silo!"
+    },
     "incoming_boat": {
       "character": "ginger",
       "text": "General! Enemy boat coming ashore! They're landing troops on our coast!"
@@ -189,6 +193,10 @@
     "level_3_intro": {
       "character": "admiral",
       "text": "Well done, General. Our scientists have cracked the atom. Finish enough research and they can build us a nuclear silo. A nuke hits twice as hard as any missile and flattens everything around it, and anti-air will rarely stop one. Expect the enemy to be working on the same."
+    },
+    "level_4_intro": {
+      "character": "admiral",
+      "text": "Good work, General. Intelligence has a man for us: once we have an airport, research the spy and he will fly over in a helicopter, find every nuclear silo the enemy has and come straight back to report. Anti-air can bring him down, though less often than a missile. And our engineers can now double what each refinery makes."
     },
     "level_2_intro": {
       "character": "admiral",

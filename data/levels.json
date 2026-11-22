@@ -25,6 +25,18 @@
       },
       "win_award_money": 0,
       "intro": "level_3_intro"
+    },
+    {
+      "name": "Level 4",
+      "set": {
+        "rules.bases.strongholds_per_side": 1,
+        "rules.research.nuclear_silo.available": true,
+        "rules.research.bank_upgrade.available": true,
+        "rules.research.spy.available": true,
+        "rules.research.refinery_upgrade.available": true
+      },
+      "win_award_money": 0,
+      "intro": "level_4_intro"
     }
   ]
 }

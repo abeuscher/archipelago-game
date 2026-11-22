@@ -30,6 +30,7 @@ var _land_prior: PackedFloat32Array
 
 
 var research: Array = []   ## research order for this match
+var _last_spy: int = -1000 ## round of the spy's last trip
 
 
 func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -> void:
@@ -59,6 +60,24 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 	if _in_level("bank_upgrade"):
 		var at := int(cfg["nukes"]["bank_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
 		research.insert(mini(research.size(), at), "bank_upgrade")
+	# Level 4: the refinery upgrade early, and the spy right after the silo:
+	# silos come late, so a spy before then has nothing to find.
+	if _in_level("refinery_upgrade"):
+		var at2 := int(cfg["nukes"]["refinery_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
+		research.insert(mini(research.size(), at2), "refinery_upgrade")
+	if _in_level("spy"):
+		_place_spy_research()
+
+
+## The spy goes into the research order where the silo will really be
+## researched (it heads the list but waits for needs_researched other
+## items), and after the airport and the refinery upgrade.
+func _place_spy_research() -> void:
+	var after := maxi(research.find("airport"), research.find("refinery_upgrade"))
+	var si := research.find("nuclear_silo")
+	if si >= 0:
+		after = maxi(after, si + int(data.research_item("nuclear_silo").get("needs_researched", 0)))
+	research.insert(mini(research.size(), after + 1), "spy")
 
 
 ## A research item this level offers.
@@ -627,7 +646,17 @@ func choose_targets(view) -> Array:
 	# Troop drops next: they are the strongest single strike.
 	var money: int = st.money
 	for port in st.of_role(data, "airport"):
-		if not st.weapon_active(port) or port.carrier_lost:
+		if not st.weapon_active(port):
+			continue
+		var spy_aim := _spy_aim(view, know, st, fuel, money, air_cover)
+		if spy_aim >= 0:
+			var sp: Dictionary = data.missile("spy")
+			orders.append({"launcher": port.hex, "missile": "spy", "target": spy_aim})
+			fuel -= int(sp["fuel"])
+			money -= int(sp.get("money", 0))
+			_last_spy = view.round_number
+			continue
+		if port.carrier_lost:
 			continue
 		var t: Dictionary = data.missile("transport")
 		if int(t["fuel"]) > fuel or int(t.get("money", 0)) > money:
@@ -702,6 +731,34 @@ func choose_targets(view) -> Array:
 		orders.append({"launcher": b.hex, "missile": missile, "target": target})
 		fuel -= cost
 	return orders
+
+
+## Where to send the spy this round, or -1. He goes while no live enemy
+## silo is known, from cfg spy.from_round, every_rounds apart, if the fuel
+## and money are there; he lands where the fewest known anti-air guns reach.
+func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Callable) -> int:
+	if not data.rules["missiles"].has("spy") or not st.missile_unlocked("spy", data) or not _in_level("nuclear_silo"):
+		return -1
+	if not st.is_unlocked("nuclear_silo"):
+		return -1   # no silo research of our own yet: theirs is unlikely too
+	var sc: Dictionary = cfg["spy"]
+	if view.round_number < int(sc["from_round"]) or view.round_number - _last_spy < int(sc["every_rounds"]):
+		return -1
+	var sp: Dictionary = data.missile("spy")
+	if int(sp["fuel"]) > fuel or int(sp.get("money", 0)) > money:
+		return -1
+	for h in know:
+		var kb = know[h].get("building")
+		if kb != null and data.has_building(String(kb["type"])) and data.role(String(kb["type"])) == String(sp["finds_role"]):
+			return -1   # one is known: the missiles go after it
+	var best := -1
+	var best_c := 1 << 30
+	for h in _enemy_grid.count:
+		var c := int(air_cover.call(h))
+		if c < best_c:
+			best_c = c
+			best = h
+	return best
 
 
 ## The best troop drop on what we know: every known building as a landing

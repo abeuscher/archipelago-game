@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Archipelago troop unit sprite renderer.
 
-Renders platoons, parachutists, the air transport and the landing craft in two
-colourways (player, enemy), using the same primitives, lighting and outline as
+Renders platoons, parachutists, the air transport, the landing craft, the
+spy's helicopter and the spy in two colourways (player, enemy), using the same primitives, lighting and outline as
 render_buildings.py (which must sit next to this file).
 
     python render_units.py --out ../../assets/units
+    python render_units.py --out ../../assets/units --only helicopter spy
 
 Art is drawn at 2x: a hex is 104 px wide on the sheet. Writes one PNG per
 sheet, units.json (frame size, anchor, rows, columns) and _units_preview.png.
@@ -177,6 +178,61 @@ def transport(c, frame):
     return m
 
 
+# ------------------------------------------------------------- helicopter --
+def helicopter(c, frame):
+    """The spy's helicopter, top-down, nose toward +x. frame: 0/1 rotor positions."""
+    m = blob(.25, c["hull"], (.1, 0, .22))                                  # cabin
+    m += tube(10, .21, .12, .36, c["hull"], (-.3, 0, .22))
+    m += blob(.16, "#1d2733", (.26, 0, .28))                                # bubble canopy
+    m += tube(8, .06, .03, .62, c["hull_dk"], (-.74, 0, .24))              # tail boom
+    m += box((.16, .03, .14), c["trim"], (-.72, .02, .3))                  # tail fin
+    m += box((.03, .22, .02), "#9a9ea4", (-.72, .06, .34), yaw=frame * 60)  # tail rotor
+    for y in (-.17, .17):                                                   # skids
+        m += box((.62, .02, .02), "#2a2c30", (.05, y, .01))
+        m += beam((-.12, y, .03), (-.1, y * .6, .12), .025, "#2a2c30")
+        m += beam((.22, y, .03), (.2, y * .6, .12), .025, "#2a2c30")
+    m += tube(8, .04, .04, .06, "#2a2c30", (.02, 0, .4), pitch=-90)        # mast
+    m += blob(.045, "#2a2c30", (.02, 0, .46))
+    for k in range(2):                                                      # main rotor
+        a = math.radians((30 if frame == 0 else 75) + 90 * k)
+        dx, dy = .66 * math.cos(a), .66 * math.sin(a)
+        m += beam((.02 - dx, -dy, .47), (.02 + dx, dy, .47), .035, "#3a3d42")
+    return m
+
+
+def _scaled(parts, k):
+    return [([(x * k, y * k, z * k) for x, y, z in face], col) for face, col in parts]
+
+
+# -------------------------------------------------------------------- spy --
+TUX = "#16171b"
+SHIRT = "#f3f1ea"
+
+
+def spy(c, frame):
+    """A man in a tuxedo, feet at the origin, facing +x. frame: 0 stand, 1 step,
+    2 hand to ear (reporting)."""
+    swing = [0, 1, 0][frame]
+    m = []
+    for side in (1, -1):
+        fx = .06 * swing * side
+        y = .036 * side
+        m += beam((0, y, .18), (fx, y, .02), .048, TUX)
+        m += box((.075, .048, .03), "#050506", (fx + .012, y, .016))
+    m += box((.085, .15, .17), TUX, (0, 0, .265))                          # jacket
+    m += box((.012, .05, .12), SHIRT, (.044, 0, .28))                      # shirt front
+    m += box((.014, .05, .018), "#7b1420" if c is SIDES["enemy"] else TUX, (.052, 0, .335))   # bow tie
+    m += blob(.048, SKIN, (.004, 0, .39))
+    m += prism(8, .05, .04, .405, .44, "#2a1d14", at=(-.008, 0))           # slicked hair
+    sh = .33
+    m += beam((0, .09, sh), (.01, .1, .2), .04, TUX)
+    if frame == 2:
+        m += beam((0, -.09, sh), (.02, -.07, .4), .04, TUX)
+    else:
+        m += beam((0, -.09, sh), (-.01 * swing, -.1, .2), .04, TUX)
+    return _scaled(m, 1.35)   # a little larger than a soldier, to read on his own
+
+
 # ------------------------------------------------------------------- boat --
 def boat(c, frame):
     """Landing craft, bow toward +x, waterline at z=0. frame 0/1: bob + bow wave."""
@@ -204,7 +260,7 @@ def boat(c, frame):
 
 
 # ----------------------------------------------------------------- sheets --
-def build(out, supersample):
+def build(out, supersample, only=None):
     iso = Camera(HEX_WIDTH, SQUASH, 0, False, supersample)
     top = Camera(HEX_WIDTH, 1.0, 0, False, supersample)      # straight down, for the transport
     yaws = [yaw for _, yaw in DIRECTIONS]
@@ -218,7 +274,13 @@ def build(out, supersample):
                           columns=["prop_1", "prop_2", "door_open"]),
         "boat": dict(frame=(120, 90), anchor=(60, 56), cam=iso, rows=yaws, model=boat,
                      columns=["bob_1", "bob_2"]),
+        "helicopter": dict(frame=(120, 90), anchor=(60, 45), cam=top, rows=[0], model=helicopter,
+                           columns=["rotor_1", "rotor_2"]),
+        "spy": dict(frame=(48, 64), anchor=(24, 60), cam=iso, rows=[-60], model=spy,
+                    columns=["stand", "step", "report"]),
     }
+    if only:
+        specs = {k: v for k, v in specs.items() if k in only}
     os.makedirs(out, exist_ok=True)
     meta, sheets = {}, []
     for unit, sp in specs.items():
@@ -240,11 +302,18 @@ def build(out, supersample):
                 "rows": [d for d, _ in DIRECTIONS] if len(sp["rows"]) == 6 else ["single"],
             }
             print("rendered", name)
-    with open(os.path.join(out, "units.json"), "w") as f:
+    path = os.path.join(out, "units.json")
+    if only and os.path.exists(path):
+        with open(path) as f:
+            kept = json.load(f)["sheets"]
+        kept.update(meta)
+        meta = kept
+    with open(path, "w") as f:
         json.dump({"hex_width": HEX_WIDTH, "squash": SQUASH, "sheets": meta}, f, indent=2)
 
     backdrop = {"platoon": (111, 145, 80), "parachutist": (120, 160, 200),
-                "transport": (111, 145, 80), "boat": (52, 92, 140)}
+                "transport": (111, 145, 80), "boat": (52, 92, 140),
+                "helicopter": (111, 145, 80), "spy": (111, 145, 80)}
     width = max(s.width for _, s, _ in sheets) + 20
     height = sum(s.height + 26 for _, s, _ in sheets) + 10
     prev = Image.new("RGBA", (width, height), (28, 36, 51, 255))
@@ -262,5 +331,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--out", default="out_units")
     ap.add_argument("--supersample", type=int, default=6)
+    ap.add_argument("--only", nargs="*", help="render just these units (units.json keeps the others)")
     args = ap.parse_args()
-    build(args.out, args.supersample)
+    build(args.out, args.supersample, args.only)

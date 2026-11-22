@@ -779,7 +779,16 @@ func _missile_options(launcher_hex: int) -> Array:
 	var b = m.sides[0].building_at(launcher_hex)
 	if b == null:
 		return []
-	return data.building(b.type)["missiles"].filter(func(mt): return m.sides[0].missile_unlocked(mt, data))
+	return data.building(b.type)["missiles"].filter(func(mt): return _can_fly(b, mt))
+
+
+## Whether this weapon can launch this missile type now as far as research
+## and its carrier go: an airport that lost its transport can still send the
+## spy in his own helicopter.
+func _can_fly(b, mt: String) -> bool:
+	if not m.sides[0].missile_unlocked(mt, data):
+		return false
+	return not b.carrier_lost or bool(data.missile(mt).get("own_aircraft", false))
 
 
 ## A launcher with a choice of missiles: a pop-up at the click with a key
@@ -793,12 +802,20 @@ func _missile_menu(launcher_hex: int, hex: int, options: Array) -> void:
 		if int(o["launcher"]) == launcher_hex:
 			fuel_left += int(data.missile(String(o["missile"]))["fuel"])   # re-aiming frees its own fuel
 	var choices: Array = []
+	var money_left: int = m.sides[0].money - _money_planned()
+	for o in orders:
+		if int(o["launcher"]) == launcher_hex:
+			money_left += int(data.missile(String(o["missile"])).get("money", 0))
 	for mt in options:
 		var f := int(data.missile(mt)["fuel"])
+		var cash := int(data.missile(mt).get("money", 0))
 		var missile: String = mt
-		choices.append({"text": "%s  -  %d fuel" % [Pieces.MISSILE_NAMES.get(mt, mt), f],
+		var text := "%s  -  %d fuel" % [Pieces.MISSILE_NAMES.get(mt, mt), f]
+		if cash > 0:
+			text += ", %d money" % cash
+		choices.append({"text": text,
 			"color": MISSILE_KEY_COLORS.get(mt, Color(0.97, 0.80, 0.25)),
-			"disabled": f > fuel_left, "why": Hud.NOTICE_FUEL,
+			"disabled": f > fuel_left or cash > money_left, "why": Hud.NOTICE_FUEL if f > fuel_left else Hud.NOTICE_MONEY,
 			"action": func():
 				missile_choice[launcher_hex] = missile
 				active_launcher = launcher_hex
@@ -809,7 +826,8 @@ func _missile_menu(launcher_hex: int, hex: int, options: Array) -> void:
 	_update_blasts()
 
 
-const MISSILE_KEY_COLORS := {"basic": Color(0.96, 0.58, 0.28), "scouting": Color(0.56, 0.78, 0.96)}
+const MISSILE_KEY_COLORS := {"basic": Color(0.96, 0.58, 0.28), "scouting": Color(0.56, 0.78, 0.96),
+	"transport": Color(0.66, 0.64, 0.94), "spy": Color(0.80, 0.82, 0.88)}
 
 
 func _aim(hex: int, mt: String) -> void:
@@ -878,7 +896,7 @@ func _missile_for(launcher_hex: int) -> String:
 		return missile_choice[launcher_hex]
 	var b = m.sides[0].building_at(launcher_hex)
 	for mt in data.building(b.type)["missiles"]:
-		if m.sides[0].missile_unlocked(mt, data):
+		if _can_fly(b, mt):
 			return mt
 	return ""
 
@@ -926,7 +944,7 @@ func _attackers(st) -> Array:
 
 ## Why an airport, docks or silo can't launch now, as a notice ("" if it can).
 func _carrier_block(b) -> String:
-	if b.carrier_lost:
+	if b.carrier_lost and _missile_options(b.hex).is_empty():
 		return {"airport": Hud.NOTICE_TRANSPORT, "silo": Hud.NOTICE_NO_NUKE}.get(data.role(b.type), Hud.NOTICE_BOAT_LOST)
 	if b.boat_out:
 		return Hud.NOTICE_BOAT_OUT
@@ -1294,11 +1312,11 @@ func _build_toolbar(st) -> void:
 				var mdef: Dictionary = data.missile(mt)
 				var troop := mdef.has("carries")
 				var note: String = Pieces.MISSILE_NAMES.get(mt, mt) + ", %d fuel" % int(mdef["fuel"])
-				if troop:
+				if int(mdef.get("money", 0)) > 0:
 					note += ", %d money" % int(mdef.get("money", 0))
 				if aimed:
 					note += " (aimed)"
-				var options: Array = data.building(b.type)["missiles"].filter(func(x): return st.missile_unlocked(x, data))
+				var options: Array = _missile_options(b.hex)
 				var tip := "Select it, click the landing hex, then a hex next to it for the march direction." if troop \
 					else "Select this launcher, then click an enemy hex to aim it."
 				if options.size() > 1:
@@ -1403,7 +1421,8 @@ func _tip_context() -> Dictionary:
 		"round": m.round_number,
 		"has_lab": st.count_role(data, "lab") > 0,
 		"troop_selected": ui == Ui.TARGETING and active_launcher >= 0 and st.building_at(active_launcher) != null \
-			and data.role(st.building_at(active_launcher).type) in ["airport", "docks"],
+			and data.role(st.building_at(active_launcher).type) in ["airport", "docks"] \
+			and data.missile(_missile_for(active_launcher)).has("carries"),
 		"research_open": hud.research_panel.visible,
 		"setup_complete": setup_complete,
 		"clock_on": clock_running,
@@ -1725,8 +1744,9 @@ func _run_playout() -> void:
 	_fly_to(0, 0.6)
 	await _wait(0.7)
 	for k in launches[0].size():
-		if data.missile(String(launches[0][k]["missile"])).has("carries"):
-			_take_off(int(launches[0][k]["launcher"]), k * 0.15)
+		var lm: Dictionary = data.missile(String(launches[0][k]["missile"]))
+		if lm.has("carries") or lm.has("finds_role"):
+			_take_off(int(launches[0][k]["launcher"]), k * 0.15, "helicopter" if lm.has("finds_role") else "transport")
 		else:
 			_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
 	for k in sailings.size():
@@ -1739,7 +1759,10 @@ func _run_playout() -> void:
 		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
 		var key := "incoming_one" if n == 1 else "incoming_many"
-		if launches[1].any(func(e): return String(e["missile"]) == "nuke") and lines.has("incoming_nuke"):
+		var spies_only: bool = n > 0 and arrivals[1].is_empty() and launches[1].all(func(e): return data.missile(String(e["missile"])).has("finds_role"))
+		if spies_only and lines.has("incoming_spy"):
+			key = "incoming_spy"
+		elif launches[1].any(func(e): return String(e["missile"]) == "nuke") and lines.has("incoming_nuke"):
 			key = "incoming_nuke"
 		elif launches[1].any(func(e): return data.missile(String(e["missile"])).has("carries")):
 			key = "incoming_troops"
@@ -1749,7 +1772,7 @@ func _run_playout() -> void:
 		hud.set_alarm(true)
 		audio.effect("siren")
 		audio.set_music("battle")   # loops until our strikes are in
-		hud.add_log("%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
+		hud.add_log("Enemy helicopter incoming." if spies_only else "%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
 		await _wait(hud.alarm_seconds(ALARM_TURNS))
 		hud.announce(incoming, "", 0.0, false, _line_character(key))
 		while hud.announcing():
@@ -1767,7 +1790,7 @@ func _run_playout() -> void:
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
-		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing"]:
+		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "spy", "spy_lost"]:
 			_log_event(ev)
 	# Our first base just fell: the level's line (Ginger in level 1), right
 	# away, before our own strikes go in. Every match; skipped if two fell at
@@ -1807,7 +1830,7 @@ func _run_playout() -> void:
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
-		elif ev.get("side", -1) == 0 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "boat_launch"]:
+		elif ev.get("side", -1) == 0 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "boat_launch", "spy", "spy_lost"]:
 			_log_event(ev)
 		elif ev["type"] in ["game_over", "coin_flip_needed"]:
 			_log_event(ev)
@@ -1838,12 +1861,13 @@ func _aa_sound() -> void:
 
 ## Our transport takes off from its airport and climbs away toward the
 ## enemy, at the same time as the missiles go up.
-func _take_off(hex: int, delay: float) -> void:
+func _take_off(hex: int, delay: float, kind: String = "transport") -> void:
 	await _wait(delay)
 	audio.effect("transport_engine")
 	var start: Vector2 = own_board.position + own_board.tile_center(hex)
 	var toward: Vector2 = (enemy_board.position - own_board.position).normalized()
 	var plane = effects.add_plane(start, 4.0, toward.angle(), Color(1, 0.9, 0.5), "player")
+	plane.kind = kind
 	var t := create_tween().set_parallel(true)
 	t.tween_property(plane, "ground", start + toward * 620.0, 1.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.tween_property(plane, "alt", 150.0, 1.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -1931,6 +1955,9 @@ func _ashore_anim(board, isl, ev: Dictionary, info: Dictionary, color: Color, de
 ## it and returns how long it will take, so the caller can wait for all.
 func _land(board, isl, launch: Dictionary, by_id: Dictionary, color: Color, delay: float, reveal_tiles: Array) -> float:
 	var info: Dictionary = by_id.get(launch["id"], {})
+	if data.missile(String(launch["missile"])).has("finds_role"):
+		_spy_flight(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
+		return delay + SPY_SECONDS
 	if data.missile(String(launch["missile"])).has("carries"):
 		_drop(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
 		var path: Array = info.get("platoon", {}).get("path", [])
@@ -1992,6 +2019,66 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 		effects.float_text(ground, "Lost at sea", Color(0.8, 0.9, 1.0))
 		return
 	await _march(board, p, ground, color, side, reveal_tiles)
+
+
+const SPY_SECONDS := 4.4       ## the helicopter in, the spy's look round, and away
+
+
+## The spy's helicopter flies in from the attacker's side and may be shot
+## down. If not, it sets down on its hex and the spy steps out; each silo he
+## finds is revealed and marked; he climbs back in and the helicopter flies
+## home the way it came.
+func _spy_flight(board, isl, info: Dictionary, target: int, color: Color, delay: float, reveal_tiles: Array = []) -> void:
+	await _wait(delay)
+	var ground: Vector2 = board.position + board.tile_center(target)
+	var attacker = own_board if board == enemy_board else enemy_board
+	var from: Vector2 = (attacker.position - board.position).normalized()
+	var side := "player" if board == enemy_board else "enemy"
+	var alt := 120.0
+	var heli = effects.add_plane(ground + from * 650.0, alt, (-from).angle(), color, side)
+	heli.kind = "helicopter"
+	var t := create_tween()
+	t.tween_property(heli, "ground", ground, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await t.finished
+	if info.has("engage"):
+		var eng: Dictionary = info["engage"]
+		var src: Vector2 = board.position + board.tile_center(int(eng["anti_air"])) - Vector2(0, 20) if isl != null else ground + Vector2(-60, 30)
+		_aa_sound()
+		effects.tracer(src, ground - Vector2(0, alt))
+		await _wait(0.15)
+		if eng["hit"]:
+			effects.burst(ground - Vector2(0, alt))
+			effects.explosion(ground - Vector2(0, alt), 22.0, Color(1.0, 0.55, 0.15))
+			audio.effect("anti_air_hit")
+			effects.remove_plane(heli)
+			return
+	t = create_tween()
+	t.tween_property(heli, "alt", 6.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await t.finished
+	var spy = effects.add_agent(ground + Vector2(14, 6), side)
+	spy.pose = 1
+	await _wait(0.3)
+	spy.pose = 2   # reporting in
+	var found: Array = info.get("spy", {}).get("found", [])
+	for h in found:
+		if not reveal_tiles.is_empty():
+			board.tiles[int(h)] = reveal_tiles[int(h)]
+		else:
+			board.tiles[int(h)]["enemy_seen"] = true
+		effects.float_text(board.position + board.tile_center(int(h)), "Silo found", Color(1.0, 0.86, 0.3))
+	if found.is_empty():
+		effects.float_text(ground, "No silo", Color(0.85, 0.9, 1.0))
+	board.queue_redraw()
+	await _wait(0.9)
+	spy.pose = 1
+	await _wait(0.2)
+	effects.remove_agent(spy)
+	heli.heading = from.angle()
+	t = create_tween().set_parallel(true)
+	t.tween_property(heli, "alt", alt, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	t.tween_property(heli, "ground", ground + from * 650.0, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN).set_delay(0.2)
+	await t.finished
+	effects.remove_plane(heli)
 
 
 ## A landed platoon walks its path: each hex it reaches is revealed, a
@@ -2167,6 +2254,17 @@ func _log_event(ev: Dictionary) -> void:
 			else:
 				hud.add_log(("[color=lightgreen]Our platoon destroyed %d building%s.[/color]" if mine else "[color=salmon]An enemy platoon destroyed %d building%s.[/color]")
 					% [n_kill, "" if n_kill == 1 else "s"])
+		"spy":
+			var n_found: int = ev["found"].size()
+			if mine:
+				hud.add_log("[color=lightgreen]Our spy is back: %s.[/color]" % (
+					"no enemy silo" if n_found == 0 else ("%d enemy silo%s found" % [n_found, "" if n_found == 1 else "s"])))
+			elif n_found > 0:
+				hud.add_log("[color=salmon]An enemy spy found our silo%s.[/color]" % ("" if n_found == 1 else "s"))
+			else:
+				hud.add_log("An enemy spy landed and flew off again.")
+		"spy_lost":
+			hud.add_log("[color=salmon]Our spy's helicopter was shot down.[/color]" if mine else "[color=lightgreen]We shot down an enemy helicopter.[/color]")
 		"carrier_lost":
 			hud.add_log("[color=salmon]Our transport was shot down.[/color]" if mine else "[color=lightgreen]Enemy transport shot down.[/color]")
 		"boat_launch":
