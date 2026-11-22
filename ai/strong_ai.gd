@@ -270,7 +270,7 @@ func choose_build(view) -> Array:
 		var kb = view.enemy_knowledge[h].get("building")
 		if kb != null:
 			known_types[String(kb["type"])] = true
-	if not enemy_boats.is_empty() or known_types.has("docks"):
+	if not enemy_boats.is_empty() or known_types.has("docks") or view.enemy_boats_arrived > 0:
 		threats.append_array(["coastal_cannon", "bunker"])
 	if known_types.has("airport"):
 		threats.append("bunker")

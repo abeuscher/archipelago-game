@@ -1,6 +1,8 @@
 ## Troops (spec section 10): air transports, platoons and bunkers.
 extends "res://tests/test_case.gd"
 
+const StrongAI = preload("res://ai/strong_ai.gd")
+
 const EAST := 0   # HexGrid.AXIAL_DIRS[0]: one hex to the right along a row
 
 
@@ -150,35 +152,41 @@ func test_docks_and_cannons_need_the_coast() -> void:
 	ok(st.can_build("coastal_cannon", hex(m, 6, 6), m.data, m.settings), "next to the sea")
 
 
-func test_boat_lands_the_round_after_launch() -> void:
+func test_boat_lands_in_the_round_it_sails() -> void:
 	var m = flat_match()
 	var dk = _docks(m)
 	var bank = put(m, 1, "bank", 0, 9)
 	var ev := play_round(m, [_sail(dk, hex(m, 0, 9))])
 	eq(events_of(ev, "boat_launch").size(), 1, "boat puts to sea")
-	eq(events_of(ev, "platoon").size(), 0, "nothing lands yet")
-	check(dk.boat_out, "docks busy while the boat is out")
-	check(m.sides[1].building_at(bank.hex) != null, "bank still there")
-	eq(m.view_for(1).boats[0].size(), 1, "the defender can see the boat")
-	m.begin_round()
-	m.end_build_phase()
-	err_contains(m.set_launch_orders(0, [_sail(dk, hex(m, 0, 9))]), "at sea", "can't launch another meanwhile")
-	ok(m.set_launch_orders(0, []))
-	ok(m.set_launch_orders(1, []))
-	ev = m.resolve_playout()
-	var p: Array = events_of(ev, "platoon")
-	eq(p.size(), 1, "the platoon lands next round")
+	eq(events_of(ev, "boat_arrive").size(), 1, "and comes ashore in the same playout")
+	eq(events_of(ev, "platoon").size(), 1, "the platoon lands")
 	check(m.sides[1].building_at(bank.hex) == null, "and overruns the bank")
 	check(not dk.boat_out, "the boat is back")
+	eq(m.boats[0].size(), 0, "nothing left at sea")
+	eq(m.view_for(1).enemy_boats_arrived, 1, "the defender saw it arrive")
+	m.begin_round()
+	m.end_build_phase()
+	ok(m.set_launch_orders(0, [_sail(dk, hex(m, 0, 9))]), "the docks can send it again next round")
+
+
+func test_boat_lands_before_the_missiles() -> void:
+	var m = flat_match()
+	var dk = _docks(m)
+	var ev := play_round(m, [_sail(dk, hex(m, 0, 9))])
+	var types: Array = ev.map(func(e): return e["type"])
+	check(types.find("boat_arrive") < types.find("platoon"), "arrival, then the landing")
 
 
 func test_coastal_cannon_sinks_a_boat() -> void:
 	var m = flat_match()
 	m.data.set_path("rules.troops.cannon_accuracy", 1.0)
 	var dk = _docks(m)
-	put(m, 1, "coastal_cannon", 0, 7)
-	play_round(m, [_sail(dk, hex(m, 0, 9))])
-	var ev := play_round(m)
+	var cannon = put(m, 1, "coastal_cannon", 0, 7)
+	var ev := play_round(m, [_sail(dk, hex(m, 0, 9))])
+	var shots: Array = events_of(ev, "cannon_fire")
+	eq(shots.size(), 1, "the cannon fires")
+	eq(int(shots[0]["cannon"]), cannon.hex, "from its own hex")
+	eq(int(shots[0]["side"]), 1, "for the defender")
 	eq(events_of(ev, "boat_sunk").size(), 1, "sunk")
 	eq(events_of(ev, "platoon").size(), 0, "no landing")
 	check(dk.carrier_lost and not dk.boat_out, "docks need a new boat")
@@ -188,11 +196,53 @@ func test_coastal_cannon_sinks_a_boat() -> void:
 	eq(m.sides[0].money, before - int(m.data.missile("boat")["replace_money"]), "boat replacement cost")
 
 
+func test_coastal_cannon_that_misses_lets_the_boat_land() -> void:
+	var m = flat_match()
+	m.data.set_path("rules.troops.cannon_accuracy", 0.0)
+	var dk = _docks(m)
+	put(m, 1, "coastal_cannon", 0, 7)
+	var ev := play_round(m, [_sail(dk, hex(m, 0, 9))])
+	eq(events_of(ev, "cannon_fire").size(), 1, "it still fires")
+	check(not bool(events_of(ev, "cannon_fire")[0]["hit"]), "and misses")
+	eq(events_of(ev, "platoon").size(), 1, "the platoon lands")
+
+
+func test_every_cannon_in_range_fires_and_none_beyond() -> void:
+	var m = flat_match()
+	m.data.set_path("rules.troops.cannon_accuracy", 0.0)
+	var dk = _docks(m)
+	var reach := int(m.data.section("troops")["cannon_range"])
+	put(m, 1, "coastal_cannon", 0, 9 - reach)
+	put(m, 1, "coastal_cannon", 0, 10)
+	put(m, 1, "coastal_cannon", 0, 9 + reach + 1)
+	var ev := play_round(m, [_sail(dk, hex(m, 0, 9))])
+	eq(events_of(ev, "cannon_fire").size(), 2, "the two within %d hexes fire" % reach)
+
+
+func test_strong_ai_researches_cannons_once_a_boat_has_landed() -> void:
+	var m = flat_match()
+	var dk = _docks(m)
+	m.sides[1].money = 500
+	put(m, 1, "lab", 9, 9)
+	var ai = StrongAI.new(1, m.data, 3)
+	m.begin_round()
+	var before: Array = ai.choose_build(m.view_for(1)).filter(func(a): return a["action"] == "research")
+	check(before.is_empty() or before[0]["item"] != "coastal_cannon", "no cannon research before any boat")
+	var m2 = flat_match()
+	var dk2 = _docks(m2)
+	m2.sides[1].money = 500
+	put(m2, 1, "lab", 9, 9)
+	play_round(m2, [_sail(dk2, hex(m2, 0, 9))])
+	m2.begin_round()
+	var after: Array = StrongAI.new(1, m2.data, 3).choose_build(m2.view_for(1)).filter(func(a): return a["action"] == "research")
+	eq(after.size(), 1, "one lab, one project")
+	eq(String(after[0]["item"]), "coastal_cannon", "cannons first once a boat has come ashore")
+
+
 func test_boat_aimed_inland_cannot_land() -> void:
 	var m = flat_match()
 	var dk = _docks(m)
-	play_round(m, [_sail(dk, hex(m, 6, 6))])
-	var ev := play_round(m)
+	var ev := play_round(m, [_sail(dk, hex(m, 6, 6))])
 	eq(events_of(ev, "boat_no_landing").size(), 1, "nowhere to land")
 	eq(events_of(ev, "platoon").size(), 0, "no platoon")
 	check(not dk.boat_out and not dk.carrier_lost, "the boat comes home")

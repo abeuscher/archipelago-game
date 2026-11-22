@@ -34,6 +34,9 @@ var bombed: Array = [{}, {}]
 ## side -> boats at sea: {"id", "side", "launcher", "target", "dir", "lands_round"}.
 ## Both sides can see them in the channel.
 var boats: Array = [[], []]
+## side -> how many enemy boats have come ashore (or been sunk) at its coast.
+## The defender sees every one arrive, so its AI may know it.
+var boats_arrived_at: Array = [0, 0]
 var round_number: int = 0
 var phase: int = Phase.SETUP
 var orders: Array = [[], []]
@@ -282,6 +285,7 @@ func view_for(side: int):
 	v.enemy_bases_total = data.integer("bases", "per_side")
 	v.own_seen_by_enemy = {}
 	v.boats = boats.duplicate(true)
+	v.enemy_boats_arrived = boats_arrived_at[side]
 	for h in knowledge[opponent(side)]:
 		v.own_seen_by_enemy[h] = true
 	return v

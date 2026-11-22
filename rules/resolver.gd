@@ -218,6 +218,7 @@ static func _land_boats(m, attacker: int, events: Array, pending: Dictionary, re
 	var cannons: Array = def.of_role(data, "coastal_cannon").filter(func(b): return def.weapon_active(b))
 	for bt in due:
 		m.boats[attacker].erase(bt)
+		m.boats_arrived_at[defender] += 1
 		var dk = m.sides[attacker].building_at(int(bt["launcher"]))
 		events.append({"type": "boat_arrive", "side": attacker, "id": bt["id"], "launcher": bt["launcher"],
 			"target": bt["target"], "dir": bt["dir"]})

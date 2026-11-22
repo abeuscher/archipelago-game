@@ -43,7 +43,7 @@ const BUILDING_TEXT := {
 	"ballistic_launcher": "Fires one ballistic missile a round: less damage, wider blast.",
 	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near. Once researched, it can send a spy instead.",
 	"bunker": "Wipes out enemy platoons that land or march within range.",
-	"docks": "Sends a boat with a platoon to the enemy coast. It lands the round after it sails. Built on the coast.",
+	"docks": "Sends a boat with a platoon to the enemy coast. It lands in the round it sails. Built on the coast.",
 	"coastal_cannon": "Fires on enemy boats coming ashore nearby. Built on the coast.",
 	"nuclear_silo": "Holds one nuke. Building a nuke takes a round; it hits its target twice as hard as a missile and every hex around it as hard as one. Anti-air rarely stops it, and it can take a stronghold.",
 }
