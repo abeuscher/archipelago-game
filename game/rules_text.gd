@@ -85,13 +85,13 @@ static func _missiles(data) -> String:
 			continue   # the transport is described under Troops
 		if name == "nuke":
 			if bool(data.research_item("nuclear_silo").get("available", true)):
-				out.append("[b]Nuke[/b]: fired from a nuclear silo, %d fuel; a nuke costs %d money and takes a round to build. %d to %d damage on the hex it hits and %d to %d on each hex around it (2 hits and 1 hit on a base); it can destroy a stronghold. Anti-air hits it %d%% of the time, %d%% with radar." % [
+				out.append("[b]Nuke[/b]: fired from a nuclear silo, %d fuel; a nuke costs %d money and takes a round to build. %d to %d damage on the hex it hits and %d to %d on each hex around it (2 hits and 1 hit on a base); it can destroy a stronghold. Firing it shows the enemy where its silo is. Anti-air hits it %d%% of the time, %d%% with radar." % [
 					int(m["fuel"]), int(m.get("replace_money", 0)), int(m["damage_min"] * m.get("centre_factor", 1.0)), int(m["damage_max"] * m.get("centre_factor", 1.0)),
 					int(m["damage_min"]), int(m["damage_max"]), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
 			continue
-		if m.has("finds_role"):
+		if m.has("finds_roles"):
 			if bool(data.research_item(String(m["requires"])).get("available", true)):
-				out.append("[b]Spy[/b]: sent from an airport instead of its transport, %d fuel and %d money a trip; needs Spy research. He flies in by helicopter, lands on any hex you choose and finds every enemy nuclear silo, then flies home. Anti-air hits his helicopter %d%% of the time, %d%% with radar; shot down, he finds nothing, but the airport keeps its transport." % [
+				out.append("[b]Spy[/b]: sent from an airport instead of its transport, %d fuel and %d money a trip; needs Spy research. He flies in by helicopter, lands on any hex you choose and finds every enemy bank, lab and refinery, then flies home. Anti-air hits his helicopter %d%% of the time, %d%% with radar; shot down, he finds nothing, but the airport keeps its transport." % [
 					int(m["fuel"]), int(m.get("money", 0)), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
 			continue
 		var bits: Array = ["%d fuel" % int(m["fuel"])]

@@ -24,27 +24,37 @@ func _spy(port, target: int) -> Dictionary:
 	return {"launcher": port.hex, "missile": "spy", "target": target}
 
 
-func test_spy_reveals_every_silo_and_nothing_else() -> void:
+func test_spy_reveals_every_bank_lab_and_refinery_and_nothing_else() -> void:
 	var r = _spy_match()
 	var m = r[0]
-	var silo_a = put(m, 1, "nuclear_silo", 2, 2)
-	var silo_b = put(m, 1, "nuclear_silo", 10, 3)
-	var bank = put(m, 1, "bank", 6, 6)
+	var bank = put(m, 1, "bank", 2, 2)
+	var lab = put(m, 1, "lab", 10, 3)
+	var refinery = put(m, 1, "refinery", 12, 8)
+	var silo = put(m, 1, "nuclear_silo", 6, 6)
+	var launcher = put(m, 1, "basic_launcher", 8, 8)
 	var ev := play_round(m, [_spy(r[1], hex(m, 6, 6))])
 	var s: Array = events_of(ev, "spy")
 	eq(s.size(), 1, "the spy lands")
-	eq(s[0]["found"], [silo_a.hex, silo_b.hex], "both silos found")
-	check(m.knowledge[0].has(silo_a.hex) and m.knowledge[0].has(silo_b.hex), "silo hexes revealed")
-	eq(String(m.knowledge[0][silo_a.hex]["building"]["type"]), "nuclear_silo", "seen as a silo")
-	check(not m.knowledge[0].has(bank.hex), "not even the hex he landed on is revealed")
+	var want: Array = [bank.hex, lab.hex, refinery.hex]
+	want.sort()
+	var got: Array = s[0]["found"].duplicate()
+	got.sort()
+	eq(got, want, "the bank, the lab and the refinery found")
+	for b in [bank, lab, refinery]:
+		check(m.knowledge[0].has(b.hex), "%s revealed" % b.type)
+	eq(String(m.knowledge[0][lab.hex]["building"]["type"]), "lab", "seen as a lab")
+	check(not m.knowledge[0].has(silo.hex), "not the silo he landed on")
+	check(not m.knowledge[0].has(launcher.hex), "nor weapons")
+	for h in m.sides[1].of_role(m.data, "base").map(func(x): return x.hex):
+		check(not m.knowledge[0].has(h), "nor bases")
 	check(m.sides[1].building_at(bank.hex) != null, "he does no damage")
 
 
-func test_spy_finding_nothing_reports_no_silos() -> void:
+func test_spy_finding_nothing_reports_nothing() -> void:
 	var r = _spy_match()
 	var m = r[0]
 	var ev := play_round(m, [_spy(r[1], hex(m, 3, 3))])
-	eq(events_of(ev, "spy")[0]["found"], [], "no silos")
+	eq(events_of(ev, "spy")[0]["found"], [], "nothing found")
 
 
 func test_spy_costs_two_fuel_and_sixty_money() -> void:
@@ -78,12 +88,12 @@ func test_spy_shot_down_finds_nothing_but_keeps_the_transport() -> void:
 	var m = r[0]
 	var port = r[1]
 	m.data.set_path("rules.missiles.spy.anti_air_accuracy", 1.0)
-	var silo = put(m, 1, "nuclear_silo", 2, 2)
+	var bank = put(m, 1, "bank", 2, 2)
 	put(m, 1, "anti_air", 6, 6)
 	var ev := play_round(m, [_spy(port, hex(m, 6, 6))])
 	eq(events_of(ev, "engage").size(), 1, "anti-air fires at him")
 	eq(events_of(ev, "spy").size(), 0, "he never lands")
-	check(not m.knowledge[0].has(silo.hex), "the silo stays hidden")
+	check(not m.knowledge[0].has(bank.hex), "the bank stays hidden")
 	check(not port.carrier_lost, "the airport keeps its transport")
 	eq(events_of(ev, "carrier_lost").size(), 0, "no transport lost")
 
@@ -168,7 +178,7 @@ func _ai_spy_match():
 	return [m, port]
 
 
-func test_strong_ai_sends_the_spy_when_no_silo_is_known() -> void:
+func test_strong_ai_sends_the_spy_when_it_knows_few_targets() -> void:
 	var r = _ai_spy_match()
 	var m = r[0]
 	put(m, 0, "anti_air", 2, 2)
@@ -191,47 +201,12 @@ func test_strong_ai_sends_the_spy_when_no_silo_is_known() -> void:
 	eq(orders.filter(func(o): return o["missile"] == "spy").size(), 0, "not again the round after")
 
 
-func test_strong_ai_keeps_the_spy_home_once_a_silo_is_known() -> void:
-	var r = _ai_spy_match()
-	var m = r[0]
-	var silo = put(m, 0, "nuclear_silo", 6, 6)
-	m.record_sighting(1, silo.hex)
-	m.begin_round()
-	m.end_build_phase()
-	var ai = StrongAI.new(1, m.data, 5)
-	var orders: Array = ai.choose_targets(m.view_for(1))
-	eq(orders.filter(func(o): return o["missile"] == "spy").size(), 0, "no spy")
-
-
-func test_strong_ai_researches_the_spy_after_the_airport_and_the_refinery_upgrade() -> void:
-	var d4 = Levels.data_for(data(), 4)
-	for s in [1, 2, 3, 4]:
-		var ai = StrongAI.new(1, d4, s)
-		var sp: int = ai.research.find("spy")
-		var ap: int = ai.research.find("airport")
-		check(ap >= 0 and sp > ap and sp > ai.research.find("refinery_upgrade"), "spy after the airport and the refinery upgrade (seed %d)" % s)
-		check(not ai.research.has("nuclear_silo") and not ai.research.has("bank_upgrade"), "carried-over research is not in the order")
-	var d3 = Levels.data_for(data(), 3)
-	var ai3 = StrongAI.new(1, d3, 1)
-	check(not ai3.research.has("spy") and not ai3.research.has("refinery_upgrade"), "neither in level 3")
-
-
 func test_strong_ai_level_4_matches_play_legally() -> void:
 	var d = Levels.data_for(data(), 4)
 	for s in [3, 4]:
 		var res: Dictionary = MatchRunner.play(d, s, [StrongAI.new(0, d, s), StrongAI.new(1, d, s + 50)], 300)
 		eq(res["errors"].size(), 0, "seed %d rejected actions %s" % [s, str(res["errors"].slice(0, 3))])
 		check(not res["timed_out"], "seed %d finished" % s)
-
-
-func test_strong_ai_waits_for_its_own_silo_research_before_spying() -> void:
-	var r = _ai_spy_match()
-	var m = r[0]
-	m.sides[1].unlocked.erase("nuclear_silo")
-	m.begin_round()
-	m.end_build_phase()
-	var ai = StrongAI.new(1, m.data, 5)
-	eq(ai.choose_targets(m.view_for(1)).filter(func(o): return o["missile"] == "spy").size(), 0, "no spy yet")
 
 
 func test_level_4_starts_both_sides_with_level_3_research_done() -> void:
@@ -244,3 +219,82 @@ func test_level_4_starts_both_sides_with_level_3_research_done() -> void:
 	var m3 = MatchState.create(Levels.data_for(data(), 3), 7)
 	eq(m3.sides[0].unlocked.size(), 0, "level 3 starts with nothing researched")
 	eq(m3.sides[1].unlocked.size(), 0, "nor does its enemy")
+
+
+func test_strong_ai_keeps_the_spy_home_when_it_knows_enough_targets() -> void:
+	var r = _ai_spy_match()
+	var m = r[0]
+	var n := int(m.data.ai["strong"]["spy"]["known_below"])
+	for k in n:
+		var b = put(m, 0, "bank", 2 * k, 10)
+		m.record_sighting(1, b.hex)
+	m.begin_round()
+	m.end_build_phase()
+	var ai = StrongAI.new(1, m.data, 5)
+	eq(ai.choose_targets(m.view_for(1)).filter(func(o): return o["missile"] == "spy").size(), 0, "no spy with %d known" % n)
+
+
+func test_strong_ai_researches_the_spy_right_after_the_airport() -> void:
+	var d4 = Levels.data_for(data(), 4)
+	for s in [1, 2, 3, 4]:
+		var ai = StrongAI.new(1, d4, s)
+		var ap: int = ai.research.find("airport")
+		check(ap >= 0 and ai.research.find("spy") == ap + 1, "spy right after the airport (seed %d)" % s)
+		check(ai.research.has("refinery_upgrade"), "refinery upgrade")
+		check(not ai.research.has("nuclear_silo") and not ai.research.has("bank_upgrade"), "carried-over research is not in the order")
+	var ai3 = StrongAI.new(1, Levels.data_for(data(), 3), 1)
+	check(not ai3.research.has("spy") and not ai3.research.has("refinery_upgrade"), "neither in level 3")
+
+
+func test_strong_ai_fires_at_banks_and_labs_it_knows() -> void:
+	var d = Levels.data_for(data(), 4)
+	var m = flat_match(d)
+	var st = m.sides[1]
+	st.fuel = 30
+	put(m, 1, "basic_launcher", 3, 3)
+	put(m, 1, "basic_launcher", 5, 3)   # one shot kept for finding what's hidden, one spare
+	# Every enemy base already found and destroyed, so nothing else to aim at.
+	for b in m.sides[0].of_role(d, "base"):
+		m.sides[0].remove_building(b.hex, d)
+		m.bases_destroyed_by[1].append(b.hex)
+	var lab = put(m, 0, "lab", 9, 9)
+	m.record_sighting(1, lab.hex)
+	m.begin_round()
+	m.end_build_phase()
+	var orders: Array = StrongAI.new(1, d, 5).choose_targets(m.view_for(1))
+	check(orders.any(func(o): return int(o["target"]) == lab.hex), "the known lab is shot at: %s" % str(orders))
+
+
+func test_strong_ai_keeps_the_spy_money_back_in_the_build() -> void:
+	var r = _ai_spy_match()
+	var m = r[0]
+	m.begin_round()
+	var st = m.sides[1]
+	st.money = 100
+	var ai = StrongAI.new(1, m.data, 5)
+	for a in ai.choose_build(m.view_for(1)):
+		m.build_action(1, a)
+	check(st.money >= int(m.data.missile("spy")["money"]), "money left for the trip: %d" % st.money)
+	m.end_build_phase()
+	var orders: Array = ai.choose_targets(m.view_for(1))
+	eq(orders.filter(func(o): return o["missile"] == "spy").size(), 1, "and he goes")
+
+
+func test_level_4_enemy_builds_labs_early_and_focuses_its_research() -> void:
+	var d4 = Levels.data_for(data(), 4)
+	var ai = StrongAI.new(1, d4, 1)
+	var order: Array = ai._build_order()
+	var at := int(d4.ai["strong"]["nukes"]["lab_at"])
+	eq(order[at], "lab", "first lab at %d" % at)
+	eq(order[at + 1], "lab", "the extra lab right after")
+	var ai3 = StrongAI.new(1, Levels.data_for(data(), 3), 1)
+	check(ai3._build_order().find("lab") > at, "level 3 unchanged")
+	# Two labs, one project: the second helps instead of starting another.
+	var m = flat_match(d4)
+	var st = m.sides[1]
+	st.money = 1000
+	put(m, 1, "lab", 3, 3)
+	put(m, 1, "lab", 5, 3)
+	m.begin_round()
+	var acts: Array = ai.choose_build(m.view_for(1)).filter(func(a): return a["action"] == "research")
+	eq(acts.size(), 1, "one project at a time")

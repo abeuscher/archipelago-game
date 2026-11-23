@@ -1793,8 +1793,8 @@ func _run_playout() -> void:
 	await _wait(0.7)
 	for k in launches[0].size():
 		var lm: Dictionary = data.missile(String(launches[0][k]["missile"]))
-		if lm.has("carries") or lm.has("finds_role"):
-			_take_off(int(launches[0][k]["launcher"]), k * 0.15, "helicopter" if lm.has("finds_role") else "transport")
+		if lm.has("carries") or lm.has("finds_roles"):
+			_take_off(int(launches[0][k]["launcher"]), k * 0.15, "helicopter" if lm.has("finds_roles") else "transport")
 		else:
 			_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
 	for k in sailings.size():
@@ -1807,7 +1807,7 @@ func _run_playout() -> void:
 		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
 		var key := "incoming_one" if n == 1 else "incoming_many"
-		var spies_only: bool = n > 0 and arrivals[1].is_empty() and launches[1].all(func(e): return data.missile(String(e["missile"])).has("finds_role"))
+		var spies_only: bool = n > 0 and arrivals[1].is_empty() and launches[1].all(func(e): return data.missile(String(e["missile"])).has("finds_roles"))
 		if spies_only and lines.has("incoming_spy"):
 			key = "incoming_spy"
 		elif launches[1].any(func(e): return String(e["missile"]) == "nuke") and lines.has("incoming_nuke"):
@@ -1838,7 +1838,7 @@ func _run_playout() -> void:
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
-		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "spy", "spy_lost"]:
+		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "spy", "spy_lost", "launcher_revealed"]:
 			_log_event(ev)
 	# Our first base just fell: the level's line (Ginger in level 1), right
 	# away, before our own strikes go in. Every match; skipped if two fell at
@@ -1878,7 +1878,7 @@ func _run_playout() -> void:
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
-		elif ev.get("side", -1) == 0 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "boat_launch", "spy", "spy_lost"]:
+		elif ev.get("side", -1) == 0 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "boat_launch", "spy", "spy_lost", "launcher_revealed"]:
 			_log_event(ev)
 		elif ev["type"] in ["game_over", "coin_flip_needed"]:
 			_log_event(ev)
@@ -2003,7 +2003,7 @@ func _ashore_anim(board, isl, ev: Dictionary, info: Dictionary, color: Color, de
 ## it and returns how long it will take, so the caller can wait for all.
 func _land(board, isl, launch: Dictionary, by_id: Dictionary, color: Color, delay: float, reveal_tiles: Array) -> float:
 	var info: Dictionary = by_id.get(launch["id"], {})
-	if data.missile(String(launch["missile"])).has("finds_role"):
+	if data.missile(String(launch["missile"])).has("finds_roles"):
 		_spy_flight(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
 		return delay + SPY_SECONDS
 	if data.missile(String(launch["missile"])).has("carries"):
@@ -2113,9 +2113,10 @@ func _spy_flight(board, isl, info: Dictionary, target: int, color: Color, delay:
 			board.tiles[int(h)] = reveal_tiles[int(h)]
 		else:
 			board.tiles[int(h)]["enemy_seen"] = true
-		effects.float_text(board.position + board.tile_center(int(h)), "Silo found", Color(1.0, 0.86, 0.3))
+		var fb = m.sides[1 if board == enemy_board else 0].building_at(int(h))
+		effects.float_text(board.position + board.tile_center(int(h)), "%s found" % (Pieces.display_name(fb.type) if fb != null else "Target"), Color(1.0, 0.86, 0.3))
 	if found.is_empty():
-		effects.float_text(ground, "No silo", Color(0.85, 0.9, 1.0))
+		effects.float_text(ground, "Nothing found", Color(0.85, 0.9, 1.0))
 	board.queue_redraw()
 	await _wait(0.9)
 	spy.pose = 1
@@ -2306,18 +2307,20 @@ func _log_event(ev: Dictionary) -> void:
 			var n_found: int = ev["found"].size()
 			if mine:
 				hud.add_log("[color=lightgreen]Our spy is back: %s.[/color]" % (
-					"no enemy silo" if n_found == 0 else ("%d enemy silo%s found" % [n_found, "" if n_found == 1 else "s"])))
+					"no banks, labs or refineries" if n_found == 0 else ("%d bank%s, lab%s and refiner%s found" % [n_found, "" if n_found == 1 else "s", "" if n_found == 1 else "s", "y" if n_found == 1 else "ies"])))
 			elif n_found > 0:
-				hud.add_log("[color=salmon]An enemy spy found our silo%s.[/color]" % ("" if n_found == 1 else "s"))
+				hud.add_log("[color=salmon]An enemy spy found %d of our banks, labs and refineries.[/color]" % n_found)
 			else:
 				hud.add_log("An enemy spy landed and flew off again.")
+		"launcher_revealed":
+			hud.add_log("[color=salmon]Our nuke launch gave away our silo.[/color]" if mine else "[color=lightgreen]The enemy's nuke launch gave away its silo.[/color]")
 		"spy_lost":
 			hud.add_log("[color=salmon]Our spy's helicopter was shot down.[/color]" if mine else "[color=lightgreen]We shot down an enemy helicopter.[/color]")
 		"carrier_lost":
 			hud.add_log("[color=salmon]Our transport was shot down.[/color]" if mine else "[color=lightgreen]Enemy transport shot down.[/color]")
 		"boat_launch":
 			if mine:
-				hud.add_log("Our boat puts to sea. It lands next round.")
+				hud.add_log("Our boat puts to sea.")
 		"boat_sunk":
 			hud.add_log("[color=salmon]Our boat was sunk.[/color]" if mine else "[color=lightgreen]Our coastal guns sank an enemy boat.[/color]")
 		"boat_no_landing":

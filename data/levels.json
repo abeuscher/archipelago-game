@@ -35,7 +35,10 @@
         "rules.research.nuclear_silo.start_researched": true,
     "rules.research.bank_upgrade.start_researched": true,
     "rules.research.spy.available": true,
-        "rules.research.refinery_upgrade.available": true
+        "rules.research.refinery_upgrade.available": true,
+    "ai.strong.nukes.extra_labs": 1,
+    "ai.strong.nukes.lab_at": 4,
+    "ai.strong.focus_research": true
       },
       "win_award_money": 0,
       "intro": "level_4_intro"

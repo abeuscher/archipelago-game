@@ -60,8 +60,7 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 	if _in_level("bank_upgrade"):
 		var at := int(cfg["nukes"]["bank_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
 		research.insert(mini(research.size(), at), "bank_upgrade")
-	# Level 4: the refinery upgrade early, and the spy right after the silo:
-	# silos come late, so a spy before then has nothing to find.
+	# Level 4: the refinery upgrade early, and the spy right after the airport.
 	if _in_level("refinery_upgrade"):
 		var at2 := int(cfg["nukes"]["refinery_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
 		research.insert(mini(research.size(), at2), "refinery_upgrade")
@@ -72,15 +71,12 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 		research.erase(item)
 
 
-## The spy goes into the research order where the silo will really be
-## researched (it heads the list but waits for needs_researched other
-## items), and after the airport and the refinery upgrade.
+## The spy goes into the research order right after the airport he needs.
 func _place_spy_research() -> void:
-	var after := maxi(research.find("airport"), research.find("refinery_upgrade"))
-	var si := research.find("nuclear_silo")
-	if si >= 0 and not SideState.starting_research(data).has("nuclear_silo"):
-		after = maxi(after, si + int(data.research_item("nuclear_silo").get("needs_researched", 0)))
-	research.insert(mini(research.size(), after + 1), "spy")
+	var after := research.find("airport")
+	if after < 0:
+		after = research.size() - 1
+	research.insert(after + 1, "spy")
 
 
 ## A research item this level offers.
@@ -102,19 +98,37 @@ func _build_order() -> Array:
 		var lab_at := order.find("lab")
 		for k in int(cfg["nukes"].get("extra_labs", 0)):
 			order.insert(lab_at + 1 if lab_at >= 0 else 0, "lab")
-	if _strongholds() <= 0:
+	if _strongholds() > 0:
+		# Stronghold levels: the troop buildings move up to just after the lab.
+		var early: Array = cfg["strongholds"]["build_early"]
+		var out: Array = order.duplicate()
+		for t in early:
+			out.erase(t)
+		var at := out.find("lab")
+		if at < 0:
+			out.insert(0, "lab")
+			at = 0
+		for k in early.size():
+			out.insert(at + 1 + k, early[k])
+		order = out
+	return _labs_at(order)
+
+
+## nukes.lab_at (a level may set it): the first lab and the extra labs move
+## to that place in the build order, so research starts sooner. -1 leaves
+## the order alone.
+func _labs_at(order: Array) -> Array:
+	var at := int(cfg["nukes"].get("lab_at", -1))
+	if at < 0 or not _in_level("nuclear_silo"):
 		return order
-	# Stronghold levels: the troop buildings move up to just after the lab.
-	var early: Array = cfg["strongholds"]["build_early"]
 	var out: Array = order.duplicate()
-	for t in early:
-		out.erase(t)
-	var at := out.find("lab")
-	if at < 0:
-		out.insert(0, "lab")
-		at = 0
-	for k in early.size():
-		out.insert(at + 1 + k, early[k])
+	var n := 1 + int(cfg["nukes"].get("extra_labs", 0))
+	var moved := 0
+	while moved < n and out.has("lab"):
+		out.erase("lab")
+		moved += 1
+	for k in moved:
+		out.insert(mini(at, out.size()), "lab")
 	return out
 
 
@@ -250,6 +264,10 @@ func _land_centre(isl) -> int:
 func choose_build(view) -> Array:
 	var st = view.own
 	var actions: Array = []
+	# A spy trip due this round: its money is kept back from the build (st is
+	# our own copy, so this only changes what we plan to spend).
+	if _spy_due(view, st):
+		st.money -= mini(st.money, int(data.missile("spy").get("money", 0)))
 	for type in cfg["repair_priority"]:
 		for b in st.buildings_sorted():
 			if b.type == type and st.can_repair(b.hex, data) == "":
@@ -277,9 +295,14 @@ func choose_build(view) -> Array:
 	for t in threats:
 		queue.erase(t)
 	queue = threats + queue
+	# focus_research (a level may set it): one project at a time, the other
+	# labs helping it, so each item comes sooner.
+	var focus := bool(cfg.get("focus_research", false))
 	for lab in st.of_role(data, "lab"):
 		if st.project_for_lab(lab.id) != null:
 			continue
+		if focus and not st.projects.is_empty():
+			break
 		for item in queue:
 			if st.can_start_research(lab.id, item, data) == "":
 				st.start_research(lab.id, item, data)
@@ -556,6 +579,8 @@ func choose_targets(view) -> Array:
 	var forts: Array = []       # known enemy strongholds: [hex, gun working]
 	var live_bunkers: Array = []   # known enemy bunkers in action
 	var wprio: Array = tc["weapon_priority"]
+	var eprio: Array = tc.get("economy_priority", [])
+	var economy: Array = []     # [hex, priority]
 	for h in know:
 		var b = know[h].get("building")
 		if b == null:
@@ -570,11 +595,14 @@ func choose_targets(view) -> Array:
 			live_bunkers.append(h)
 		if t == "suspected_base":
 			bases.append([h, float(b["hits"])])
+		elif eprio.has(t) and not b["disabled"]:
+			economy.append([h, eprio.find(t)])
 		elif wprio.has(t) and active:
 			weapons.append([h, wprio.find(t)])
 			if data.has_building(t) and data.role(t) == "launcher":
 				enemy_launchers_active = true
 	weapons.sort_custom(func(a, b): return a[1] < b[1] or (a[1] == b[1] and a[0] < b[0]))
+	economy.sort_custom(func(a, b): return a[1] < b[1] or (a[1] == b[1] and a[0] < b[0]))
 	bases.sort_custom(func(a, b): return a[1] > b[1] or (a[1] == b[1] and a[0] < b[0]))
 
 	var aa_radius := int(data.section("anti_air")["radius"])
@@ -624,6 +652,12 @@ func choose_targets(view) -> Array:
 		var guard: Array = weapon_list.filter(func(h): return aa_known.has(h))
 		wish.append_array(guard)
 		wish.append_array(weapon_list.filter(func(h): return not aa_known.has(h)))
+	# Known banks, labs and refineries (a spy's finds) after that, leaving the
+	# usual shots for finding bases while some are still hidden.
+	var eco_list: Array = economy.map(func(e): return e[0])
+	if unfound > 0:
+		eco_list = eco_list.slice(0, maxi(0, shots.size() - keep - wish.size()))
+	wish.append_array(eco_list)
 
 	# Siege: whenever we have troops to send, a known stronghold's gun and the
 	# bunkers guarding it are knocked out first. A building hit this round is
@@ -752,20 +786,11 @@ func choose_targets(view) -> Array:
 ## silo is known, from cfg spy.from_round, every_rounds apart, if the fuel
 ## and money are there; he lands where the fewest known anti-air guns reach.
 func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Callable) -> int:
-	if not data.rules["missiles"].has("spy") or not st.missile_unlocked("spy", data) or not _in_level("nuclear_silo"):
-		return -1
-	if not st.is_unlocked("nuclear_silo"):
-		return -1   # no silo research of our own yet: theirs is unlikely too
-	var sc: Dictionary = cfg["spy"]
-	if view.round_number < int(sc["from_round"]) or view.round_number - _last_spy < int(sc["every_rounds"]):
+	if not _spy_due(view, st):
 		return -1
 	var sp: Dictionary = data.missile("spy")
 	if int(sp["fuel"]) > fuel or int(sp.get("money", 0)) > money:
 		return -1
-	for h in know:
-		var kb = know[h].get("building")
-		if kb != null and data.has_building(String(kb["type"])) and data.role(String(kb["type"])) == String(sp["finds_role"]):
-			return -1   # one is known: the missiles go after it
 	var best := -1
 	var best_c := 1 << 30
 	for h in _enemy_grid.count:
@@ -774,6 +799,27 @@ func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Call
 			best_c = c
 			best = h
 	return best
+
+
+## Whether a spy trip is due this round: he is researched, an airport is in
+## action, it is at least from_round and every_rounds since his last trip,
+## and fewer than known_below live enemy banks, labs and refineries are known.
+func _spy_due(view, st) -> bool:
+	if not data.rules["missiles"].has("spy") or not st.missile_unlocked("spy", data):
+		return false
+	if not st.of_role(data, "airport").any(func(b): return st.weapon_active(b)):
+		return false
+	var sc: Dictionary = cfg["spy"]
+	if view.round_number < int(sc["from_round"]) or view.round_number - _last_spy < int(sc["every_rounds"]):
+		return false
+	var roles: Array = data.missile("spy")["finds_roles"]
+	var known := 0
+	for h in view.enemy_knowledge:
+		var kb = view.enemy_knowledge[h].get("building")
+		if kb != null and data.has_building(String(kb["type"])) and roles.has(data.role(String(kb["type"]))) \
+				and not (kb["disabled"] and not kb["repairing"]):
+			known += 1
+	return known < int(sc["known_below"])
 
 
 ## The best troop drop on what we know: every known building as a landing

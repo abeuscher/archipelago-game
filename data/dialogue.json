@@ -180,7 +180,7 @@
     },
     "incoming_spy": {
       "character": "ginger",
-      "text": "General! An enemy helicopter is coming in low! It could be a spy looking for our silo!"
+      "text": "General! An enemy helicopter is coming in low! It could be a spy looking for our banks and labs!"
     },
     "incoming_boat": {
       "character": "ginger",
@@ -196,7 +196,7 @@
     },
     "level_4_intro": {
       "character": "admiral",
-      "text": "Good work, General. We keep our silo and bank research from the last battle, but so does the enemy, so expect nukes early. Intelligence has a man for us: once we have an airport, research the spy and he will fly over in a helicopter, find every nuclear silo the enemy has and come straight back to report. Anti-air can bring him down, though less often than a missile. And our engineers can now double what each refinery makes."
+      "text": "Good work, General. We keep our silo and bank research from the last battle, but so does the enemy, so expect nukes early. A silo gives itself away the first time it fires, so hit back fast. Intelligence has a man for us: once we have an airport, research the spy and he will fly over in a helicopter, find every bank, lab and refinery the enemy has and come straight back to report. Anti-air can bring him down, though less often than a missile. And our engineers can now double what each refinery makes."
     },
     "level_2_intro": {
       "character": "admiral",

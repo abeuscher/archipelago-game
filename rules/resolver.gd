@@ -47,6 +47,10 @@ static func resolve(m) -> Array:
 				var silo = m.sides[s].building_at(ms["launcher"])
 				if silo != null:
 					silo.carrier_lost = true
+			if bool(mdef0.get("launch_reveals_launcher", false)):
+				# The launch is seen: the other side learns where it came from.
+				reveals[1 - s].append(ms["launcher"])
+				events.append({"type": "launcher_revealed", "side": s, "hex": ms["launcher"], "missile": ms["missile"]})
 			missiles[s].append(ms)
 			m.stats[s]["fired"] += 1
 			m.stats[s]["fired_" + ms["missile"]] = int(m.stats[s].get("fired_" + ms["missile"], 0)) + 1
@@ -127,7 +131,7 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 					if port != null:
 						port.carrier_lost = true
 					events.append({"type": "carrier_lost", "side": attacker, "id": ms["id"], "launcher": ms["launcher"]})
-				elif data.missile(ms["missile"]).has("finds_role"):
+				elif data.missile(ms["missile"]).has("finds_roles"):
 					events.append({"type": "spy_lost", "side": attacker, "id": ms["id"], "launcher": ms["launcher"]})
 			break   # No missile is engaged more than once a round.
 
@@ -142,7 +146,7 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		if mdef.has("carries"):
 			_platoon(m, attacker, ms, events, pending, reveals)
 			continue
-		if mdef.has("finds_role"):
+		if mdef.has("finds_roles"):
 			_spy(m, attacker, ms, mdef, events, reveals)
 			continue
 		var impact: int = ms["target"]
@@ -189,13 +193,14 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 
 
 ## A spy who got through lands on his hex and finds every enemy building of
-## the role he looks for (the silos), wherever it is; those hexes are
-## revealed. Then he flies home.
+## the roles he looks for (banks, refineries, labs), wherever it is; those
+## hexes are revealed. Then he flies home.
 static func _spy(m, attacker: int, ms: Dictionary, mdef: Dictionary, events: Array, reveals: Array) -> void:
 	var def = m.sides[1 - attacker]
 	var found: Array = []
-	for b in def.of_role(m.data, String(mdef["finds_role"])):
-		found.append(b.hex)
+	for role in mdef["finds_roles"]:
+		for b in def.of_role(m.data, String(role)):
+			found.append(b.hex)
 	found.sort()
 	reveals.append_array(found)
 	events.append({"type": "spy", "side": attacker, "id": ms["id"], "hex": int(ms["target"]), "found": found})

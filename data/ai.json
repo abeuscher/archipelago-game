@@ -119,6 +119,7 @@
       "unseen_weight": 1.0
     },
     "targeting": {
+      "economy_priority": ["lab", "bank", "refinery"],
       "weapon_priority": [
         "nuclear_silo",
         "basic_launcher",
@@ -239,12 +240,16 @@
         "default": 0.8
       },
       "extra_labs": 0,
+      "lab_at": -1,
       "refinery_upgrade_at": 4
     },
+    "_note_focus_research": "true: one research project at a time, the other labs helping it (each item done sooner, fewer at once). A level may set it.",
+    "focus_research": false,
     "spy": {
-      "_note": "Level 4. The spy is researched right after the nuclear silo (or the airport, if that comes later): silos come late, so a spy before then has nothing to find. An airport sends him instead of its transport once our own silo research is done, when no live enemy silo is known, it is at least from_round, and every_rounds have passed since his last trip; he lands on the hex the fewest known anti-air guns cover. Once a silo is known, the usual targeting goes after it (weapon_priority). refinery_upgrade_at (under nukes) places the refinery upgrade in the research order as bank_upgrade_at does; at 4 it comes just after the four items the silo waits on, so the silo comes no later than in level 3.",
+      "_note": "Level 4. The spy is researched right after the airport. An airport sends him instead of its transport when fewer than known_below live enemy banks, labs and refineries are known, it is at least from_round, and every_rounds have passed since his last trip; he lands on the hex the fewest known anti-air guns cover. What he finds is targeted after weapons and bases (targeting.economy_priority). refinery_upgrade_at (under nukes) places the refinery upgrade in the research order as bank_upgrade_at does; at 4 it comes just after the four items the silo waits on, so the silo comes no later than in level 3.",
       "from_round": 6,
-      "every_rounds": 4
+      "every_rounds": 4,
+      "known_below": 3
     }
   },
   "batch": {

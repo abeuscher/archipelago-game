@@ -161,3 +161,28 @@ func test_bank_upgrade_raises_bank_income_to_25() -> void:
 	var before := int(st.compute_income(d)["money"])
 	st.unlocked["bank_upgrade"] = true
 	eq(int(st.compute_income(d)["money"]) - before, 10, "each bank makes 10 more")
+
+
+func test_firing_a_nuke_reveals_its_silo_even_when_shot_down() -> void:
+	for acc in [0.0, 1.0]:
+		var r = _armed()
+		var m = r[0]
+		var silo = r[1]
+		m.data.set_path("rules.missiles.nuke.anti_air_accuracy", acc)
+		put(m, 1, "anti_air", 5, 5)
+		check(not m.knowledge[1].has(silo.hex), "hidden before it fires")
+		var ev := play_round(m, [_nuke(silo, hex(m, 5, 5))])
+		var rv: Array = events_of(ev, "launcher_revealed")
+		eq(rv.size(), 1, "a launch reveal event (accuracy %s)" % acc)
+		eq(int(rv[0]["hex"]), silo.hex, "at the silo")
+		check(m.knowledge[1].has(silo.hex), "the enemy now knows the silo (accuracy %s)" % acc)
+		eq(String(m.knowledge[1][silo.hex]["building"]["type"]), "nuclear_silo", "as a silo")
+
+
+func test_other_launches_do_not_reveal_their_launcher() -> void:
+	var m = flat_match()
+	m.sides[0].fuel = 30
+	var ln = put(m, 0, "basic_launcher", 0, 0)
+	var ev := play_round(m, [{"launcher": ln.hex, "missile": "basic", "target": hex(m, 5, 5)}])
+	eq(events_of(ev, "launcher_revealed").size(), 0, "no reveal")
+	check(not m.knowledge[1].has(ln.hex), "launcher still hidden")
