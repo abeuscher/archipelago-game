@@ -238,25 +238,18 @@ func _start_setup_game() -> void:
 
 func _start_round() -> void:
 	var events: Array = m.begin_round()
-	# The character reports what came in (from round 2, when there is
-	# income); the clock runs underneath. The log keeps the plain record
-	# without flashing it. Last round's battle summary is listed in the comms
-	# screen (and the log), not said.
+	# Income and last round's battle summary go to the log without flashing
+	# it; the summary is also listed in the comms screen. Neither is said.
 	if not battle_report.is_empty():
 		hud.add_log("Battle summary: " + "; ".join(battle_report) + ".", false)
-	var income_said := ""
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
 		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
 			var inc: Dictionary = ev["income"]
-			var fill := {"n": m.round_number, "money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]}
-			income_said = _line_text("income").format(fill)
 			hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]], false)
 		else:
 			_log_event(ev)
-	if income_said != "":
-		_say("income", income_said, false, true)   # the build clock runs while it is read
 	if m.boats[MatchState.ENEMY].any(func(bt): return int(bt["lands_round"]) == m.round_number):
 		_say("boat_spotted")
 	# The enemy commits its build for the round from its own view.

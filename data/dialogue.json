@@ -155,12 +155,8 @@
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
   ],
-  "_announcements": "Said at moments in the game. income is the report at the start of each round from round 2 (the round clock runs underneath it). The last round's battle summary is not said: it is listed in the comms screen from battle_report.stats. Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
+  "_announcements": "Said at moments in the game. Income and the last round's battle summary are not said: income goes to the log, and the summary to the log and the comms screen (from battle_report.stats). Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
   "announcements": {
-    "income": {
-      "character": "pilot",
-      "text": "General, we took in {money} money, {fuel} fuel and {research} research."
-    },
     "incoming_one": {
       "character": "ginger",
       "text": "General! An enemy missile is incoming!"
