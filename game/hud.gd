@@ -87,6 +87,7 @@ var _confirm: Control            ## a yes/no question in the middle of the scree
 var _confirm_text: Label
 var _confirm_yes: Callable
 var _confirm_no: Callable
+var _confirm_yes_key: Button
 signal choice_menu_closed
 var _ui_root: Control
 var _menu: Control                ## the missile choice pop-up (with a click catcher behind it), or null
@@ -441,6 +442,8 @@ func _ready() -> void:
 		_key_button(kb, spec[1])
 		kb.add_theme_font_size_override("font_size", 18)
 		var yes: bool = spec[2]
+		if yes:
+			_confirm_yes_key = kb
 		kb.pressed.connect(func():
 			_confirm.visible = false
 			var cb: Callable = _confirm_yes if yes else _confirm_no
@@ -1287,6 +1290,22 @@ func choice_menu_open() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	# Enter is the OK key: YES on a question, the first key of the coin flip
+	# or end-of-game box, otherwise OK on the character's message.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_KP_ENTER] \
+			and _menu == null and not esc_menu.visible:
+		var pressed := false
+		if _confirm.visible:
+			_confirm_yes_key.pressed.emit()
+			pressed = true
+		elif _overlay.visible and _overlay_buttons.get_child_count() > 0:
+			(_overlay_buttons.get_child(0) as Button).pressed.emit()
+			pressed = true
+		else:
+			pressed = announcer.press_ok()
+		if pressed:
+			get_viewport().set_input_as_handled()
+			return
 	if _menu == null:
 		return
 	if (event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE) \

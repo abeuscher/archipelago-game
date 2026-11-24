@@ -385,7 +385,7 @@ func test_scientist_explains_research_when_it_first_opens() -> void:
 
 
 func test_battle_report_counts_and_skips_zeros() -> void:
-	eq(BattleReport.sentences([], Tips.load_lines()["battle_report"]["parts"]), [], "a quiet round gives no report")
+	eq(BattleReport.stat_lines([], Tips.load_lines()["battle_report"]["stats"]), [], "a quiet round gives no summary")
 	var ev := [
 		# The enemy (side 1) attacks us: two missiles land, one is shot down,
 		# one transport is shot down. Hex 5 is hit twice and survives; hex 9
@@ -403,19 +403,19 @@ func test_battle_report_counts_and_skips_zeros() -> void:
 		{"type": "engage", "side": 1, "id": 11, "hit": true},
 		{"type": "platoon", "side": 0, "id": 12, "lost_at_sea": false, "stopped_by": 4, "destroyed": []},
 	]
-	var parts: Dictionary = Tips.load_lines()["battle_report"]["parts"]
-	eq(BattleReport.sentences(ev, parts), [
-		"Two enemy missiles got through to us.",
-		"One of our buildings was damaged.",
-		"We lost one building.",
-		"Our anti-air shot down one of their missiles.",
-		"We brought down one of their transports.",
-		"One of our missiles found its target.",
-		"They shot down one of our missiles.",
-		"We damaged one enemy building.",
-		"We lost eight soldiers.",
-		"We stopped eight of their soldiers.",
-	], "the Admiral's sentences")
+	var labels: Dictionary = Tips.load_lines()["battle_report"]["stats"]
+	eq(BattleReport.stat_lines(ev, labels), [
+		"Enemy missiles that hit us: 2",
+		"Our buildings damaged: 1",
+		"Our buildings lost: 1",
+		"Enemy missiles shot down: 1",
+		"Enemy transports shot down: 1",
+		"Our missiles on target: 1",
+		"Our missiles shot down: 1",
+		"Enemy buildings damaged: 1",
+		"Our soldiers lost: 8",
+		"Enemy soldiers stopped: 8",
+	], "label: number, zeros left out")
 
 
 ## The tips after the opening walkthrough (Ginger's intro_* tips, which come

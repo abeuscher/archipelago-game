@@ -112,7 +112,7 @@ def lines():
         out.append(("say:" + k, v["character"], v["text"], ANNOUNCE_WHEN.get(k, "")))
         ENDINGS["say:" + k] = v.get("endings", [])
         if k == "battle_report":
-            for part, forms in v["parts"].items():
+            for part, forms in v.get("parts", {}).items():
                 out.append(("report:%s:one" % part, v["character"], forms[0], REPORT_WHEN))
                 out.append(("report:%s:many" % part, v["character"], forms[1], REPORT_WHEN))
     return out

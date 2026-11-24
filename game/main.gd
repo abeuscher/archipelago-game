@@ -55,7 +55,7 @@ var lines: Dictionary = {}           ## the characters' lines (dialogue.json "an
 var ui: int = Ui.SETUP
 var viewing: int = 0
 var rot: int = 0
-var battle_report: Array = []   ## lines for the end-of-round report
+var battle_report: Array = []   ## the last attack's summary, "label: n" lines, in the comms screen until the next attack
 var clock_left: float = 0.0
 var clock_running: bool = false
 var tool: String = ""
@@ -214,7 +214,7 @@ func _enter_setup() -> void:
 		hud.add_log("Place your three bases. Bases and decoys may not touch each other.")
 	var intro := String(level.get("intro", ""))
 	if intro != "" and lines.has(intro):
-		hud.announce(_line_text(intro), "", 0.0, false, _line_character(intro))
+		_say(intro)
 	_refresh()
 
 
@@ -240,14 +240,10 @@ func _start_round() -> void:
 	var events: Array = m.begin_round()
 	# The character reports what came in (from round 2, when there is
 	# income); the clock runs underneath. The log keeps the plain record
-	# without flashing it.
-	# Last round's battle report comes first, if anything happened; then the
-	# income, said together by one character so it is one OK, not two.
-	var report := ""
+	# without flashing it. Last round's battle summary is listed in the comms
+	# screen (and the log), not said.
 	if not battle_report.is_empty():
-		report = _line_text("battle_report") + " " + " ".join(battle_report)
-		hud.add_log(report, false)
-		battle_report = []
+		hud.add_log("Battle summary: " + "; ".join(battle_report) + ".", false)
 	var income_said := ""
 	for ev in events:
 		if ev["type"] == "round_start":
@@ -255,17 +251,14 @@ func _start_round() -> void:
 		elif ev["type"] == "income" and ev.get("side", -1) == MatchState.PLAYER:
 			var inc: Dictionary = ev["income"]
 			var fill := {"n": m.round_number, "money": inc["money"], "fuel": inc["fuel"], "research": inc["research"]}
-			income_said = _line_text("income_after_report" if report != "" else "income").format(fill)
+			income_said = _line_text("income").format(fill)
 			hud.add_log("Income: +%d money, +%d fuel, +%d research." % [inc["money"], inc["fuel"], inc["research"]], false)
 		else:
 			_log_event(ev)
-	if report != "":
-		# The build clock runs while it is read, as for the income line.
-		hud.announce((report + " " + income_said).strip_edges(), "", 0.0, false, _line_character("battle_report"), false, true)
-	elif income_said != "":
-		hud.announce(income_said, "", 0.0, false, _line_character("income"), false, true)
+	if income_said != "":
+		_say("income", income_said, false, true)   # the build clock runs while it is read
 	if m.boats[MatchState.ENEMY].any(func(bt): return int(bt["lands_round"]) == m.round_number):
-		hud.announce(_line_text("boat_spotted"), "", 0.0, false, _line_character("boat_spotted"))
+		_say("boat_spotted")
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
@@ -377,7 +370,7 @@ func _build_timeout_tip() -> void:
 		return
 	prefs["tips_done"].append(key)
 	_save_prefs()
-	hud.announce(_line_text(key), "", 0.0, false, _line_character(key))
+	_say(key)
 
 
 ## The Attack button. Pressed with nothing aimed at all (and something
@@ -389,7 +382,7 @@ func _attack_pressed() -> void:
 	var warn := "attack_unaimed"
 	if ui == Ui.TARGETING and orders.is_empty() and not unaimed_warned and _next_free_launcher(true) >= 0 and lines.has(warn):
 		unaimed_warned = true
-		hud.announce(_line_text(warn), "", 0.0, false, _line_character(warn))
+		_say(warn)
 		return
 	_attack()
 
@@ -402,6 +395,7 @@ func _attack() -> void:
 		return
 	_set_clock(0)
 	audio.set_music("")   # the attack plays out with no music
+	battle_report = []    # this attack's summary replaces it
 	ui = Ui.PLAYOUT
 	_reset_rotation()
 	hud.set_phase("Playout", m.round_number)
@@ -420,7 +414,7 @@ func _after_playout() -> void:
 		# The first sight of the enemy's stronghold: the Admiral's warning,
 		# once a match.
 		if enemy_stronghold_seen and lines.has("enemy_stronghold"):
-			hud.announce(_line_text("enemy_stronghold"), "", 0.0, false, _line_character("enemy_stronghold"))
+			_say("enemy_stronghold")
 			lines.erase("enemy_stronghold")
 		enemy_stronghold_seen = false
 		# The round's battle report, if anything happened; the next round's
@@ -505,6 +499,16 @@ func _process(delta: float) -> void:
 
 
 # --- Input -----------------------------------------------------------------
+
+## A right-click over the toolbar or another panel puts the building tool
+## down too (on the map, _unhandled_input does it, leaving right-drag panning
+## alone).
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT \
+			and ui == Ui.BUILD and tool != "" and not hud.choice_menu_open() \
+			and get_viewport().gui_get_hovered_control() != null:
+		_cancel()
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -655,7 +659,7 @@ func _click(side: int, hex: int) -> void:
 			if side == 0:
 				_setup_click(hex)
 		Ui.BUILD:
-			if side == 0 and tool != "":
+			if side == 0 and tool != "" and m.sides[0].building_at(hex) == null:
 				var e: String = m.build_action(MatchState.PLAYER, {"action": "build", "type": tool, "hex": hex})
 				if e == "":
 					hud.add_log("Built %s." % Pieces.display_name(tool))
@@ -665,7 +669,15 @@ func _click(side: int, hex: int) -> void:
 				else:
 					_rules_error(e)
 			else:
+				# One of our buildings clicked: the building tool is put down
+				# and its actions (repair, research...) pop up beside it.
+				if side == 0:
+					tool = ""
 				selected = Vector2i(side, hex)
+				if side == 0:
+					_refresh()
+					_building_menu(hex)
+					return
 		Ui.TARGETING:
 			if side == 1:
 				_target_click(hex)
@@ -1277,7 +1289,8 @@ func _build_toolbar(st) -> void:
 					note = "Not enough money"
 				var t: String = type
 				var broke: bool = unlocked and not at_limit and st.money < data.cost(type)
-				var pick := func(): tool = t; selected = Vector2i(-1, -1); _refresh()
+				# Pressed again, the chosen building is put down and the mouse is free.
+				var pick := func(): tool = "" if tool == t else t; selected = Vector2i(-1, -1); _refresh()
 				var tag := "LOCKED" if not unlocked else ("LIMIT" if at_limit else "")
 				hud.add_piece_button(type, Pieces.display_name(type), str(data.cost(type)), note,
 					(func(): hud.show_notice(Hud.NOTICE_MONEY)) if broke else pick,
@@ -1499,7 +1512,24 @@ func _line_character(key: String) -> String:
 	return String(lines.get(key, {}).get("character", ""))
 
 
+## Says line `key` (or `text` in its place) with a "Don't show this again"
+## box, unless the player has hidden it. Hidden lines are kept with the
+## finished tips (as "line:<group or key>"), so resetting tips brings them
+## back. group: lines hidden together (all the incoming warnings).
+func _say(key: String, text: String = "", hold: bool = true, click_away: bool = false, group: String = "") -> void:
+	var id := "line:" + (group if group != "" else key)
+	if prefs["tips_done"].has(id):
+		return
+	hud.announce(text if text != "" else _line_text(key), id, 0.0, true, _line_character(key), hold, click_away)
+
+
 func _on_tip_dismissed(id: String, forever: bool) -> void:
+	if id.begins_with("line:"):
+		# A character's line (see _say), not a tip.
+		if forever and not prefs["tips_done"].has(id):
+			prefs["tips_done"].append(id)
+			_save_prefs()
+		return
 	if id != "":
 		if forever and not prefs["tips_done"].has(id):
 			prefs["tips_done"].append(id)
@@ -1549,7 +1579,9 @@ func _update_info() -> void:
 	hud.clear_info_actions()
 	_update_hover_text()
 	if target.y < 0:
-		hud.set_info("")
+		# Nothing pointed at: the last attack's summary, until the next one.
+		var show_report: bool = not battle_report.is_empty() and ui in [Ui.BUILD, Ui.TARGETING]
+		hud.set_info("[b]Battle summary, round %d[/b]\n%s" % [m.round_number - 1, "\n".join(battle_report)] if show_report else "")
 		return
 	if target.x == 0:
 		var st = _own_state()
@@ -1582,8 +1614,6 @@ func _update_info() -> void:
 				elif st.is_half_strength(b, data):
 					lines.append("[color=orange]Half strength until repaired[/color]")
 				lines.append_array(_building_detail_lines(st, b))
-			if ui == Ui.BUILD and target == selected:
-				_info_actions_for(st, b)
 		hud.set_info("\n".join(lines))
 	else:
 		var e = m.knowledge[0].get(target.y)
@@ -1674,7 +1704,25 @@ func _building_detail_lines(st, b) -> Array:
 	return out
 
 
-func _info_actions_for(st, b) -> void:
+const ACTION_KEY_COLORS := {"repair": Color(0.97, 0.80, 0.25), "carrier": Color(0.42, 0.80, 0.38), "research": Color(0.56, 0.78, 0.96)}
+
+
+## The pop-up menu of what can be done with one of our buildings in the
+## build and repair phase, beside the mouse (the missile menu's design).
+## Nothing pops up for a building with nothing to do.
+func _building_menu(hex: int) -> void:
+	var st = _own_state()
+	var b = st.building_at(hex)
+	if b == null:
+		return
+	var choices: Array = _building_actions(st, b)
+	if not choices.is_empty():
+		hud.choice_menu(get_viewport().get_mouse_position(), Pieces.display_name(b.type), choices)
+
+
+## [{"text", "color", "disabled", "why", "action"}] for _building_menu.
+func _building_actions(st, b) -> Array:
+	var out: Array = []
 	if st.needs_repair(b, data):
 		var cost: int = st.repair_cost(b.type, data)
 		var hx: int = b.hex
@@ -1688,27 +1736,26 @@ func _info_actions_for(st, b) -> void:
 				hud.add_log("Repairing %s." % Pieces.display_name(type))
 			_refresh()
 		var err: String = st.can_repair(b.hex, data)
-		hud.add_info_action("Repair (%d)" % cost, do_repair, err != "", err)
+		out.append({"text": "Repair (%d)" % cost, "color": ACTION_KEY_COLORS["repair"], "disabled": err != "", "why": err, "action": do_repair})
 	if b.carrier_lost:
 		var hx2: int = b.hex
 		var cost2: int = st.carrier_cost(b, data)
 		var err2: String = st.can_replace_carrier(b.hex, data)
 		var silo: bool = data.role(b.type) == "silo"
 		var label: String = "Build nuke (%d)" % cost2 if silo else "Replace %s (%d)" % ["transport" if data.role(b.type) == "airport" else "boat", cost2]
-		hud.add_info_action(label, func():
+		out.append({"text": label, "color": ACTION_KEY_COLORS["carrier"], "disabled": err2 != "", "why": err2, "action": func():
 			var e: String = m.build_action(MatchState.PLAYER, {"action": "replace_carrier", "hex": hx2})
 			if e != "":
 				_rules_error(e)
 			else:
 				hud.add_log("Building a nuke: ready next round." if silo else "Replacement ready.")
-			_refresh(), err2 != "", err2)
+			_refresh()})
 	if data.role(b.type) == "lab":
 		# Always open: a busy lab shows its project's progress, and stored
 		# points can be spent on it there.
 		var lab_id: int = b.id
-		var own = st.project_for_lab(lab_id)
-		hud.add_info_action("Research...", func(): _open_research(lab_id), false,
-			"Choose research for this lab" if own == null else "Researching %s: see progress or use stored points" % Pieces.research_name(String(own["item"])))
+		out.append({"text": "Research...", "color": ACTION_KEY_COLORS["research"], "action": func(): _open_research(lab_id)})
+	return out
 
 
 ## What the enemy knows about one of our hexes: missiles that landed on it
@@ -1822,7 +1869,7 @@ func _run_playout() -> void:
 		audio.set_music("battle")   # loops until our strikes are in
 		hud.add_log("Enemy helicopter incoming." if spies_only else "%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)
 		await _wait(hud.alarm_seconds(ALARM_TURNS))
-		hud.announce(incoming, "", 0.0, false, _line_character(key))
+		_say(key, incoming, true, false, "incoming")
 		while hud.announcing():
 			await get_tree().process_frame
 		await _wait(0.25)
@@ -1848,7 +1895,7 @@ func _run_playout() -> void:
 	if not first_base_line_said and lost >= 1 and lost_line != "" and lines.has(lost_line):
 		first_base_line_said = true
 		if lost == 1 and not m.is_over():
-			hud.announce(_line_text(lost_line), "", 0.0, false, _line_character(lost_line))
+			_say(lost_line)
 			while hud.announcing():
 				await get_tree().process_frame
 
@@ -1884,7 +1931,7 @@ func _run_playout() -> void:
 			_log_event(ev)
 	await _wait(0.8)
 	effects.clear()
-	battle_report = BattleReport.sentences(events, lines.get("battle_report", {}).get("parts", {}))
+	battle_report = BattleReport.stat_lines(events, lines.get("battle_report", {}).get("stats", {}))
 	ui = Ui.BUILD   # placeholder until the next phase sets itself
 	_after_playout()
 

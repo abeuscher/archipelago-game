@@ -1,30 +1,23 @@
-## The end-of-round battle report: what each side's attack did this round,
-## counted from the playout events, and said by the Admiral as sentences.
-## Only things whose number isn't zero are said, so a quiet round gives no
-## report at all.
+## The end-of-round battle summary: what each side's attack did this round,
+## counted from the playout events and listed as stats in the comms screen.
+## Only counts that aren't zero are listed, so a quiet round gives none.
 extends RefCounted
 
 const PLAYER := 0
 const ENEMY := 1
 const SOLDIERS_PER_PLATOON := 8   ## the eight parachutes of a drop
-const WORDS := ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-	"eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"]
 
 
-## The Admiral's sentences for the round, in order, from `parts` (the
-## battle_report parts in data/dialogue.json: a count name -> [said for one,
-## said for more], with {n} for the number, spelled out up to twenty).
-## Counts of zero are skipped.
-static func sentences(events: Array, parts: Dictionary) -> Array:
+## The summary as stats for the comms screen: "label: n" for each count in
+## `labels` (count name -> label, from battle_report.stats in
+## data/dialogue.json), in that order. Counts of zero are skipped.
+static func stat_lines(events: Array, labels: Dictionary) -> Array:
 	var c := counts(events)
 	var out: Array = []
-	for key in parts:
+	for key in labels:
 		var n := int(c.get(key, 0))
-		if n == 0:
-			continue
-		var forms: Array = parts[key]
-		var said := String(forms[0] if n == 1 else forms[1]).format({"n": WORDS[n] if n < WORDS.size() else str(n)})
-		out.append(said.left(1).to_upper() + said.substr(1))
+		if n != 0:
+			out.append("%s: %d" % [String(labels[key]), n])
 	return out
 
 

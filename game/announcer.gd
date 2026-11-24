@@ -166,6 +166,14 @@ func _input(event: InputEvent) -> void:
 		(func(): if _msg == shown: _on_ok()).call_deferred()   # after the click has done its own job
 
 
+## Presses OK on the message on screen (the Enter key). False if none.
+func press_ok() -> bool:
+	if _msg == null or not _box.visible or not _ok.visible:
+		return false
+	_on_ok()
+	return true
+
+
 ## Id of the tip on screen, or "".
 func tip_showing() -> String:
 	return String(_msg["tip"]["id"]) if _msg != null and _msg.has("tip") else ""

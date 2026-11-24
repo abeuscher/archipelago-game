@@ -155,7 +155,7 @@
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
   ],
-  "_announcements": "Said at moments in the game. income is the report at the start of each round from round 2 (no Don't show this again box; the round clock runs underneath it). When the last round's attack had anything to report, the battle_report lines come first and income_after_report follows them in the same bubble; the round clock runs underneath it too. {money}, {fuel}, {research}, {n} are filled in when said. The incoming warning has no Don't show this again box either.",
+  "_announcements": "Said at moments in the game. income is the report at the start of each round from round 2 (the round clock runs underneath it). The last round's battle summary is not said: it is listed in the comms screen from battle_report.stats. Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
   "announcements": {
     "income": {
       "character": "pilot",
@@ -239,63 +239,23 @@
       "character": "ginger",
       "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."
     },
-    "income_after_report": {
-      "character": "pilot",
-      "text": "And we took in {money} money, {fuel} fuel and {research} research."
-    },
     "battle_report": {
       "character": "pilot",
       "text": "General, I have the battle summary.",
-      "_parts": "One line per thing that happened this round, in this order, skipped when it's zero. Each is [said for one, said for more]; {n} is the number. Soldiers are counted 8 to a platoon.",
-      "parts": {
-        "hit_us": [
-          "One enemy missile got through to us.",
-          "{n} enemy missiles got through to us."
-        ],
-        "our_damaged": [
-          "One of our buildings was damaged.",
-          "{n} of our buildings were damaged."
-        ],
-        "our_destroyed": [
-          "We lost one building.",
-          "We lost {n} buildings."
-        ],
-        "shot_down_by_us": [
-          "Our anti-air shot down one of their missiles.",
-          "Our anti-air shot down {n} of their missiles."
-        ],
-        "transports_shot_down_by_us": [
-          "We brought down one of their transports.",
-          "We brought down {n} of their transports."
-        ],
-        "hit_them": [
-          "One of our missiles found its target.",
-          "{n} of our missiles found their targets."
-        ],
-        "our_shot_down": [
-          "They shot down one of our missiles.",
-          "They shot down {n} of our missiles."
-        ],
-        "our_transports_shot_down": [
-          "They shot down one of our transports.",
-          "They shot down {n} of our transports."
-        ],
-        "enemy_damaged": [
-          "We damaged one enemy building.",
-          "We damaged {n} enemy buildings."
-        ],
-        "enemy_destroyed": [
-          "We destroyed one enemy building.",
-          "We destroyed {n} enemy buildings."
-        ],
-        "our_soldiers_lost": [
-          "We lost one soldier.",
-          "We lost {n} soldiers."
-        ],
-        "enemy_soldiers_lost": [
-          "We stopped one of their soldiers.",
-          "We stopped {n} of their soldiers."
-        ]
+      "_stats": "The battle summary in the comms screen: a label per count, listed as label: number, in this order, skipped when it's zero.",
+      "stats": {
+        "hit_us": "Enemy missiles that hit us",
+        "our_damaged": "Our buildings damaged",
+        "our_destroyed": "Our buildings lost",
+        "shot_down_by_us": "Enemy missiles shot down",
+        "transports_shot_down_by_us": "Enemy transports shot down",
+        "hit_them": "Our missiles on target",
+        "our_shot_down": "Our missiles shot down",
+        "our_transports_shot_down": "Our transports shot down",
+        "enemy_damaged": "Enemy buildings damaged",
+        "enemy_destroyed": "Enemy buildings destroyed",
+        "our_soldiers_lost": "Our soldiers lost",
+        "enemy_soldiers_lost": "Enemy soldiers stopped"
       }
     },
     "_endings": "endings: one of these, picked at random each time, is said after the line."
