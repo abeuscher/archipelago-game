@@ -606,6 +606,36 @@ def nuclear_silo(state="closed"):
     return m
 
 
+def enclave(damaged=False):
+    """Walled compound: a slate block with dark windows and an aerial, a low
+    wall at the back, and a helipad marked H for the agents' helicopter."""
+    slate, slate_dk = "#565c68", "#3a3f49"
+    m = pad()
+    for (x, y, w, d) in ((-.1, .6, 1.0, .06), (-.62, .2, .06, .8)):
+        m += box((w, d, .12), slate_dk, (x, y, .18))
+    pc = (.3, -.28)
+    m += prism(16, .36, .36, .12, .135, ASPHALT, at=pc)
+    m += annulus(16, .27, .31, .136, WHITE, at=pc)
+    for dx in (-.08, .08):
+        m += box((.035, .2, .004), WHITE, (pc[0] + dx, pc[1], .138))
+    m += box((.16, .035, .004), WHITE, (pc[0], pc[1], .138))
+    b = (-.24, .2)
+    if damaged:
+        m += box((.48, .44, .2), slate, (b[0], b[1], .22))
+        m += box((.36, .3, .05), slate_dk, (b[0] + .05, b[1] - .02, .36), pitch=14, yaw=20)
+        m += tube(4, .015, .015, .4, GUNMETAL, (b[0] + .12, b[1] + .1, .34), pitch=30, yaw=200)
+        return wreck(m, (b[0], b[1], .34), 13)
+    m += box((.48, .44, .34), slate, (b[0], b[1], .29))
+    m += box((.52, .48, .04), slate_dk, (b[0], b[1], .48))
+    for z in (.24, .36):
+        m += box((.012, .34, .05), "#1a1d22", (b[0] + .242, b[1], z))
+        m += box((.36, .012, .05), "#1a1d22", (b[0], b[1] - .222, z))
+    m += prism(4, .014, .014, .5, .9, GUNMETAL, at=(b[0] - .12, b[1] + .1))
+    m += prism(8, .1, .02, .58, .64, CONCRETE_LT, at=(b[0] + .1, b[1] + .08))
+    m += prism(6, .03, .03, .88, .93, RED, at=(b[0] - .12, b[1] + .1))
+    return m
+
+
 def repair():
     m = pad()
     m += box((.62, .62, .52), TARP, (0, 0, .38))
@@ -673,6 +703,8 @@ BUILDINGS = {
     "nuclear_silo_open": lambda: nuclear_silo("open"),
     "nuclear_silo_open_loaded": lambda: nuclear_silo("open_loaded"),
     "nuclear_silo_damaged": lambda: nuclear_silo("damaged"),
+    "enclave": enclave,
+    "enclave_damaged": lambda: enclave(damaged=True),
     "repair": repair,
     "rubble": rubble,
 }

@@ -62,7 +62,7 @@ static func resolve(m) -> Array:
 	# Enemy strikes land first, then the player's (presentation order). Dice
 	# are rolled in this order too, so the sequence is fixed for a given seed.
 	for attacker in m.LAUNCH_ORDER:
-		_walk_spies(m, attacker, events, reveals[attacker])
+		_agents_round(m, 1 - attacker, events, reveals[attacker])
 		_land_boats(m, attacker, events, pending[1 - attacker], reveals[attacker])
 		_resolve_attack(m, attacker, missiles[attacker], events, pending[1 - attacker], reveals[attacker])
 
@@ -195,12 +195,19 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		m.note_bombed(defender, impact)
 
 
-## A spy who got through lands on his hex and stays on the enemy island
-## (landing on the sea loses him). He uncovers his landing hex and walks on,
-## walks hexes in all this round, then walks hexes every round after (see
-## _spy_walk), until a radar or bunker catches him.
+## --- Agents (level 4) -------------------------------------------------------
+## An enclave sends foreign agents (the "spy" missile, by helicopter) to the
+## enemy island and keeps domestic agents patrolling its own. A foreign agent
+## uncovers the hexes he walks and disarms any nuke within disarm_range of
+## him; a domestic agent within agents.catch_range of a foreign agent kills
+## him. Radar and bunkers play no part.
+
+## A foreign agent who got through lands on his hex (the defender sees where)
+## and stays on the enemy island; landing on the sea loses him. He walks his
+## first `walks` hexes at once, the landing hex the first of them.
 static func _spy(m, attacker: int, ms: Dictionary, mdef: Dictionary, events: Array, reveals: Array) -> void:
-	var isl = m.sides[1 - attacker].island
+	var defender := 1 - attacker
+	var isl = m.sides[defender].island
 	var here := int(ms["target"])
 	var ev := _spy_event(attacker, ms["id"], here, true)
 	if not isl.is_land(here):
@@ -208,143 +215,206 @@ static func _spy(m, attacker: int, ms: Dictionary, mdef: Dictionary, events: Arr
 		reveals.append(here)
 		events.append(ev)
 		return
-	var spy := {"id": ms["id"], "missile": ms["missile"], "hex": here, "landed_round": m.round_number}
-	m.spies[attacker].append(spy)
-	_spy_walk(m, attacker, spy, ev, int(mdef["walks"]), true, reveals)
+	m.spy_sightings[defender].append(here)
+	var enclave = m.sides[attacker].building_at(int(ms["launcher"]))
+	var sp := {"id": ms["id"], "missile": ms["missile"], "hex": here,
+		"enclave": enclave.id if enclave != null else -1, "landed_round": m.round_number}
+	m.spies[attacker].append(sp)
+	ev["path"].append(here)
+	reveals.append(here)
+	var fresh := {here: true}
+	_disarm(m, attacker, sp, ev, events, reveals)
+	_catch(m, attacker, sp, ev)
+	for k in int(mdef["walks"]) - 1:
+		if not m.spies[attacker].has(sp) or not _spy_advance(m, attacker, sp, ev, fresh, events, reveals):
+			break
 	events.append(ev)
 
 
-## Spies already on the enemy island walk on, before this side's strikes.
-static func _walk_spies(m, attacker: int, events: Array, reveals: Array) -> void:
-	for spy in m.spies[attacker].duplicate():
-		var ev := _spy_event(attacker, spy["id"], int(spy["hex"]), false)
-		_spy_walk(m, attacker, spy, ev, int(m.data.missile(String(spy["missile"]))["walks"]), false, reveals)
-		events.append(ev)
+## One round of agents on `defender`'s island: its enclaves' domestic agents
+## are mustered (one per enclave, at the enclave, while it stands), then the
+## other side's foreign agents already there and the domestic agents take a
+## step each in turn until all have walked: `walks` hexes for a foreign
+## agent, domestic_walks_min to _max (rolled) for a domestic one. A foreign
+## agent within catch_range of a domestic one, at any point, is killed.
+static func _agents_round(m, defender: int, events: Array, reveals: Array) -> void:
+	var attacker := 1 - defender
+	var ag: Dictionary = m.data.section("agents")
+	_muster(m, defender)
+	var spies: Array = m.spies[attacker].duplicate()
+	var walk := []
+	for sp in spies:
+		var ev := _spy_event(attacker, sp["id"], int(sp["hex"]), false)
+		walk.append({"sp": sp, "ev": ev, "left": int(m.data.missile(String(sp["missile"]))["walks"]), "fresh": {}})
+		_catch(m, attacker, sp, ev)
+	var patrol := []
+	for a in m.agents[defender]:
+		var n: int = m.dice.rand_int(int(ag["domestic_walks_min"]), int(ag["domestic_walks_max"]))
+		patrol.append({"a": a, "left": n, "ev": {"type": "agent_patrol", "side": defender, "agent": a["id"],
+			"start": int(a["hex"]), "path": []}})
+		m.patrolled[defender][int(a["hex"])] = m.round_number
+	var moving := true
+	while moving:
+		moving = false
+		for w in walk:
+			if int(w["left"]) <= 0 or not m.spies[attacker].has(w["sp"]):
+				continue
+			w["left"] = int(w["left"]) - 1
+			if _spy_advance(m, attacker, w["sp"], w["ev"], w["fresh"], events, reveals):
+				moving = true
+			else:
+				w["left"] = 0
+		for p in patrol:
+			if int(p["left"]) <= 0:
+				continue
+			p["left"] = int(p["left"]) - 1
+			var nxt := _agent_step(m, defender, int(p["a"]["hex"]))
+			if nxt < 0:
+				p["left"] = 0
+				continue
+			moving = true
+			p["a"]["hex"] = nxt
+			p["ev"]["path"].append(nxt)
+			m.patrolled[defender][nxt] = m.round_number
+			m.spy_sightings[defender].erase(nxt)
+			for w in walk:
+				if m.spies[attacker].has(w["sp"]):
+					_catch(m, attacker, w["sp"], w["ev"])
+	for p in patrol:
+		events.append(p["ev"])
+	for w in walk:
+		events.append(w["ev"])
 
 
 static func _spy_event(attacker: int, id, start: int, landed: bool) -> Dictionary:
 	return {"type": "spy", "side": attacker, "id": id, "landed": landed, "start": start,
-		"path": [], "caught_by": -1, "lost_at_sea": false}
+		"path": [], "caught_by": -1, "caught_at": -1, "disarmed": [], "lost_at_sea": false}
 
 
-## One round of a spy's walk: `steps` contiguous hexes uncovered (on landing,
-## the landing hex is the first). Each step goes toward the nearest hex his
-## side has never seen (failing that, the one seen longest ago), keeping out
-## of the reach of radars and bunkers his side knows of. Where an enemy
-## radar (its range) or bunker (troops.bunker_range) reaches the hex he
-## stands on, he is caught: what he uncovered up to there still comes back,
-## and so does what caught him.
-static func _spy_walk(m, attacker: int, spy: Dictionary, ev: Dictionary, steps: int, landing: bool, reveals: Array) -> void:
+## One domestic agent per enclave (agents.domestic_per_enclave), starting on
+## the enclave; an enclave's agents go when it does.
+static func _muster(m, side: int) -> void:
+	var st = m.sides[side]
+	var per := int(m.data.section("agents")["domestic_per_enclave"])
+	var ids := {}
+	for e in st.of_role(m.data, "enclave"):
+		ids[e.id] = e
+	m.agents[side] = m.agents[side].filter(func(a): return ids.has(int(a["enclave"])))
+	for id in ids:
+		var have: int = m.agents[side].filter(func(a): return int(a["enclave"]) == id).size()
+		for k in per - have:
+			m.agents[side].append({"id": "%d:%d" % [id, have + k], "enclave": id, "hex": ids[id].hex})
+
+
+## A foreign agent's step: to the next hex (see _spy_step), uncovered, then
+## any nuke near him disarmed and the domestic agents checked. false if he
+## has nowhere to go.
+static func _spy_advance(m, attacker: int, sp: Dictionary, ev: Dictionary, fresh: Dictionary, events: Array, reveals: Array) -> bool:
+	var nxt := _spy_step(m, attacker, int(sp["hex"]), fresh, ev["disarmed"])
+	if nxt < 0:
+		return false
+	sp["hex"] = nxt
+	ev["path"].append(nxt)
+	reveals.append(nxt)
+	fresh[nxt] = true
+	_disarm(m, attacker, sp, ev, events, reveals)
+	_catch(m, attacker, sp, ev)
+	return true
+
+
+## Every enemy silo holding a nuke (built or being built) within disarm_range
+## of the agent loses it, and is revealed to his side.
+static func _disarm(m, attacker: int, sp: Dictionary, ev: Dictionary, events: Array, reveals: Array) -> void:
 	var def = m.sides[1 - attacker]
 	var grid = def.island.grid
-	var catchers := _spy_catchers(m, def)
-	var fresh := {}
-	var here := int(spy["hex"])
-	if landing:
-		ev["path"].append(here)
-		reveals.append(here)
-		fresh[here] = true
-		steps -= 1
-	var caught := _caught_by(grid, catchers, here)
-	var danger := known_danger(m.data, grid, m.knowledge[attacker])
-	while caught < 0 and steps > 0:
-		var nxt := _spy_step(m, attacker, here, fresh, danger)
-		if nxt < 0:
-			break
-		here = nxt
-		steps -= 1
-		spy["hex"] = here
-		ev["path"].append(here)
-		reveals.append(here)
-		fresh[here] = true
-		caught = _caught_by(grid, catchers, here)
-	if caught >= 0:
-		ev["caught_by"] = caught
-		reveals.append(caught)
-		m.spies[attacker].erase(spy)
-
-
-## [hex, reach] for every enemy radar and bunker able to catch a spy now.
-static func _spy_catchers(m, def) -> Array:
-	var out: Array = []
-	for r in def.of_role(m.data, "radar"):
-		var rr: int = def.radar_range(r, m.data)
-		if rr > 0 and not r.disabled:
-			out.append([r.hex, rr])
-	var br := int(m.data.section("troops")["bunker_range"])
-	for bk in def.of_role(m.data, "bunker"):
-		if def.weapon_active(bk):
-			out.append([bk.hex, br])
-	return out
-
-
-static func _caught_by(grid, catchers: Array, hex: int) -> int:
-	for c in catchers:
-		if grid.distance(int(c[0]), hex) <= int(c[1]):
-			return int(c[0])
-	return -1
-
-
-## Hexes a side knows a spy would be caught on: within reach of a radar or
-## bunker in its knowledge of the enemy island (the AI uses this too).
-static func known_danger(data, grid, knowledge: Dictionary) -> Dictionary:
-	var ranges: Array = data.section("radar")["range_by_level"]
-	var br := int(data.section("troops")["bunker_range"])
-	var out := {}
-	for h in knowledge:
-		var e: Dictionary = knowledge[h]
-		var kb = e.get("building")
-		if kb == null or not data.has_building(String(kb["type"])):
+	var reach := int(m.data.missile(String(sp["missile"])).get("disarm_range", -1))
+	if reach < 0:
+		return
+	for silo in def.of_role(m.data, "silo"):
+		if silo.carrier_lost or grid.distance(silo.hex, int(sp["hex"])) > reach:
 			continue
-		var reach := -1
-		match data.role(String(kb["type"])):
-			"radar":
-				reach = int(ranges[clampi(int(e["level"]), 0, ranges.size() - 1)])
-			"bunker":
-				reach = br
-		if reach < 0:
-			continue
-		for w in grid.within(int(h), reach):
-			out[w] = true
-	return out
+		silo.carrier_lost = true
+		silo.loading = 0
+		ev["disarmed"].append(silo.hex)
+		reveals.append(silo.hex)
+		events.append({"type": "nuke_disarmed", "side": attacker, "hex": silo.hex, "by": int(sp["hex"])})
 
 
-## The spy's next hex from `here`, or -1: a breadth-first search over land
-## outside known danger finds the best hex to head for (never seen, nearest
-## first; else seen longest ago, then nearest), and he takes the first step
-## toward it.
-static func _spy_step(m, attacker: int, here: int, fresh: Dictionary, danger: Dictionary) -> int:
-	var isl = m.sides[1 - attacker].island
+## Kills the foreign agent if a domestic agent of the island's side is within
+## catch_range of him. true if he was caught.
+static func _catch(m, attacker: int, sp: Dictionary, ev: Dictionary) -> bool:
+	var defender := 1 - attacker
+	var grid = m.sides[defender].island.grid
+	var reach := int(m.data.section("agents")["catch_range"])
+	for a in m.agents[defender]:
+		if grid.distance(int(a["hex"]), int(sp["hex"])) <= reach:
+			ev["caught_by"] = int(a["hex"])
+			ev["caught_at"] = int(sp["hex"])
+			m.spies[attacker].erase(sp)
+			return true
+	return false
+
+
+## Breadth-first search over land from `here`; returns the first step toward
+## the hex with the smallest key, or -1. key(hex, distance) is an Array, or
+## null to skip the hex as a goal.
+static func _first_step(isl, here: int, key: Callable) -> int:
 	var grid = isl.grid
-	var known: Dictionary = m.knowledge[attacker]
-	var first := {here: -1}   # hex -> the first step toward it
+	var first := {here: -1}
 	var dist := {here: 0}
 	var frontier: Array = [here]
 	var best := -1
-	var best_key: Array = []
+	var best_key = null
 	while not frontier.is_empty():
 		var next: Array = []
 		for h in frontier:
 			for n in grid.neighbors(h):
-				if dist.has(n) or not isl.is_land(n) or danger.has(n):
+				if dist.has(n) or not isl.is_land(n):
 					continue
 				dist[n] = int(dist[h]) + 1
 				first[n] = n if h == here else int(first[h])
 				next.append(n)
-				var key: Array
-				if fresh.has(n):
-					key = [2, 0, int(dist[n]), n]
-				elif not known.has(n):
-					key = [0, 0, int(dist[n]), n]
-				else:
-					key = [1, int(known[n]["seen_round"]), int(dist[n]), n]
-				if best < 0 or key < best_key:
+				var k = key.call(n, int(dist[n]))
+				if k != null and (best_key == null or k < best_key):
 					best = n
-					best_key = key
+					best_key = k
 		frontier = next
-	if best < 0 or int(best_key[0]) == 2:
-		return -1
-	return int(first[best])
+	return int(first[best]) if best >= 0 else -1
+
+
+## A foreign agent heads for the nearest silo his side has seen with a nuke
+## in it (not one he has just disarmed), else the nearest hex his side has
+## never seen, else the one seen longest ago; never back over hexes he
+## uncovered this round.
+static func _spy_step(m, attacker: int, here: int, fresh: Dictionary, disarmed: Array) -> int:
+	var isl = m.sides[1 - attacker].island
+	var known: Dictionary = m.knowledge[attacker]
+	var targets := {}
+	for h in known:
+		var kb = known[h].get("building")
+		if kb != null and kb.has("nuke") and String(kb["nuke"]) != "none" and not disarmed.has(int(h)):
+			targets[int(h)] = true
+	return _first_step(isl, here, func(n: int, d: int):
+		if targets.has(n):
+			return [0, 0, d, n]
+		if fresh.has(n):
+			return null
+		if not known.has(n):
+			return [1, 0, d, n]
+		return [2, int(known[n]["seen_round"]), d, n])
+
+
+## A domestic agent heads for the nearest hex where a foreign agent was seen
+## landing and no patrol has been since, else the nearest hex least recently
+## patrolled (never first).
+static func _agent_step(m, side: int, here: int) -> int:
+	var isl = m.sides[side].island
+	var seen: Array = m.spy_sightings[side]
+	var pat: Dictionary = m.patrolled[side]
+	return _first_step(isl, here, func(n: int, d: int):
+		if seen.has(n):
+			return [0, 0, d, n]
+		return [1, int(pat.get(n, -1)), d, n])
 
 
 ## Boats due this round reach the defender's coast. Each active coastal

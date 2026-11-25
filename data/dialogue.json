@@ -176,7 +176,7 @@
     },
     "incoming_spy": {
       "character": "ginger",
-      "text": "General! An enemy helicopter is coming in low! It could be a spy! Radar and bunkers will catch him if he comes near."
+      "text": "General! An enemy helicopter is coming in low! It's dropping off a spy! Our agents will have to hunt him down before he gets near our nukes."
     },
     "incoming_boat": {
       "character": "ginger",
@@ -192,7 +192,7 @@
     },
     "level_4_intro": {
       "character": "admiral",
-      "text": "Good work, General. We keep our silo and bank research from the last battle, but so does the enemy, so expect nukes early. A silo gives itself away the first time it fires, so hit back fast. Intelligence has a man for us: once we have an airport, research the spy and he will fly over in a helicopter and stay behind their lines, scouting three hexes a round until a radar or bunker catches him. Anti-air can bring his helicopter down, though less often than a missile. And our engineers can now double what each refinery makes."
+      "text": "Good work, General. We keep our silo and bank research from the last battle, but so does the enemy, so expect nukes early. A silo gives itself away the first time it fires, so hit back fast. And intelligence has given us the enclave. It sends our agents over by helicopter to scout behind their lines and disarm any nuke they get near, and keeps an agent at home who hunts down the enemy's spies. And our engineers can now double what each refinery makes."
     },
     "level_2_intro": {
       "character": "admiral",

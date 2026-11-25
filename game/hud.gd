@@ -122,6 +122,7 @@ const NOTICE_TRANSPORT := "Transport lost. Replace it during the build phase."
 const NOTICE_BOAT_LOST := "Boat lost. Replace it during the build phase."
 const NOTICE_BOAT_OUT := "Our boat is at sea. The docks can launch again once it has landed."
 const NOTICE_NO_NUKE := "No nuke in the silo. Build one during the build phase."
+const NOTICE_AGENT_OUT := "Our agent from this enclave is still on the enemy island. It can send another once he is caught."
 const NOTICE_NUKE_LOADING := "The nuke is still being built. It can fire next round."
 
 

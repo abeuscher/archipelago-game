@@ -10,11 +10,13 @@ const NAMES := {
 	"basic_launcher": "Missile launcher", "anti_air": "Anti-air", "radar": "Radar",
 	"ballistic_launcher": "Ballistic launcher", "airport": "Airport", "bunker": "Bunker",
 	"docks": "Docks", "coastal_cannon": "Coastal cannon", "nuclear_silo": "Nuclear silo",
+	"enclave": "Enclave",
 }
 const SHORT := {
 	"base": "BASE", "decoy": "BASE", "suspected_base": "?", "stronghold": "SH", "bank": "$", "refinery": "F",
 	"lab": "R", "basic_launcher": "M", "anti_air": "AA", "radar": "RD", "ballistic_launcher": "BM",
 	"airport": "AP", "bunker": "BK", "docks": "DK", "coastal_cannon": "CC", "nuclear_silo": "N",
+	"enclave": "EN",
 }
 const COLORS := {
 	"base": Color(0.85, 0.85, 0.9), "decoy": Color(0.85, 0.85, 0.9),
@@ -24,10 +26,10 @@ const COLORS := {
 	"radar": Color(0.70, 0.45, 0.90), "ballistic_launcher": Color(0.60, 0.15, 0.15),
 	"airport": Color(0.62, 0.62, 0.92), "bunker": Color(0.62, 0.62, 0.58),
 	"docks": Color(0.38, 0.72, 0.72), "coastal_cannon": Color(0.5, 0.6, 0.78),
-	"nuclear_silo": Color(0.45, 0.36, 0.32),
+	"nuclear_silo": Color(0.45, 0.36, 0.32), "enclave": Color(0.30, 0.32, 0.38),
 }
 const MISSILE_NAMES := {"basic": "Basic missile", "scouting": "Scouting missile", "ballistic": "Ballistic missile",
-	"transport": "Air transport", "boat": "Boat", "nuke": "Nuke", "spy": "Spy"}
+	"transport": "Air transport", "boat": "Boat", "nuke": "Nuke", "spy": "Foreign agent"}
 ## One-line descriptions for tooltips and the research panel. Numbers are
 ## not written here; they come from data where they are shown.
 const BUILDING_TEXT := {
@@ -41,10 +43,11 @@ const BUILDING_TEXT := {
 	"anti_air": "Shoots at incoming missiles aimed near it. Uses no fuel.",
 	"radar": "Anti-air inside its range hits far more often. Range grows with height.",
 	"ballistic_launcher": "Fires one ballistic missile a round: less damage, wider blast.",
-	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near. Once researched, it can send a spy instead.",
+	"airport": "Sends one air transport a round. Its platoon destroys everything on three hexes unless a bunker is near.",
 	"bunker": "Wipes out enemy platoons that land or march within range.",
 	"docks": "Sends a boat with a platoon to the enemy coast. It lands in the round it sails. Built on the coast.",
 	"coastal_cannon": "Fires on enemy boats coming ashore nearby. Built on the coast.",
+	"enclave": "Sends foreign agents by helicopter to scout the enemy island and disarm their nukes, and keeps a domestic agent on patrol at home who kills enemy spies.",
 	"nuclear_silo": "Holds one nuke. Building a nuke takes a round; it hits its target twice as hard as a missile and every hex around it as hard as one. Anti-air rarely stops it, and it can take a stronghold.",
 }
 const RESEARCH_NAMES := {
@@ -52,7 +55,7 @@ const RESEARCH_NAMES := {
 	"motion_sensor": "Motion sensor", "ballistic_launcher": "Ballistic launcher",
 	"airport": "Airport", "bunker": "Bunker", "docks": "Docks", "coastal_cannon": "Coastal cannon",
 	"nuclear_silo": "Nuclear silo", "bank_upgrade": "Bank upgrade",
-	"spy": "Spy", "refinery_upgrade": "Refinery upgrade",
+	"refinery_upgrade": "Refinery upgrade",
 }
 const RESEARCH_TEXT := {
 	"radar": "Unlocks the radar building, which raises the accuracy of anti-air inside its range.",
@@ -66,7 +69,6 @@ const RESEARCH_TEXT := {
 	"coastal_cannon": "Unlocks the coastal cannon, which fires on enemy boats landing nearby.",
 	"nuclear_silo": "Unlocks the nuclear silo, which builds and fires nukes. Needs other research done first.",
 	"bank_upgrade": "Every bank makes more money each round.",
-	"spy": "The airport can send a spy by helicopter instead of its transport. He stays on the enemy island and uncovers three hexes every round until a radar or bunker catches him. Anti-air hits his helicopter half as often as a missile.",
 	"refinery_upgrade": "Every refinery makes twice as much fuel each round.",
 }
 
@@ -95,13 +97,13 @@ const TILE_COLORS := {
 	"radar": Color(0.56, 0.78, 0.96), "ballistic_launcher": Color(0.88, 0.42, 0.36), "airport": Color(0.74, 0.72, 0.94),
 	"bunker": Color(0.76, 0.66, 0.50), "docks": Color(0.42, 0.74, 0.86), "coastal_cannon": Color(0.95, 0.70, 0.30),
 	"base": Color(0.86, 0.86, 0.82), "stronghold": Color(0.74, 0.70, 0.60),
-	"nuclear_silo": Color(0.84, 0.74, 0.40),
+	"nuclear_silo": Color(0.84, 0.74, 0.40), "enclave": Color(0.62, 0.64, 0.72),
 }
 
 
 ## Buildings drawn as placeholder blocks until their sprite sheets arrive
 ## (docs/troop_assets.md).
-const ART_PENDING := []
+const ART_PENDING := ["enclave"]
 ## Sheets with a separate frame set for a launcher that has fired.
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
 ## Sheets with a <name>_damaged version: hit and not yet repaired.

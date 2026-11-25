@@ -5,8 +5,8 @@
 ##
 ## Prints one line per level, e.g.
 ##   Level 3: median 31 rounds (10%: 24, 90%: 36), wins [74, 76], errors 0; research items by round 15: median 2; nukes in 34 matches (42 fired)
-## and, where there are any, spies (sent, shot down, landed, rounds walked
-## after landing, caught; hexes uncovered and how many held a building) and
+## and, where there are any, foreign agents (sent, shot down, landed, rounds
+## walked after landing, killed; hexes uncovered and how many held a building; nukes disarmed) and
 ## silos destroyed.
 extends SceneTree
 
@@ -40,7 +40,7 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 	var nuke_matches := 0
 	var nukes := 0
 	var first_err := ""
-	var spy := {"sent": 0, "landed": 0, "walks": 0, "hexes": 0, "buildings": 0, "caught": 0, "lost": 0, "silos_destroyed": 0}
+	var spy := {"sent": 0, "landed": 0, "walks": 0, "hexes": 0, "buildings": 0, "caught": 0, "disarmed": 0, "lost": 0, "silos_destroyed": 0}
 	for s in n:
 		var m = MatchState.create(d, first_seed + s)
 		var ais := [StrongAI.new(0, d, first_seed + s), StrongAI.new(1, d, first_seed + 4000 + s)]
@@ -78,6 +78,8 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 							spy["buildings"] += 1
 					if int(e["caught_by"]) >= 0:
 						spy["caught"] += 1
+				elif e["type"] == "nuke_disarmed":
+					spy["disarmed"] += 1
 				elif e["type"] == "spy_lost":
 					spy["lost"] += 1
 				elif e["type"] == "destroyed" and e["building"] == "nuclear_silo":
@@ -96,4 +98,4 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 	print("Level %d: median %d rounds (10%%: %d, 90%%: %d), wins %s, errors %d%s; research items by round 15: median %d; nukes in %d matches (%d fired)" % [
 		lvl, med.call(rounds), rounds[n / 10], rounds[n * 9 / 10], str(wins), errors, first_err, med.call(researched_at_15), nuke_matches, nukes])
 	if int(spy["sent"]) > 0 or int(spy["silos_destroyed"]) > 0:
-		print("    spies sent %d (shot down %d, landed %d, later rounds walked %d, caught %d; %d hexes uncovered, %d with a building); silos destroyed %d" % [spy["sent"], spy["lost"], spy["landed"], spy["walks"], spy["caught"], spy["hexes"], spy["buildings"], spy["silos_destroyed"]])
+		print("    spies sent %d (shot down %d, landed %d, later rounds walked %d, killed %d; %d hexes uncovered, %d with a building; %d nukes disarmed); silos destroyed %d" % [spy["sent"], spy["lost"], spy["landed"], spy["walks"], spy["caught"], spy["hexes"], spy["buildings"], spy["disarmed"], spy["silos_destroyed"]])

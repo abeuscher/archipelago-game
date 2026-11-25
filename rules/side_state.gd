@@ -171,7 +171,7 @@ func anti_air_engagements(data) -> int:
 
 func building_unlocked(type: String, data) -> bool:
 	var def: Dictionary = data.building(type)
-	if not bool(def.get("buildable", true)):
+	if not bool(def.get("buildable", true)) or not bool(def.get("available", true)):
 		return false
 	if def.has("requires") and not is_unlocked(String(def["requires"])):
 		return false
@@ -603,7 +603,7 @@ func validate_launches(orders: Array, data, target_count: int) -> String:
 	return ""
 
 
-const LAUNCH_ROLES := ["launcher", "airport", "docks", "silo"]
+const LAUNCH_ROLES := ["launcher", "airport", "docks", "silo", "enclave"]
 
 
 func launch_money(orders: Array, data) -> int:

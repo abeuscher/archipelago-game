@@ -20,7 +20,8 @@ var enemy_bases_total: int
 var own_seen_by_enemy: Dictionary
 var boats: Array = [[], []]       ## boats at sea, both sides (visible in the channel)
 var enemy_boats_arrived: int = 0  ## enemy boats that have reached this side's coast so far
-var own_spies: Array = []         ## this side's spies on the enemy island (MatchState.spies)
+var own_spies: Array = []         ## this side's foreign agents on the enemy island (MatchState.spies)
+var own_agents: Array = []        ## this side's domestic agents (MatchState.agents)
 
 
 ## Sighting at a hex, or null if never seen.

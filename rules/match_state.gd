@@ -37,9 +37,16 @@ var boats: Array = [[], []]
 ## side -> how many enemy boats have come ashore (or been sunk) at its coast.
 ## The defender sees every one arrive, so its AI may know it.
 var boats_arrived_at: Array = [0, 0]
-## side -> its spies on the enemy island: {"id", "missile", "hex", "landed_round"}.
-## Only that side knows where they are.
+## side -> its foreign agents on the enemy island: {"id", "missile", "hex",
+## "enclave" (building id), "landed_round"}. Only that side knows where they are.
 var spies: Array = [[], []]
+## side -> its domestic agents on its own island: {"id", "enclave", "hex"}.
+var agents: Array = [[], []]
+## side -> hexes of its island where enemy agents were seen landing, until a
+## patrol gets there.
+var spy_sightings: Array = [[], []]
+## side -> hex -> round a domestic agent was last there.
+var patrolled: Array = [{}, {}]
 var round_number: int = 0
 var phase: int = Phase.SETUP
 var orders: Array = [[], []]
@@ -153,14 +160,17 @@ func set_launch_orders(side: int, new_orders: Array) -> String:
 	var e: String = sides[side].validate_launches(new_orders, data, target_count)
 	if e != "":
 		return e
-	var sending := 0
 	for o in new_orders:
-		if data.missile(String(o["missile"])).has("walks"):
-			sending += 1
-	if sending > 0 and spies[side].size() + sending > int(data.missile("spy").get("max_on_ground", 1)):
-		return "Our spy is still on the enemy island"
+		if data.missile(String(o["missile"])).has("walks") and agent_out(side, int(o["launcher"])):
+			return "This enclave's agent is still on the enemy island"
 	orders[side] = new_orders.duplicate(true)
 	return ""
+
+
+## Whether the enclave at this hex has a foreign agent on the enemy island.
+func agent_out(side: int, enclave_hex: int) -> bool:
+	var b = sides[side].building_at(enclave_hex)
+	return b != null and spies[side].any(func(sp): return int(sp["enclave"]) == b.id)
 
 
 func resolve_playout() -> Array:
@@ -296,6 +306,7 @@ func view_for(side: int):
 	v.boats = boats.duplicate(true)
 	v.enemy_boats_arrived = boats_arrived_at[side]
 	v.own_spies = spies[side].duplicate(true)
+	v.own_agents = agents[side].duplicate(true)
 	for h in knowledge[opponent(side)]:
 		v.own_seen_by_enemy[h] = true
 	return v
@@ -311,4 +322,5 @@ func fingerprint() -> String:
 		parts.append([s.money, s.fuel, bl, s.unlocked.keys(), s.projects, s.stored_research])
 	parts.append(knowledge)
 	parts.append(spies)
+	parts.append(agents)
 	return str(parts).sha256_text()

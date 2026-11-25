@@ -119,7 +119,7 @@
       "unseen_weight": 1.0
     },
     "targeting": {
-      "economy_priority": ["lab", "bank", "refinery"],
+      "economy_priority": ["enclave", "lab", "bank", "refinery"],
       "weapon_priority": [
         "nuclear_silo",
         "basic_launcher",
@@ -246,9 +246,11 @@
     "_note_focus_research": "true: one research project at a time, the other labs helping it (each item done sooner, fewer at once). A level may set it.",
     "focus_research": false,
     "spy": {
-      "_note": "Level 4. The spy is researched right after the airport. An airport sends him instead of its transport whenever none of ours is on the enemy island, it is at least from_round, and every_rounds have passed since his last trip. He lands where the most never-seen hexes lie within two of him, less cover_weight per known anti-air gun reaching the hex, never on known sea or in the reach of a known radar or bunker, and on an unseen hex only within unknown_land_within of the centre of the enemy space. What he uncovers is targeted as any sighting (banks, labs and refineries after weapons and bases: targeting.economy_priority). refinery_upgrade_at (under nukes) places the refinery upgrade in the research order as bank_upgrade_at does; at 4 it comes just after the four items the silo waits on, so the silo comes no later than in level 3.",
-      "from_round": 4,
-      "every_rounds": 2,
+      "_note": "Level 4. An enclave goes up from enclave_from_round once there is money for it. It sends a foreign agent whenever its last one is gone from the enemy island, from from_round, every_rounds after the last trip. He lands where the most never-seen hexes lie within two of him, plus silo_weight per known silo with a nuke he could disarm in his first round, less cover_weight per known anti-air gun reaching the hex; never on known sea, and on an unseen hex only within unknown_land_within of the centre of the enemy space. A known enemy enclave is targeted first among economy buildings (targeting.economy_priority). refinery_upgrade_at (under nukes) places the refinery upgrade in the research order as bank_upgrade_at does; at 4 it comes just after the four items the silo waits on, so the silo comes no later than in level 3.",
+      "enclave_from_round": 3,
+      "from_round": 3,
+      "every_rounds": 1,
+      "silo_weight": 20.0,
       "cover_weight": 6.0,
       "unknown_land_within": 4
     }

@@ -19,7 +19,6 @@ extends "res://ai/simple_ai.gd"
 
 const Island = preload("res://rules/island.gd")
 const SideState = preload("res://rules/side_state.gd")
-const Resolver = preload("res://rules/resolver.gd")
 
 const PRIOR_SAMPLES := 60
 const PRIOR_SEED := 7919
@@ -61,23 +60,13 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 	if _in_level("bank_upgrade"):
 		var at := int(cfg["nukes"]["bank_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
 		research.insert(mini(research.size(), at), "bank_upgrade")
-	# Level 4: the refinery upgrade early, and the spy right after the airport.
+	# Level 4: the refinery upgrade early.
 	if _in_level("refinery_upgrade"):
 		var at2 := int(cfg["nukes"]["refinery_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
 		research.insert(mini(research.size(), at2), "refinery_upgrade")
-	if _in_level("spy"):
-		_place_spy_research()
 	# Research the level starts with done (carried over) needs no slot.
 	for item in SideState.starting_research(data):
 		research.erase(item)
-
-
-## The spy goes into the research order right after the airport he needs.
-func _place_spy_research() -> void:
-	var after := research.find("airport")
-	if after < 0:
-		after = research.size() - 1
-	research.insert(after + 1, "spy")
 
 
 ## A research item this level offers.
@@ -326,6 +315,12 @@ func choose_build(view) -> Array:
 		var sh := _place_strong(st, "nuclear_silo", view)
 		if sh >= 0 and st.build("nuclear_silo", sh, data, view.settings, view.round_number) == "":
 			actions.append({"action": "build", "type": "nuclear_silo", "hex": sh})
+	# Level 4: an enclave from spy.enclave_from_round, once there is money.
+	if data.has_building("enclave") and st.building_unlocked("enclave", data) and st.count_role(data, "enclave") == 0 \
+			and view.round_number >= int(cfg["spy"]["enclave_from_round"]) and st.money >= data.cost("enclave"):
+		var eh := _place_strong(st, "enclave", view)
+		if eh >= 0 and st.build("enclave", eh, data, view.settings, view.round_number) == "":
+			actions.append({"action": "build", "type": "enclave", "hex": eh})
 	while true:
 		var type := _next_in_order(st)
 		if type == "" or st.money < data.cost(type):
@@ -695,16 +690,18 @@ func choose_targets(view) -> Array:
 		fuel -= mini(fuel, nuke_fuel)   # spent now, or saved for it
 	# Troop drops next: they are the strongest single strike.
 	var money: int = st.money
-	for port in st.of_role(data, "airport"):
-		if not st.weapon_active(port):
+	for enc in st.of_role(data, "enclave"):
+		if not _enclave_free(view, st, enc):
 			continue
 		var spy_aim := _spy_aim(view, know, st, fuel, money, air_cover)
 		if spy_aim >= 0:
 			var sp: Dictionary = data.missile("spy")
-			orders.append({"launcher": port.hex, "missile": "spy", "target": spy_aim})
+			orders.append({"launcher": enc.hex, "missile": "spy", "target": spy_aim})
 			fuel -= int(sp["fuel"])
 			money -= int(sp.get("money", 0))
 			_last_spy = view.round_number
+	for port in st.of_role(data, "airport"):
+		if not st.weapon_active(port):
 			continue
 		if port.carrier_lost:
 			continue
@@ -783,11 +780,12 @@ func choose_targets(view) -> Array:
 	return orders
 
 
-## Where to send the spy this round, or -1. When one is due (_spy_due) and
-## the fuel and money are there, he lands where the most never-seen hexes lie
-## within two of him, less cover_weight for each known anti-air gun reaching
-## the hex; never on known sea or where a known radar or bunker would catch
-## him, and on an unseen hex only within unknown_land_within of the centre
+## Where to send a foreign agent this round, or -1. When one is due
+## (_spy_due) and the fuel and money are there, he lands where the most
+## never-seen hexes lie within two of him, plus silo_weight for each known
+## silo with a nuke he could reach and disarm in his first round, less
+## cover_weight for each known anti-air gun reaching the hex; never on known
+## sea, and on an unseen hex only within unknown_land_within of the centre
 ## (the island grows from there, so it is likely land).
 func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Callable) -> int:
 	if not _spy_due(view, st):
@@ -797,7 +795,12 @@ func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Call
 		return -1
 	var sc: Dictionary = cfg["spy"]
 	var g = _enemy_grid
-	var danger: Dictionary = Resolver.known_danger(data, g, view.enemy_knowledge)
+	var reach := int(sp["walks"]) - 1 + int(sp.get("disarm_range", 0))
+	var silos: Array = []
+	for h in view.enemy_knowledge:
+		var kb = view.enemy_knowledge[h].get("building")
+		if kb != null and kb.has("nuke") and String(kb["nuke"]) != "none":
+			silos.append(int(h))
 	var centre: int = g.center_index()
 	var best := -1
 	var best_s := -1.0e9
@@ -805,14 +808,15 @@ func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Call
 		var k = view.enemy_knowledge.get(h)
 		if k != null and not bool(k["land"]):
 			continue
-		if danger.has(h):
-			continue
 		if k == null and g.distance(h, centre) > int(sc["unknown_land_within"]):
 			continue
 		var s := 0.0
 		for n in g.within(h, 2):
-			if not view.enemy_knowledge.has(n) and not danger.has(n):
+			if not view.enemy_knowledge.has(n):
 				s += 1.0
+		for silo in silos:
+			if g.distance(h, silo) <= reach:
+				s += float(sc["silo_weight"])
 		s -= float(sc["cover_weight"]) * float(air_cover.call(h))
 		if s > best_s:
 			best_s = s
@@ -820,15 +824,17 @@ func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Call
 	return best
 
 
-## Whether a spy trip is due this round: he is researched, an airport is in
-## action, none of ours is on the enemy island, and it is at least
-## from_round and every_rounds since his last trip.
+## An enclave in action with no agent of its own on the enemy island.
+func _enclave_free(view, st, enc) -> bool:
+	return st.weapon_active(enc) and not view.own_spies.any(func(x): return int(x["enclave"]) == enc.id)
+
+
+## Whether a foreign agent trip is due this round: an enclave is free, and it
+## is at least from_round and every_rounds since the last trip.
 func _spy_due(view, st) -> bool:
-	if not data.rules["missiles"].has("spy") or not st.missile_unlocked("spy", data):
+	if not data.rules["missiles"].has("spy"):
 		return false
-	if not view.own_spies.is_empty():
-		return false
-	if not st.of_role(data, "airport").any(func(b): return st.weapon_active(b)):
+	if not st.of_role(data, "enclave").any(func(b): return _enclave_free(view, st, b)):
 		return false
 	var sc: Dictionary = cfg["spy"]
 	return view.round_number >= int(sc["from_round"]) and view.round_number - _last_spy >= int(sc["every_rounds"])

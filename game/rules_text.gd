@@ -67,6 +67,8 @@ static func _buildings(data) -> String:
 		var def: Dictionary = data.building(type)
 		if def.has("requires") and not bool(data.research_item(String(def["requires"])).get("available", true)):
 			continue   # not in this level
+		if not bool(def.get("available", true)):
+			continue
 		var bits: Array = ["%d money" % int(def["cost"])]
 		var produces: Dictionary = def.get("produces", {})
 		for res in produces:
@@ -90,9 +92,13 @@ static func _missiles(data) -> String:
 					int(m["damage_min"]), int(m["damage_max"]), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
 			continue
 		if m.has("walks"):
-			if bool(data.research_item(String(m["requires"])).get("available", true)):
-				out.append("[b]Spy[/b]: sent from an airport instead of its transport, %d fuel and %d money; needs Spy research. He flies in by helicopter and lands on any hex you choose, then stays on the enemy island: every round he walks %d hexes, uncovering each, heading for ground we haven't seen and keeping clear of radars and bunkers we know of. A radar or bunker that reaches his hex catches him, and shows itself. One spy at a time. Anti-air hits his helicopter %d%% of the time, %d%% with radar; shot down, he is lost, but the airport keeps its transport." % [
-					int(m["fuel"]), int(m.get("money", 0)), int(m["walks"]), roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
+			if bool(data.building("enclave").get("available", true)):
+				var ag: Dictionary = data.section("agents")
+				out.append("[b]Foreign agent[/b]: sent from an enclave, %d fuel and %d money; one per enclave on the enemy island at a time. He flies in by helicopter and lands on any hex you choose (the enemy sees where), then stays: every round he walks %d hexes, uncovering each, heading for any silo we have seen with a nuke in it, otherwise for ground we haven't seen. He disarms every nuke within %d hex of him; the silo needs a new one. An enemy domestic agent within %d hex kills him. Anti-air hits his helicopter %d%% of the time, %d%% with radar." % [
+					int(m["fuel"]), int(m.get("money", 0)), int(m["walks"]), int(m.get("disarm_range", 0)), int(ag["catch_range"]),
+					roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
+				out.append("[b]Domestic agent[/b]: each enclave keeps %d on patrol on our island, from the round it is built. He walks %d or %d hexes a round, first to where an enemy agent was seen landing, otherwise to the ground patrolled longest ago, and kills any enemy agent within %d hex of him. Radar and bunkers don't catch agents." % [
+					int(ag["domestic_per_enclave"]), int(ag["domestic_walks_min"]), int(ag["domestic_walks_max"]), int(ag["catch_range"])])
 			continue
 		var bits: Array = ["%d fuel" % int(m["fuel"])]
 		if int(m["damage_max"]) > 0:
