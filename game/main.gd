@@ -42,6 +42,7 @@ var seed_value: int
 var own_board
 var enemy_board
 var effects
+var spy_marks: Array = []   ## agents standing where our spies are (_refresh_spy_marks)
 var camera: Camera2D
 var audio
 var hud
@@ -190,6 +191,22 @@ func _layout_boards() -> void:
 	var offset := Vector2(0, -steps * 2.0 * Iso.ROW_H).rotated(rot * PI / 3.0)   # on the board plane
 	enemy_board.position = Vector2(offset.x, offset.y * Iso.SQUASH)
 	ocean.rebuild([own_board, enemy_board])
+	_refresh_spy_marks()
+
+
+## Our spies on the enemy island stand where their walk ended, between
+## playouts. Rebuilt whenever the boards move (a rotation) and after each
+## playout.
+func _refresh_spy_marks() -> void:
+	if effects == null:
+		return
+	for a in spy_marks:
+		effects.remove_agent(a)
+	spy_marks.clear()
+	if m == null or ui == Ui.PLAYOUT:
+		return
+	for sp in m.spies[0]:
+		spy_marks.append(effects.add_agent(enemy_board.position + enemy_board.tile_center(int(sp["hex"])), "player"))
 
 
 # --- Phases ----------------------------------------------------------------
@@ -390,6 +407,7 @@ func _attack() -> void:
 	audio.set_music("")   # the attack plays out with no music
 	battle_report = []    # this attack's summary replaces it
 	ui = Ui.PLAYOUT
+	_refresh_spy_marks()
 	_reset_rotation()
 	hud.set_phase("Playout", m.round_number)
 	_refresh()
@@ -794,6 +812,8 @@ func _missile_options(launcher_hex: int) -> Array:
 func _can_fly(b, mt: String) -> bool:
 	if not m.sides[0].missile_unlocked(mt, data):
 		return false
+	if data.missile(mt).has("walks") and m.spies[0].size() >= int(data.missile(mt).get("max_on_ground", 1)):
+		return false   # our spy is still on the enemy island
 	return not b.carrier_lost or bool(data.missile(mt).get("own_aircraft", false))
 
 
@@ -1810,7 +1830,7 @@ func _run_playout() -> void:
 	var post_enemy: Array = _enemy_tiles()
 	var by_id := {}
 	for ev in events:
-		if ev.has("id"):
+		if ev.has("id") and not (ev["type"] == "spy" and not bool(ev["landed"])):
 			if not by_id.has(ev["id"]):
 				by_id[ev["id"]] = {}
 			by_id[ev["id"]][ev["type"]] = ev
@@ -1819,6 +1839,9 @@ func _run_playout() -> void:
 	var arrivals := [events.filter(func(e): return e["type"] == "boat_arrive" and e["side"] == 0),
 		events.filter(func(e): return e["type"] == "boat_arrive" and e["side"] == 1)]
 	var sailings: Array = events.filter(func(e): return e["type"] == "boat_launch" and e["side"] == 0)
+	# Spies already on an island walk on (see _spy_walk_anim).
+	var walks := [events.filter(func(e): return e["type"] == "spy" and e["side"] == 0 and not bool(e["landed"])),
+		events.filter(func(e): return e["type"] == "spy" and e["side"] == 1 and not bool(e["landed"]))]
 	for e in events:
 		if e["type"] == "cannon_fire":
 			if not by_id.has(e["id"]):
@@ -1833,8 +1856,8 @@ func _run_playout() -> void:
 	await _wait(0.7)
 	for k in launches[0].size():
 		var lm: Dictionary = data.missile(String(launches[0][k]["missile"]))
-		if lm.has("carries") or lm.has("finds_roles"):
-			_take_off(int(launches[0][k]["launcher"]), k * 0.15, "helicopter" if lm.has("finds_roles") else "transport")
+		if lm.has("carries") or lm.has("walks"):
+			_take_off(int(launches[0][k]["launcher"]), k * 0.15, "helicopter" if lm.has("walks") else "transport")
 		else:
 			_rise(own_board, int(launches[0][k]["launcher"]), Color(1, 0.9, 0.5), k * 0.15)
 	for k in sailings.size():
@@ -1847,7 +1870,7 @@ func _run_playout() -> void:
 		# attack; the missiles land only once the player has pressed OK.
 		var n: int = launches[1].size()
 		var key := "incoming_one" if n == 1 else "incoming_many"
-		var spies_only: bool = n > 0 and arrivals[1].is_empty() and launches[1].all(func(e): return data.missile(String(e["missile"])).has("finds_roles"))
+		var spies_only: bool = n > 0 and arrivals[1].is_empty() and launches[1].all(func(e): return data.missile(String(e["missile"])).has("walks"))
 		if spies_only and lines.has("incoming_spy"):
 			key = "incoming_spy"
 		elif launches[1].any(func(e): return String(e["missile"]) == "nuke") and lines.has("incoming_nuke"):
@@ -1873,6 +1896,13 @@ func _run_playout() -> void:
 		for k in launches[1].size():
 			longest = maxf(longest, _land(own_board, m.sides[0].island, launches[1][k], by_id, Color(1, 0.4, 0.4), off + k * 0.35, []))
 		await _wait(longest)
+	# An enemy spy already here is only seen when he is caught.
+	for ev in walks[1]:
+		if int(ev["caught_by"]) >= 0:
+			var path: Array = ev["path"]
+			var at := int(path[-1]) if not path.is_empty() else int(ev["start"])
+			effects.float_text(own_board.position + own_board.tile_center(at), "Enemy spy caught", Color(0.7, 1.0, 0.7))
+			await _wait(0.9)
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
 	for ev in events:
@@ -1901,11 +1931,14 @@ func _run_playout() -> void:
 		await _wait(1.5)
 	# Our strikes land on the enemy island, after a beat on ours to take in
 	# what the enemy did.
-	if not launches[0].is_empty() or not arrivals[0].is_empty():
+	if not launches[0].is_empty() or not arrivals[0].is_empty() or not walks[0].is_empty():
 		if not launches[1].is_empty() or not arrivals[1].is_empty():
 			await _wait(ENEMY_TURN_PAUSE)
 		_fly_to(1, 0.6)
 		await _wait(0.7)
+		for ev in walks[0]:
+			var agent = effects.add_agent(enemy_board.position + enemy_board.tile_center(int(ev["start"])), "player")
+			await _spy_walk_anim(enemy_board, ev, agent, post_enemy)
 		var longest := 0.0
 		for k in arrivals[0].size():
 			longest = maxf(longest, _ashore(enemy_board, null, arrivals[0][k], by_id, Color(1, 0.9, 0.5), k * 0.4, post_enemy))
@@ -1924,8 +1957,10 @@ func _run_playout() -> void:
 			_log_event(ev)
 	await _wait(0.8)
 	effects.clear()
+	spy_marks.clear()
 	battle_report = BattleReport.stat_lines(events, lines.get("battle_report", {}).get("stats", {}))
 	ui = Ui.BUILD   # placeholder until the next phase sets itself
+	_refresh_spy_marks()
 	_after_playout()
 
 
@@ -2043,9 +2078,10 @@ func _ashore_anim(board, isl, ev: Dictionary, info: Dictionary, color: Color, de
 ## it and returns how long it will take, so the caller can wait for all.
 func _land(board, isl, launch: Dictionary, by_id: Dictionary, color: Color, delay: float, reveal_tiles: Array) -> float:
 	var info: Dictionary = by_id.get(launch["id"], {})
-	if data.missile(String(launch["missile"])).has("finds_roles"):
+	if data.missile(String(launch["missile"])).has("walks"):
 		_spy_flight(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
-		return delay + SPY_SECONDS
+		var steps: int = info.get("spy", {}).get("path", []).size() if board == enemy_board else 0
+		return delay + SPY_SECONDS + SPY_STEP_SECONDS * steps
 	if data.missile(String(launch["missile"])).has("carries"):
 		_drop(board, isl, info, int(launch["target"]), color, delay, reveal_tiles)
 		var path: Array = info.get("platoon", {}).get("path", [])
@@ -2109,13 +2145,14 @@ func _drop(board, isl, info: Dictionary, target: int, color: Color, delay: float
 	await _march(board, p, ground, color, side, reveal_tiles)
 
 
-const SPY_SECONDS := 4.4       ## the helicopter in, the spy's look round, and away
+const SPY_SECONDS := 3.6       ## the helicopter in, the spy out, and it away
+const SPY_STEP_SECONDS := 0.55 ## the spy walking one hex
 
 
 ## The spy's helicopter flies in from the attacker's side and may be shot
-## down. If not, it sets down on its hex and the spy steps out; each silo he
-## finds is revealed and marked; he climbs back in and the helicopter flies
-## home the way it came.
+## down. If not, it sets down on its hex, the spy steps out and it flies
+## home the way it came. Ours then walks his first hexes, uncovering each;
+## the enemy's slips away out of sight (we see him again only if caught).
 func _spy_flight(board, isl, info: Dictionary, target: int, color: Color, delay: float, reveal_tiles: Array = []) -> void:
 	await _wait(delay)
 	var ground: Vector2 = board.position + board.tile_center(target)
@@ -2143,31 +2180,62 @@ func _spy_flight(board, isl, info: Dictionary, target: int, color: Color, delay:
 	t = create_tween()
 	t.tween_property(heli, "alt", 6.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	await t.finished
-	var spy = effects.add_agent(ground + Vector2(14, 6), side)
-	spy.pose = 1
-	await _wait(0.3)
-	spy.pose = 2   # reporting in
-	var found: Array = info.get("spy", {}).get("found", [])
-	for h in found:
-		if not reveal_tiles.is_empty():
-			board.tiles[int(h)] = reveal_tiles[int(h)]
-		else:
-			board.tiles[int(h)]["enemy_seen"] = true
-		var fb = m.sides[1 if board == enemy_board else 0].building_at(int(h))
-		effects.float_text(board.position + board.tile_center(int(h)), "%s found" % (Pieces.display_name(fb.type) if fb != null else "Target"), Color(1.0, 0.86, 0.3))
-	if found.is_empty():
-		effects.float_text(ground, "Nothing found", Color(0.85, 0.9, 1.0))
-	board.queue_redraw()
-	await _wait(0.9)
-	spy.pose = 1
-	await _wait(0.2)
-	effects.remove_agent(spy)
+	var ev: Dictionary = info.get("spy", {})
+	var spy = null
+	if bool(ev.get("lost_at_sea", false)):
+		effects.float_text(ground, "Lost at sea", Color(0.8, 0.9, 1.0))
+	else:
+		spy = effects.add_agent(ground + Vector2(14, 6), side)
+		spy.pose = 1
+	await _wait(0.4)
 	heli.heading = from.angle()
 	t = create_tween().set_parallel(true)
 	t.tween_property(heli, "alt", alt, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	t.tween_property(heli, "ground", ground + from * 650.0, 1.1).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN).set_delay(0.2)
-	await t.finished
-	effects.remove_plane(heli)
+	t.tween_callback(func(): effects.remove_plane(heli)).set_delay(1.3)
+	if spy == null:
+		return
+	if board == enemy_board:
+		await _spy_walk_anim(board, ev, spy, reveal_tiles)
+		return
+	await _wait(0.5)
+	effects.remove_agent(spy)
+	if int(ev.get("caught_by", -1)) >= 0:
+		var path: Array = ev.get("path", [])
+		var at := int(path[-1]) if not path.is_empty() else target
+		effects.float_text(board.position + board.tile_center(at), "Enemy spy caught", Color(0.7, 1.0, 0.7))
+
+
+## Our spy walks his path for this round on the enemy island, each hex
+## uncovered as he reaches it. If a radar or bunker catches him, it shows
+## and he is gone; otherwise he stays where he stopped.
+func _spy_walk_anim(board, ev: Dictionary, agent, reveal_tiles: Array) -> void:
+	var path: Array = ev.get("path", [])
+	for h in path:
+		_uncover(board, int(h), reveal_tiles)
+		agent.pose = 1
+		var to: Vector2 = board.position + board.tile_center(int(h))
+		var mv := create_tween()
+		mv.tween_property(agent, "ground", to, SPY_STEP_SECONDS * 0.8)
+		await mv.finished
+		agent.pose = 0
+		await _wait(SPY_STEP_SECONDS * 0.2)
+	var by := int(ev.get("caught_by", -1))
+	if by >= 0:
+		_uncover(board, by, reveal_tiles)
+		var fb = m.sides[1].building_at(by)
+		agent.pose = 2
+		effects.float_text(agent.ground, "Caught by %s" % (Pieces.display_name(fb.type).to_lower() if fb != null else "the enemy"), Color(1.0, 0.75, 0.6))
+		await _wait(0.9)
+		effects.remove_agent(agent)
+
+
+func _uncover(board, h: int, reveal_tiles: Array) -> void:
+	if not reveal_tiles.is_empty():
+		board.tiles[h] = reveal_tiles[h]
+	else:
+		board.tiles[h]["enemy_seen"] = true
+	board.queue_redraw()
 
 
 ## A landed platoon walks its path: each hex it reaches is revealed, a
@@ -2344,14 +2412,18 @@ func _log_event(ev: Dictionary) -> void:
 				hud.add_log(("[color=lightgreen]Our platoon destroyed %d building%s.[/color]" if mine else "[color=salmon]An enemy platoon destroyed %d building%s.[/color]")
 					% [n_kill, "" if n_kill == 1 else "s"])
 		"spy":
-			var n_found: int = ev["found"].size()
-			if mine:
-				hud.add_log("[color=lightgreen]Our spy is back: %s.[/color]" % (
-					"no banks, labs or refineries" if n_found == 0 else ("%d bank%s, lab%s and refiner%s found" % [n_found, "" if n_found == 1 else "s", "" if n_found == 1 else "s", "y" if n_found == 1 else "ies"])))
-			elif n_found > 0:
-				hud.add_log("[color=salmon]An enemy spy found %d of our banks, labs and refineries.[/color]" % n_found)
-			else:
-				hud.add_log("An enemy spy landed and flew off again.")
+			var n := (ev["path"] as Array).size()
+			var caught := int(ev["caught_by"]) >= 0
+			if bool(ev["lost_at_sea"]):
+				hud.add_log("Our spy came down in the sea." if mine else "An enemy spy came down in the sea.")
+			elif mine:
+				var what := ("Our spy landed and uncovered %d hex%s" if bool(ev["landed"]) else "Our spy uncovered %d more hex%s") % [n, "" if n == 1 else "es"]
+				var by = m.sides[1].building_at(int(ev["caught_by"])) if caught else null
+				hud.add_log(("[color=salmon]%s, then was caught by %s.[/color]" % [what, "a " + Pieces.display_name(by.type).to_lower() if by != null else "the enemy"]) if caught else "[color=lightgreen]%s.[/color]" % what)
+			elif caught:
+				hud.add_log("[color=lightgreen]We caught an enemy spy.[/color]")
+			elif bool(ev["landed"]):
+				hud.add_log("[color=salmon]An enemy spy landed on our island. A radar or bunker near him will catch him.[/color]")
 		"launcher_revealed":
 			hud.add_log("[color=salmon]Our nuke launch gave away our silo.[/color]" if mine else "[color=lightgreen]The enemy's nuke launch gave away its silo.[/color]")
 		"spy_lost":

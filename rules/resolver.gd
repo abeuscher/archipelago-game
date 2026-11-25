@@ -17,6 +17,8 @@ static func resolve(m) -> Array:
 	for s in [0, 1]:
 		for bt in m.boats[s]:
 			next_id = maxi(next_id, int(bt["id"]) + 1)
+		for sp in m.spies[s]:
+			next_id = maxi(next_id, int(sp["id"]) + 1)
 	for s in m.LAUNCH_ORDER:
 		for o in m.orders[s]:
 			var ms := {
@@ -60,6 +62,7 @@ static func resolve(m) -> Array:
 	# Enemy strikes land first, then the player's (presentation order). Dice
 	# are rolled in this order too, so the sequence is fixed for a given seed.
 	for attacker in m.LAUNCH_ORDER:
+		_walk_spies(m, attacker, events, reveals[attacker])
 		_land_boats(m, attacker, events, pending[1 - attacker], reveals[attacker])
 		_resolve_attack(m, attacker, missiles[attacker], events, pending[1 - attacker], reveals[attacker])
 
@@ -131,7 +134,7 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 					if port != null:
 						port.carrier_lost = true
 					events.append({"type": "carrier_lost", "side": attacker, "id": ms["id"], "launcher": ms["launcher"]})
-				elif data.missile(ms["missile"]).has("finds_roles"):
+				elif data.missile(ms["missile"]).has("walks"):
 					events.append({"type": "spy_lost", "side": attacker, "id": ms["id"], "launcher": ms["launcher"]})
 			break   # No missile is engaged more than once a round.
 
@@ -146,7 +149,7 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		if mdef.has("carries"):
 			_platoon(m, attacker, ms, events, pending, reveals)
 			continue
-		if mdef.has("finds_roles"):
+		if mdef.has("walks"):
 			_spy(m, attacker, ms, mdef, events, reveals)
 			continue
 		var impact: int = ms["target"]
@@ -192,18 +195,156 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 		m.note_bombed(defender, impact)
 
 
-## A spy who got through lands on his hex and finds every enemy building of
-## the roles he looks for (banks, refineries, labs), wherever it is; those
-## hexes are revealed. Then he flies home.
+## A spy who got through lands on his hex and stays on the enemy island
+## (landing on the sea loses him). He uncovers his landing hex and walks on,
+## walks hexes in all this round, then walks hexes every round after (see
+## _spy_walk), until a radar or bunker catches him.
 static func _spy(m, attacker: int, ms: Dictionary, mdef: Dictionary, events: Array, reveals: Array) -> void:
+	var isl = m.sides[1 - attacker].island
+	var here := int(ms["target"])
+	var ev := _spy_event(attacker, ms["id"], here, true)
+	if not isl.is_land(here):
+		ev["lost_at_sea"] = true
+		reveals.append(here)
+		events.append(ev)
+		return
+	var spy := {"id": ms["id"], "missile": ms["missile"], "hex": here, "landed_round": m.round_number}
+	m.spies[attacker].append(spy)
+	_spy_walk(m, attacker, spy, ev, int(mdef["walks"]), true, reveals)
+	events.append(ev)
+
+
+## Spies already on the enemy island walk on, before this side's strikes.
+static func _walk_spies(m, attacker: int, events: Array, reveals: Array) -> void:
+	for spy in m.spies[attacker].duplicate():
+		var ev := _spy_event(attacker, spy["id"], int(spy["hex"]), false)
+		_spy_walk(m, attacker, spy, ev, int(m.data.missile(String(spy["missile"]))["walks"]), false, reveals)
+		events.append(ev)
+
+
+static func _spy_event(attacker: int, id, start: int, landed: bool) -> Dictionary:
+	return {"type": "spy", "side": attacker, "id": id, "landed": landed, "start": start,
+		"path": [], "caught_by": -1, "lost_at_sea": false}
+
+
+## One round of a spy's walk: `steps` contiguous hexes uncovered (on landing,
+## the landing hex is the first). Each step goes toward the nearest hex his
+## side has never seen (failing that, the one seen longest ago), keeping out
+## of the reach of radars and bunkers his side knows of. Where an enemy
+## radar (its range) or bunker (troops.bunker_range) reaches the hex he
+## stands on, he is caught: what he uncovered up to there still comes back,
+## and so does what caught him.
+static func _spy_walk(m, attacker: int, spy: Dictionary, ev: Dictionary, steps: int, landing: bool, reveals: Array) -> void:
 	var def = m.sides[1 - attacker]
-	var found: Array = []
-	for role in mdef["finds_roles"]:
-		for b in def.of_role(m.data, String(role)):
-			found.append(b.hex)
-	found.sort()
-	reveals.append_array(found)
-	events.append({"type": "spy", "side": attacker, "id": ms["id"], "hex": int(ms["target"]), "found": found})
+	var grid = def.island.grid
+	var catchers := _spy_catchers(m, def)
+	var fresh := {}
+	var here := int(spy["hex"])
+	if landing:
+		ev["path"].append(here)
+		reveals.append(here)
+		fresh[here] = true
+		steps -= 1
+	var caught := _caught_by(grid, catchers, here)
+	var danger := known_danger(m.data, grid, m.knowledge[attacker])
+	while caught < 0 and steps > 0:
+		var nxt := _spy_step(m, attacker, here, fresh, danger)
+		if nxt < 0:
+			break
+		here = nxt
+		steps -= 1
+		spy["hex"] = here
+		ev["path"].append(here)
+		reveals.append(here)
+		fresh[here] = true
+		caught = _caught_by(grid, catchers, here)
+	if caught >= 0:
+		ev["caught_by"] = caught
+		reveals.append(caught)
+		m.spies[attacker].erase(spy)
+
+
+## [hex, reach] for every enemy radar and bunker able to catch a spy now.
+static func _spy_catchers(m, def) -> Array:
+	var out: Array = []
+	for r in def.of_role(m.data, "radar"):
+		var rr: int = def.radar_range(r, m.data)
+		if rr > 0 and not r.disabled:
+			out.append([r.hex, rr])
+	var br := int(m.data.section("troops")["bunker_range"])
+	for bk in def.of_role(m.data, "bunker"):
+		if def.weapon_active(bk):
+			out.append([bk.hex, br])
+	return out
+
+
+static func _caught_by(grid, catchers: Array, hex: int) -> int:
+	for c in catchers:
+		if grid.distance(int(c[0]), hex) <= int(c[1]):
+			return int(c[0])
+	return -1
+
+
+## Hexes a side knows a spy would be caught on: within reach of a radar or
+## bunker in its knowledge of the enemy island (the AI uses this too).
+static func known_danger(data, grid, knowledge: Dictionary) -> Dictionary:
+	var ranges: Array = data.section("radar")["range_by_level"]
+	var br := int(data.section("troops")["bunker_range"])
+	var out := {}
+	for h in knowledge:
+		var e: Dictionary = knowledge[h]
+		var kb = e.get("building")
+		if kb == null or not data.has_building(String(kb["type"])):
+			continue
+		var reach := -1
+		match data.role(String(kb["type"])):
+			"radar":
+				reach = int(ranges[clampi(int(e["level"]), 0, ranges.size() - 1)])
+			"bunker":
+				reach = br
+		if reach < 0:
+			continue
+		for w in grid.within(int(h), reach):
+			out[w] = true
+	return out
+
+
+## The spy's next hex from `here`, or -1: a breadth-first search over land
+## outside known danger finds the best hex to head for (never seen, nearest
+## first; else seen longest ago, then nearest), and he takes the first step
+## toward it.
+static func _spy_step(m, attacker: int, here: int, fresh: Dictionary, danger: Dictionary) -> int:
+	var isl = m.sides[1 - attacker].island
+	var grid = isl.grid
+	var known: Dictionary = m.knowledge[attacker]
+	var first := {here: -1}   # hex -> the first step toward it
+	var dist := {here: 0}
+	var frontier: Array = [here]
+	var best := -1
+	var best_key: Array = []
+	while not frontier.is_empty():
+		var next: Array = []
+		for h in frontier:
+			for n in grid.neighbors(h):
+				if dist.has(n) or not isl.is_land(n) or danger.has(n):
+					continue
+				dist[n] = int(dist[h]) + 1
+				first[n] = n if h == here else int(first[h])
+				next.append(n)
+				var key: Array
+				if fresh.has(n):
+					key = [2, 0, int(dist[n]), n]
+				elif not known.has(n):
+					key = [0, 0, int(dist[n]), n]
+				else:
+					key = [1, int(known[n]["seen_round"]), int(dist[n]), n]
+				if best < 0 or key < best_key:
+					best = n
+					best_key = key
+		frontier = next
+	if best < 0 or int(best_key[0]) == 2:
+		return -1
+	return int(first[best])
 
 
 ## Boats due this round reach the defender's coast. Each active coastal

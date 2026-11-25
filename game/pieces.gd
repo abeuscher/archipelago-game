@@ -66,7 +66,7 @@ const RESEARCH_TEXT := {
 	"coastal_cannon": "Unlocks the coastal cannon, which fires on enemy boats landing nearby.",
 	"nuclear_silo": "Unlocks the nuclear silo, which builds and fires nukes. Needs other research done first.",
 	"bank_upgrade": "Every bank makes more money each round.",
-	"spy": "The airport can send a spy by helicopter instead of its transport. Wherever he lands, he finds every enemy bank, lab and refinery and flies home to report. Anti-air hits him half as often as a missile.",
+	"spy": "The airport can send a spy by helicopter instead of its transport. He stays on the enemy island and uncovers three hexes every round until a radar or bunker catches him. Anti-air hits his helicopter half as often as a missile.",
 	"refinery_upgrade": "Every refinery makes twice as much fuel each round.",
 }
 

@@ -37,6 +37,9 @@ var boats: Array = [[], []]
 ## side -> how many enemy boats have come ashore (or been sunk) at its coast.
 ## The defender sees every one arrive, so its AI may know it.
 var boats_arrived_at: Array = [0, 0]
+## side -> its spies on the enemy island: {"id", "missile", "hex", "landed_round"}.
+## Only that side knows where they are.
+var spies: Array = [[], []]
 var round_number: int = 0
 var phase: int = Phase.SETUP
 var orders: Array = [[], []]
@@ -150,6 +153,12 @@ func set_launch_orders(side: int, new_orders: Array) -> String:
 	var e: String = sides[side].validate_launches(new_orders, data, target_count)
 	if e != "":
 		return e
+	var sending := 0
+	for o in new_orders:
+		if data.missile(String(o["missile"])).has("walks"):
+			sending += 1
+	if sending > 0 and spies[side].size() + sending > int(data.missile("spy").get("max_on_ground", 1)):
+		return "Our spy is still on the enemy island"
 	orders[side] = new_orders.duplicate(true)
 	return ""
 
@@ -286,6 +295,7 @@ func view_for(side: int):
 	v.own_seen_by_enemy = {}
 	v.boats = boats.duplicate(true)
 	v.enemy_boats_arrived = boats_arrived_at[side]
+	v.own_spies = spies[side].duplicate(true)
 	for h in knowledge[opponent(side)]:
 		v.own_seen_by_enemy[h] = true
 	return v
@@ -300,4 +310,5 @@ func fingerprint() -> String:
 			bl.append(b.to_dict())
 		parts.append([s.money, s.fuel, bl, s.unlocked.keys(), s.projects, s.stored_research])
 	parts.append(knowledge)
+	parts.append(spies)
 	return str(parts).sha256_text()

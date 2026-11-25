@@ -246,10 +246,11 @@
     "_note_focus_research": "true: one research project at a time, the other labs helping it (each item done sooner, fewer at once). A level may set it.",
     "focus_research": false,
     "spy": {
-      "_note": "Level 4. The spy is researched right after the airport. An airport sends him instead of its transport when fewer than known_below live enemy banks, labs and refineries are known, it is at least from_round, and every_rounds have passed since his last trip; he lands on the hex the fewest known anti-air guns cover. What he finds is targeted after weapons and bases (targeting.economy_priority). refinery_upgrade_at (under nukes) places the refinery upgrade in the research order as bank_upgrade_at does; at 4 it comes just after the four items the silo waits on, so the silo comes no later than in level 3.",
-      "from_round": 6,
-      "every_rounds": 4,
-      "known_below": 3
+      "_note": "Level 4. The spy is researched right after the airport. An airport sends him instead of its transport whenever none of ours is on the enemy island, it is at least from_round, and every_rounds have passed since his last trip. He lands where the most never-seen hexes lie within two of him, less cover_weight per known anti-air gun reaching the hex, never on known sea or in the reach of a known radar or bunker, and on an unseen hex only within unknown_land_within of the centre of the enemy space. What he uncovers is targeted as any sighting (banks, labs and refineries after weapons and bases: targeting.economy_priority). refinery_upgrade_at (under nukes) places the refinery upgrade in the research order as bank_upgrade_at does; at 4 it comes just after the four items the silo waits on, so the silo comes no later than in level 3.",
+      "from_round": 4,
+      "every_rounds": 2,
+      "cover_weight": 6.0,
+      "unknown_land_within": 4
     }
   },
   "batch": {

@@ -19,6 +19,7 @@ extends "res://ai/simple_ai.gd"
 
 const Island = preload("res://rules/island.gd")
 const SideState = preload("res://rules/side_state.gd")
+const Resolver = preload("res://rules/resolver.gd")
 
 const PRIOR_SAMPLES := 60
 const PRIOR_SEED := 7919
@@ -782,44 +783,55 @@ func choose_targets(view) -> Array:
 	return orders
 
 
-## Where to send the spy this round, or -1. He goes while no live enemy
-## silo is known, from cfg spy.from_round, every_rounds apart, if the fuel
-## and money are there; he lands where the fewest known anti-air guns reach.
+## Where to send the spy this round, or -1. When one is due (_spy_due) and
+## the fuel and money are there, he lands where the most never-seen hexes lie
+## within two of him, less cover_weight for each known anti-air gun reaching
+## the hex; never on known sea or where a known radar or bunker would catch
+## him, and on an unseen hex only within unknown_land_within of the centre
+## (the island grows from there, so it is likely land).
 func _spy_aim(view, know: Dictionary, st, fuel: int, money: int, air_cover: Callable) -> int:
 	if not _spy_due(view, st):
 		return -1
 	var sp: Dictionary = data.missile("spy")
 	if int(sp["fuel"]) > fuel or int(sp.get("money", 0)) > money:
 		return -1
+	var sc: Dictionary = cfg["spy"]
+	var g = _enemy_grid
+	var danger: Dictionary = Resolver.known_danger(data, g, view.enemy_knowledge)
+	var centre: int = g.center_index()
 	var best := -1
-	var best_c := 1 << 30
-	for h in _enemy_grid.count:
-		var c := int(air_cover.call(h))
-		if c < best_c:
-			best_c = c
+	var best_s := -1.0e9
+	for h in g.count:
+		var k = view.enemy_knowledge.get(h)
+		if k != null and not bool(k["land"]):
+			continue
+		if danger.has(h):
+			continue
+		if k == null and g.distance(h, centre) > int(sc["unknown_land_within"]):
+			continue
+		var s := 0.0
+		for n in g.within(h, 2):
+			if not view.enemy_knowledge.has(n) and not danger.has(n):
+				s += 1.0
+		s -= float(sc["cover_weight"]) * float(air_cover.call(h))
+		if s > best_s:
+			best_s = s
 			best = h
 	return best
 
 
 ## Whether a spy trip is due this round: he is researched, an airport is in
-## action, it is at least from_round and every_rounds since his last trip,
-## and fewer than known_below live enemy banks, labs and refineries are known.
+## action, none of ours is on the enemy island, and it is at least
+## from_round and every_rounds since his last trip.
 func _spy_due(view, st) -> bool:
 	if not data.rules["missiles"].has("spy") or not st.missile_unlocked("spy", data):
+		return false
+	if not view.own_spies.is_empty():
 		return false
 	if not st.of_role(data, "airport").any(func(b): return st.weapon_active(b)):
 		return false
 	var sc: Dictionary = cfg["spy"]
-	if view.round_number < int(sc["from_round"]) or view.round_number - _last_spy < int(sc["every_rounds"]):
-		return false
-	var roles: Array = data.missile("spy")["finds_roles"]
-	var known := 0
-	for h in view.enemy_knowledge:
-		var kb = view.enemy_knowledge[h].get("building")
-		if kb != null and data.has_building(String(kb["type"])) and roles.has(data.role(String(kb["type"]))) \
-				and not (kb["disabled"] and not kb["repairing"]):
-			known += 1
-	return known < int(sc["known_below"])
+	return view.round_number >= int(sc["from_round"]) and view.round_number - _last_spy >= int(sc["every_rounds"])
 
 
 ## The best troop drop on what we know: every known building as a landing

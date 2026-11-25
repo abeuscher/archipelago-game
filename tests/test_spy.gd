@@ -1,4 +1,5 @@
-## Level 4: the spy (sent from an airport, finds the enemy's silos) and the
+## Level 4: the spy (sent from an airport, stays on the enemy island and
+## uncovers three hexes a round until a radar or bunker catches him) and the
 ## refinery upgrade.
 extends "res://tests/test_case.gd"
 
@@ -24,37 +25,124 @@ func _spy(port, target: int) -> Dictionary:
 	return {"launcher": port.hex, "missile": "spy", "target": target}
 
 
-func test_spy_reveals_every_bank_lab_and_refinery_and_nothing_else() -> void:
+func _contiguous(m, path: Array) -> bool:
+	var g = m.sides[1].island.grid
+	for k in range(1, path.size()):
+		if g.distance(int(path[k - 1]), int(path[k])) != 1:
+			return false
+	return true
+
+
+func test_spy_lands_and_uncovers_three_contiguous_hexes() -> void:
 	var r = _spy_match()
 	var m = r[0]
-	var bank = put(m, 1, "bank", 2, 2)
-	var lab = put(m, 1, "lab", 10, 3)
-	var refinery = put(m, 1, "refinery", 12, 8)
-	var silo = put(m, 1, "nuclear_silo", 6, 6)
-	var launcher = put(m, 1, "basic_launcher", 8, 8)
-	var ev := play_round(m, [_spy(r[1], hex(m, 6, 6))])
+	var lab = put(m, 1, "lab", 6, 6)
+	var target := hex(m, 6, 6)
+	var ev := play_round(m, [_spy(r[1], target)])
 	var s: Array = events_of(ev, "spy")
 	eq(s.size(), 1, "the spy lands")
-	var want: Array = [bank.hex, lab.hex, refinery.hex]
-	want.sort()
-	var got: Array = s[0]["found"].duplicate()
-	got.sort()
-	eq(got, want, "the bank, the lab and the refinery found")
-	for b in [bank, lab, refinery]:
-		check(m.knowledge[0].has(b.hex), "%s revealed" % b.type)
-	eq(String(m.knowledge[0][lab.hex]["building"]["type"]), "lab", "seen as a lab")
-	check(not m.knowledge[0].has(silo.hex), "not the silo he landed on")
-	check(not m.knowledge[0].has(launcher.hex), "nor weapons")
-	for h in m.sides[1].of_role(m.data, "base").map(func(x): return x.hex):
-		check(not m.knowledge[0].has(h), "nor bases")
-	check(m.sides[1].building_at(bank.hex) != null, "he does no damage")
+	var path: Array = s[0]["path"]
+	check(bool(s[0]["landed"]), "landed this round")
+	eq(path.size(), int(m.data.missile("spy")["walks"]), "three hexes")
+	eq(int(path[0]), target, "the landing hex first")
+	check(_contiguous(m, path), "one after another: %s" % str(path))
+	for h in path:
+		check(m.knowledge[0].has(int(h)), "hex %d uncovered" % h)
+	eq(String(m.knowledge[0][lab.hex]["building"]["type"]), "lab", "the lab he landed on is seen")
+	eq(m.spies[0].size(), 1, "he stays on the island")
+	eq(int(m.spies[0][0]["hex"]), int(path[-1]), "where he stopped")
+	check(m.sides[1].building_at(lab.hex) != null, "he does no damage")
 
 
-func test_spy_finding_nothing_reports_nothing() -> void:
+func test_spy_walks_three_new_hexes_every_round() -> void:
 	var r = _spy_match()
 	var m = r[0]
-	var ev := play_round(m, [_spy(r[1], hex(m, 3, 3))])
-	eq(events_of(ev, "spy")[0]["found"], [], "nothing found")
+	play_round(m, [_spy(r[1], hex(m, 6, 6))])
+	for k in 3:
+		var was: int = int(m.spies[0][0]["hex"])
+		var known_before: Dictionary = m.knowledge[0].duplicate()
+		var s: Array = events_of(play_round(m, []), "spy")
+		eq(s.size(), 1, "round %d: he walks on" % k)
+		check(not bool(s[0]["landed"]), "not a landing")
+		eq(int(s[0]["start"]), was, "from where he was")
+		var path: Array = s[0]["path"]
+		eq(path.size(), 3, "three hexes")
+		check(_contiguous(m, [was] + path), "contiguous from where he stood: %s" % str(path))
+		for h in path:
+			check(not known_before.has(int(h)), "hex %d was never seen" % h)
+			eq(int(m.knowledge[0][int(h)]["seen_round"]), m.round_number, "and is seen now")
+
+
+func test_spy_caught_on_landing_by_a_radar_in_range() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	var radar = put(m, 1, "radar", 6, 8)
+	var s: Array = events_of(play_round(m, [_spy(r[1], hex(m, 6, 6))]), "spy")
+	eq(int(s[0]["caught_by"]), radar.hex, "caught by the radar")
+	eq(s[0]["path"], [hex(m, 6, 6)], "only the landing hex")
+	eq(m.spies[0].size(), 0, "he is gone")
+	eq(String(m.knowledge[0][radar.hex]["building"]["type"]), "radar", "the radar shows itself")
+
+
+func test_spy_caught_by_a_bunker_built_next_to_him() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	play_round(m, [_spy(r[1], hex(m, 6, 6))])
+	var at: int = int(m.spies[0][0]["hex"])
+	var g = m.sides[1].island.grid
+	var spot := -1
+	for n in g.neighbors(at):
+		if m.sides[1].building_at(n) == null:
+			spot = n
+			break
+	var bk = put(m, 1, "bunker", spot % g.width, spot / g.width)
+	eq(bk.hex, spot, "bunker beside him")
+	var s: Array = events_of(play_round(m, []), "spy")
+	eq(int(s[0]["caught_by"]), bk.hex, "caught by the bunker")
+	eq(s[0]["path"], [], "before he takes a step")
+	eq(m.spies[0].size(), 0, "he is gone")
+
+
+func test_spy_keeps_out_of_known_radar_reach() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	var radar = put(m, 1, "radar", 9, 6)
+	m.record_sighting(0, radar.hex)
+	var g = m.sides[1].island.grid
+	var reach: int = m.sides[1].radar_range(radar, m.data)
+	play_round(m, [_spy(r[1], hex(m, 5, 6))])
+	for k in 4:
+		var s: Array = events_of(play_round(m, []), "spy")
+		eq(int(s[0]["caught_by"]), -1, "round %d: not caught" % k)
+		for h in s[0]["path"]:
+			check(g.distance(int(h), radar.hex) > reach, "hex %d out of the known radar's reach" % h)
+
+
+func test_spy_landing_on_the_sea_is_lost() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	var h := hex(m, 6, 6)
+	m.sides[1].island.land[h] = 0
+	var s: Array = events_of(play_round(m, [_spy(r[1], h)]), "spy")
+	check(bool(s[0]["lost_at_sea"]), "lost at sea")
+	eq(m.spies[0].size(), 0, "no spy on the island")
+
+
+func test_one_spy_at_a_time_and_new_launches_get_new_ids() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	var launcher = put(m, 0, "basic_launcher", 2, 0)
+	play_round(m, [_spy(r[1], hex(m, 6, 6))])
+	var spy_id = m.spies[0][0]["id"]
+	m.begin_round()
+	m.end_build_phase()
+	err_contains(m.set_launch_orders(0, [_spy(r[1], hex(m, 3, 3))]), "still on the enemy island", "no second spy")
+	ok(m.set_launch_orders(0, [{"launcher": launcher.hex, "missile": "basic", "target": hex(m, 2, 2)}]))
+	ok(m.set_launch_orders(1, []))
+	var ev: Array = m.resolve_playout()
+	var launches: Array = events_of(ev, "launch")
+	eq(launches.size(), 1, "the missile goes")
+	check(launches.all(func(e): return e["id"] != spy_id), "the missile's id is not the spy's")
 
 
 func test_spy_costs_two_fuel_and_sixty_money() -> void:
@@ -221,17 +309,44 @@ func test_level_4_starts_both_sides_with_level_3_research_done() -> void:
 	eq(m3.sides[1].unlocked.size(), 0, "nor does its enemy")
 
 
-func test_strong_ai_keeps_the_spy_home_when_it_knows_enough_targets() -> void:
+func test_strong_ai_sends_no_new_spy_while_one_is_on_the_island() -> void:
 	var r = _ai_spy_match()
 	var m = r[0]
-	var n := int(m.data.ai["strong"]["spy"]["known_below"])
-	for k in n:
-		var b = put(m, 0, "bank", 2 * k, 10)
-		m.record_sighting(1, b.hex)
+	var ai = StrongAI.new(1, m.data, 5)
 	m.begin_round()
 	m.end_build_phase()
-	var ai = StrongAI.new(1, m.data, 5)
-	eq(ai.choose_targets(m.view_for(1)).filter(func(o): return o["missile"] == "spy").size(), 0, "no spy with %d known" % n)
+	var orders: Array = ai.choose_targets(m.view_for(1))
+	eq(orders.filter(func(o): return o["missile"] == "spy").size(), 1, "the spy goes")
+	ok(m.set_launch_orders(1, orders))
+	ok(m.set_launch_orders(0, []))
+	m.resolve_playout()
+	for k in 4:
+		check(not m.spies[1].is_empty(), "round %d: he is still there" % k)
+		m.begin_round()
+		m.end_build_phase()
+		orders = ai.choose_targets(m.view_for(1))
+		eq(orders.filter(func(o): return o["missile"] == "spy").size(), 0, "round %d: no second spy" % k)
+		ok(m.set_launch_orders(1, orders))
+		ok(m.set_launch_orders(0, []))
+		m.resolve_playout()
+	m.spies[1].clear()   # caught
+	m.begin_round()
+	m.end_build_phase()
+	eq(ai.choose_targets(m.view_for(1)).filter(func(o): return o["missile"] == "spy").size(), 1, "a new one once he is gone")
+
+
+func test_strong_ai_lands_the_spy_out_of_known_radar_reach() -> void:
+	var r = _ai_spy_match()
+	var m = r[0]
+	var radar = put(m, 0, "radar", 7, 7)
+	m.record_sighting(1, radar.hex)
+	m.begin_round()
+	m.end_build_phase()
+	var orders: Array = StrongAI.new(1, m.data, 5).choose_targets(m.view_for(1))
+	var spies: Array = orders.filter(func(o): return o["missile"] == "spy")
+	eq(spies.size(), 1, "the spy goes")
+	var reach := int(m.data.section("radar")["range_by_level"][0])
+	check(m.sides[0].island.grid.distance(int(spies[0]["target"]), radar.hex) > reach, "landing out of the radar's reach")
 
 
 func test_strong_ai_researches_the_spy_right_after_the_airport() -> void:
