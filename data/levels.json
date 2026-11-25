@@ -54,7 +54,7 @@
         "rules.research.bank_upgrade.start_researched": true,
         "rules.research.refinery_upgrade.start_researched": true,
         "rules.buildings.enclave.available": true,
-        "rules.buildings.stealth_silo.available": true,
+        "rules.buildings.stealth_launcher.available": true,
         "rules.research.logistics.available": true,
         "ai.strong.nukes.extra_labs": 1,
         "ai.strong.nukes.lab_at": 4,

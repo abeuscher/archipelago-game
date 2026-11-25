@@ -246,7 +246,7 @@
     "_note_focus_research": "true: one research project at a time, the other labs helping it (each item done sooner, fewer at once). A level may set it.",
     "focus_research": false,
     "stealth": {
-      "_note": "Level 5. Stealth silos go up from build_from_round, up to count of them, once there is money. A stealth launcher takes the wish-list target most covered by known anti-air (anti-air can't touch it) from the first pick_from entries. logistics_at places the logistics research in the order.",
+      "_note": "Level 5. Stealth launchers go up from build_from_round, up to count of them, once there is money. A stealth launcher takes the wish-list target most covered by known anti-air (anti-air can't touch it) from the first pick_from entries. logistics_at places the logistics research in the order.",
       "build_from_round": 3,
       "count": 1,
       "pick_from": 4,

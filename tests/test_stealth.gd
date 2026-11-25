@@ -1,4 +1,4 @@
-## Level 5: the stealth silo (missiles anti-air can't hit, half strength,
+## Level 5: the stealth launcher (missiles anti-air can't hit, half strength,
 ## deadly to a domestic agent on the hex) and logistics (anti-air and radar
 ## reach one hex farther).
 extends "res://tests/test_case.gd"
@@ -17,7 +17,7 @@ func _stealth_match():
 	var st = m.sides[0]
 	st.fuel = 40
 	st.money = 500
-	var silo = put(m, 0, "stealth_silo", 0, 0)
+	var silo = put(m, 0, "stealth_launcher", 0, 0)
 	return [m, silo]
 
 
@@ -25,11 +25,11 @@ func _shot(silo, target: int) -> Dictionary:
 	return {"launcher": silo.hex, "missile": "stealth", "target": target}
 
 
-func test_level_5_brings_the_stealth_silo_and_logistics_and_keeps_level_4() -> void:
+func test_level_5_brings_the_stealth_launcher_and_logistics_and_keeps_level_4() -> void:
 	for n in [1, 2, 3, 4, 5]:
 		var d = Levels.data_for(data(), n)
 		var st = MatchState.create(d, 3).sides[0]
-		eq(st.building_unlocked("stealth_silo", d), n == 5, "stealth silo in level %d: %s" % [n, n == 5])
+		eq(st.building_unlocked("stealth_launcher", d), n == 5, "stealth launcher in level %d: %s" % [n, n == 5])
 		eq(st.research_available(d).has("logistics"), n == 5, "logistics in level %d: %s" % [n, n == 5])
 	var m = MatchState.create(_l5(), 3)
 	for side in 2:
@@ -136,7 +136,7 @@ func test_logistics_lets_anti_air_engage_a_missile_one_hex_farther() -> void:
 
 # --- The AI ------------------------------------------------------------------
 
-func test_strong_ai_builds_a_stealth_silo_and_researches_logistics_in_level_5() -> void:
+func test_strong_ai_builds_a_stealth_launcher_and_researches_logistics_in_level_5() -> void:
 	var d = _l5()
 	var m = flat_match(d)
 	var st = m.sides[1]
@@ -146,7 +146,7 @@ func test_strong_ai_builds_a_stealth_silo_and_researches_logistics_in_level_5() 
 	var ai = StrongAI.new(1, d, 5)
 	for a in ai.choose_build(m.view_for(1)):
 		m.build_action(1, a)
-	check(st.buildings.values().any(func(b): return b.type == "stealth_silo"), "a stealth silo")
+	check(st.buildings.values().any(func(b): return b.type == "stealth_launcher"), "a stealth launcher")
 	check(ai.research.has("logistics"), "logistics in the research order")
 	check(not StrongAI.new(1, Levels.data_for(data(), 4), 5).research.has("logistics"), "not in level 4")
 
@@ -156,7 +156,7 @@ func test_strong_ai_aims_a_stealth_missile_at_the_best_guarded_target() -> void:
 	var m = flat_match(d)
 	var st = m.sides[1]
 	st.fuel = 40
-	var silo = put(m, 1, "stealth_silo", 3, 3)
+	var silo = put(m, 1, "stealth_launcher", 3, 3)
 	for b in m.sides[0].of_role(d, "base"):
 		m.sides[0].remove_building(b.hex, d)
 		m.bases_destroyed_by[1].append(b.hex)
@@ -171,7 +171,7 @@ func test_strong_ai_aims_a_stealth_missile_at_the_best_guarded_target() -> void:
 	m.end_build_phase()
 	var orders: Array = StrongAI.new(1, d, 5).choose_targets(m.view_for(1))
 	var mine: Array = orders.filter(func(o): return int(o["launcher"]) == silo.hex)
-	eq(mine.size(), 1, "the stealth silo fires")
+	eq(mine.size(), 1, "the stealth launcher fires")
 	check(int(mine[0]["target"]) != open_lab.hex, "not at the unguarded lab: %s" % str(mine))
 
 
