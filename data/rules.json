@@ -43,7 +43,8 @@
     "docks":              { "role": "docks",    "cost": 80, "hp": 60, "weapon": true, "missiles": ["boat"], "requires": "docks", "coastal": true },
     "coastal_cannon":     { "role": "coastal_cannon", "cost": 60, "hp": 60, "weapon": true, "requires": "coastal_cannon", "coastal": true },
     "nuclear_silo":       { "role": "silo",     "cost": 120, "hp": 80, "weapon": true, "missiles": ["nuke"], "requires": "nuclear_silo" },
-    "enclave":            { "role": "enclave",  "cost": 80, "hp": 50, "weapon": true, "missiles": ["spy"], "available": false }
+    "enclave":            { "role": "enclave",  "cost": 80, "hp": 50, "weapon": true, "missiles": ["spy"], "available": false },
+    "stealth_silo":       { "role": "launcher", "cost": 100, "hp": 50, "weapon": true, "missiles": ["stealth"], "available": false }
   },
   "_note_upgrade": "upgrade: once its research is done, the building produces these amounts instead.",
 
@@ -54,8 +55,10 @@
     "transport": { "fuel": 6, "money": 40, "replace_money": 40, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "carries": "platoon" },
     "boat":      { "fuel": 4, "money": 30, "replace_money": 30, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "carries": "platoon", "crossing_rounds": 0, "lands_on_coast": true },
     "nuke":      { "fuel": 10, "replace_money": 120, "build_rounds": 1, "spent_on_launch": true, "launch_reveals_launcher": true, "damage_min": 30, "damage_max": 50, "blast_radius": 1, "centre_factor": 2.0, "blast_crosses_height_step": true, "view_radius": 1, "base_hits": 1.0, "breaks_strongholds": true, "anti_air_accuracy": 0.05, "anti_air_accuracy_with_radar": 0.20 },
+    "stealth":   { "fuel": 4, "damage_min": 15, "damage_max": 25, "blast_radius": 0, "view_radius": 1, "base_hits": 0.5, "anti_air_proof": true, "kills_agents": true },
     "spy":       { "fuel": 2, "money": 40, "damage_min": 0, "damage_max": 0, "blast_radius": -1, "view_radius": 0, "base_hits": 0.0, "walks": 3, "disarm_range": 1, "anti_air_accuracy": 0.225, "anti_air_accuracy_with_radar": 0.45 }
   },
+  "_note_stealth": "The stealth missile (level 5): fired from a stealth silo, one a round like a missile launcher. anti_air_proof: anti-air never engages it (and spends no engagement on it). Half a basic missile's damage and half a hit on a base. kills_agents: an enemy domestic agent standing on the hex it hits is killed; his enclave musters a new one after agents.respawn_after_rounds playouts. The side that fired it is not told.",
   "_note_spy": "The foreign agent (the spy): sent by helicopter from an enclave, one order per enclave a round, and not while that enclave's last agent is still on the enemy island. money is paid at each launch. Anti-air engages his helicopter as a missile but hits half as often (his own anti-air accuracies); shot down, the trip and its money are lost. If he lands on land he stays on the enemy island (the defender sees where he lands) and uncovers walks contiguous hexes a round, the landing hex the first of them in the landing round: each step heads for the nearest silo his side has seen with a nuke in it, else the nearest hex his side has never seen, else the one seen longest ago. Every enemy silo within disarm_range of him loses its nuke (built or being built) and is revealed. A domestic agent within agents.catch_range of him kills him. Landing on the sea loses him.",
   "_note_nuke": "The nuke: launch_reveals_launcher: firing it reveals its silo to the other side, whether or not it gets through. a silo holds one at a time. A new silo is empty; building a nuke costs replace_money and takes build_rounds rounds, then it can be fired (fuel). It is used up when fired, shot down or not. Every hex of the blast takes a basic missile's damage (base_hits on a base or decoy); the centre hex takes centre_factor times that. It ignores the height-step rule for blasts, and has its own anti-air accuracies. breaks_strongholds: a stronghold that takes 2 or more hits from it in one round falls (other missiles only knock out its gun).",
 
@@ -63,6 +66,7 @@
     "_note": "Level 4's enclave (buildings.enclave, available: false until a level turns it on) sends foreign agents (missiles.spy) and keeps domestic_per_enclave domestic agents on its own island, from the playout after it is built, at the enclave; they go when it does. Each round a domestic agent walks domestic_walks_min to domestic_walks_max hexes (rolled), stepping in turn with the foreign agents on its island: toward the nearest hex where an enemy agent was seen landing and no patrol has been since, else the nearest hex patrolled longest ago (never first). A foreign agent within catch_range of a domestic agent at any point is killed. Radar and bunkers don't catch agents. A domestic agent must be back on his enclave at the end of every return_every rounds (the round he appears counts as the first): he only heads for a hex he can reach and walk home from in time, counting domestic_walks_min for each round after this one, and otherwise goes home, so he patrols a circle around his enclave (about 8 hexes across land at 5). Landings outside it are left alone.",
     "domestic_per_enclave": 1,
     "return_every": 5,
+    "respawn_after_rounds": 2,
     "domestic_walks_min": 3,
     "domestic_walks_max": 4,
     "catch_range": 1
@@ -88,7 +92,8 @@
     "motion_sensor":      { "cost": 50, "points": 12, "tab": "upgrades" },
     "nuclear_silo":       { "cost": 100, "points": 20, "tab": "buildings", "available": false, "needs_researched": 4, "start_researched": false },
     "bank_upgrade":       { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false },
-    "refinery_upgrade":   { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false }
+    "refinery_upgrade":   { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false },
+    "logistics":          { "cost": 60, "points": 12, "tab": "upgrades", "available": false, "start_researched": false }
   },
   "_note_research": "available: false hides an item until a level turns it on (data/levels.json). needs_researched: how many other items must be done before it can be started. needs: one item that must be done first. start_researched: both sides start the match with it done (a level sets it for what earlier levels brought in).",
 
@@ -97,12 +102,18 @@
     "engagements": 2,
     "engagements_upgraded": 3,
     "capacity_research": "anti_air_capacity",
+    "radius_upgraded": 4,
+    "radius_research": "logistics",
+    "_note_radius": "radius_upgraded once radius_research is done (level 5's logistics).",
     "accuracy": 0.45,
     "accuracy_with_radar": 0.90
   },
 
   "radar": {
-    "range_by_level": [2, 3, 4]
+    "range_by_level": [2, 3, 4],
+    "range_bonus": 1,
+    "range_bonus_research": "logistics",
+    "_note_range_bonus": "range_bonus hexes more at every level once range_bonus_research is done (level 5's logistics), before any halving for damage."
   },
 
   "motion_sensor": {

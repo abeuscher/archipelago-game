@@ -152,14 +152,25 @@ func half_income(value: int, data) -> int:
 
 
 func radar_range(b, data) -> int:
-	var ranges: Array = data.section("radar")["range_by_level"]
+	var rc: Dictionary = data.section("radar")
+	var ranges: Array = rc["range_by_level"]
 	var lvl: int = clampi(island.level[b.hex], 0, ranges.size() - 1)
 	var r := int(ranges[lvl])
+	if rc.has("range_bonus_research") and is_unlocked(String(rc["range_bonus_research"])):
+		r += int(rc["range_bonus"])
 	if out_for_repair(b, data):
 		return 0
 	if is_half_strength(b, data):
 		r = maxi(int(data.section("damage")["radar_half_range_min"]), r / 2)
 	return r
+
+
+## How far each of our anti-air guns reaches (logistics adds to it).
+func anti_air_radius(data) -> int:
+	var aa: Dictionary = data.section("anti_air")
+	if aa.has("radius_research") and is_unlocked(String(aa["radius_research"])):
+		return int(aa["radius_upgraded"])
+	return int(aa["radius"])
 
 
 func anti_air_engagements(data) -> int:

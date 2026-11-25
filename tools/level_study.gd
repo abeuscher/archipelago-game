@@ -40,7 +40,7 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 	var nuke_matches := 0
 	var nukes := 0
 	var first_err := ""
-	var spy := {"sent": 0, "landed": 0, "walks": 0, "hexes": 0, "buildings": 0, "caught": 0, "disarmed": 0, "lost": 0, "silos_destroyed": 0}
+	var spy := {"sent": 0, "landed": 0, "walks": 0, "hexes": 0, "buildings": 0, "caught": 0, "disarmed": 0, "lost": 0, "silos_destroyed": 0, "stealth": 0, "agents_killed": 0}
 	for s in n:
 		var m = MatchState.create(d, first_seed + s)
 		var ais := [StrongAI.new(0, d, first_seed + s), StrongAI.new(1, d, first_seed + 4000 + s)]
@@ -78,6 +78,10 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 							spy["buildings"] += 1
 					if int(e["caught_by"]) >= 0:
 						spy["caught"] += 1
+				elif e["type"] == "launch" and e["missile"] == "stealth":
+					spy["stealth"] += 1
+				elif e["type"] == "agent_killed":
+					spy["agents_killed"] += 1
 				elif e["type"] == "nuke_disarmed":
 					spy["disarmed"] += 1
 				elif e["type"] == "spy_lost":
@@ -99,3 +103,5 @@ func _study(lvl: int, n: int, first_seed: int) -> void:
 		lvl, med.call(rounds), rounds[n / 10], rounds[n * 9 / 10], str(wins), errors, first_err, med.call(researched_at_15), nuke_matches, nukes])
 	if int(spy["sent"]) > 0 or int(spy["silos_destroyed"]) > 0:
 		print("    spies sent %d (shot down %d, landed %d, later rounds walked %d, killed %d; %d hexes uncovered, %d with a building; %d nukes disarmed); silos destroyed %d" % [spy["sent"], spy["lost"], spy["landed"], spy["walks"], spy["caught"], spy["hexes"], spy["buildings"], spy["disarmed"], spy["silos_destroyed"]])
+	if int(spy["stealth"]) > 0:
+		print("    stealth missiles fired %d; domestic agents they killed %d" % [spy["stealth"], spy["agents_killed"]])

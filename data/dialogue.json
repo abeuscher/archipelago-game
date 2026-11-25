@@ -194,6 +194,10 @@
       "character": "admiral",
       "text": "Good work, General. We keep our silo and bank research from the last battle, but so does the enemy, so expect nukes early. A silo gives itself away the first time it fires, so hit back fast. And intelligence has given us the enclave. It sends our agents over by helicopter to scout behind their lines and disarm any nuke they get near, and keeps an agent at home who hunts down the enemy's spies. And our engineers can now double what each refinery makes."
     },
+    "level_5_intro": {
+      "character": "admiral",
+      "text": "Outstanding, General. Everything from the last battle carries over: the silo, the bank and refinery upgrades, and the enclave. Now our engineers have built a stealth silo. Its missiles slip past anti-air entirely, though each one hits half as hard, and a direct hit will take out an enemy agent on patrol. Research logistics and our own anti-air and radar reach a hex farther. The enemy has the same, so expect missiles our guns can't stop."
+    },
     "level_2_intro": {
       "character": "admiral",
       "text": "Congratulations on your victory, General. As you have been fighting, our scientists have come up with a new type of base: a stronghold. It is impervious to air attack and comes with a mounted anti-aircraft missile on its roof. The only way it can be taken is with ground troops."

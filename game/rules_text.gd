@@ -112,6 +112,12 @@ static func _missiles(data) -> String:
 		bits.append("sees %d hex%s around" % [int(m["view_radius"]), "" if int(m["view_radius"]) == 1 else "es"])
 		if m.has("requires"):
 			bits.append("needs %s research" % Pieces.research_name(String(m["requires"])))
+		if bool(m.get("anti_air_proof", false)):
+			bits.append("anti-air can't hit it")
+		if float(m["base_hits"]) > 0.0 and float(m["base_hits"]) < 1.0:
+			bits.append("%s hit on a base" % ("half a" if is_equal_approx(float(m["base_hits"]), 0.5) else str(m["base_hits"])))
+		if bool(m.get("kills_agents", false)):
+			bits.append("kills an enemy domestic agent on the hex it hits")
 		out.append("[b]%s[/b]: %s." % [Pieces.MISSILE_NAMES.get(name, name), ", ".join(bits)])
 	return "\n".join(out)
 

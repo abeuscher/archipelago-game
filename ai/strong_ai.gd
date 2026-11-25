@@ -60,6 +60,10 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 	if _in_level("bank_upgrade"):
 		var at := int(cfg["nukes"]["bank_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
 		research.insert(mini(research.size(), at), "bank_upgrade")
+	# Level 5: logistics.
+	if _in_level("logistics"):
+		var at3 := int(cfg["stealth"]["logistics_at"]) + (1 if research.has("nuclear_silo") else 0)
+		research.insert(mini(research.size(), at3), "logistics")
 	# Level 4: the refinery upgrade early.
 	if _in_level("refinery_upgrade"):
 		var at2 := int(cfg["nukes"]["refinery_upgrade_at"]) + (1 if research.has("nuclear_silo") else 0)
@@ -315,6 +319,15 @@ func choose_build(view) -> Array:
 		var sh := _place_strong(st, "nuclear_silo", view)
 		if sh >= 0 and st.build("nuclear_silo", sh, data, view.settings, view.round_number) == "":
 			actions.append({"action": "build", "type": "nuclear_silo", "hex": sh})
+	# Level 5: stealth silos from stealth.build_from_round, up to stealth.count.
+	if data.has_building("stealth_silo") and st.building_unlocked("stealth_silo", data):
+		var sc5: Dictionary = cfg["stealth"]
+		while view.round_number >= int(sc5["build_from_round"]) and st.money >= data.cost("stealth_silo") \
+				and st.buildings.values().filter(func(b): return b.type == "stealth_silo").size() < int(sc5["count"]):
+			var sth := _place_strong(st, "stealth_silo", view)
+			if sth < 0 or st.build("stealth_silo", sth, data, view.settings, view.round_number) != "":
+				break
+			actions.append({"action": "build", "type": "stealth_silo", "hex": sth})
 	# Level 4: an enclave from spy.enclave_from_round, once there is money.
 	if data.has_building("enclave") and st.building_unlocked("enclave", data) and st.count_role(data, "enclave") == 0 \
 			and view.round_number >= int(cfg["spy"]["enclave_from_round"]) and st.money >= data.cost("enclave"):
@@ -746,8 +759,18 @@ func choose_targets(view) -> Array:
 		var target := -1
 		var missile := ""
 		if not wish.is_empty():
-			target = wish.pop_front()
 			missile = _attack_missile(st, b.type)
+			target = wish.pop_front()
+			if missile != "" and bool(data.missile(missile).get("anti_air_proof", false)):
+				# A stealth missile goes where anti-air guards best.
+				var pick := target
+				for h in wish.slice(0, int(cfg["stealth"]["pick_from"]) - 1):
+					if int(cover.call(h)) > int(cover.call(pick)):
+						pick = h
+				if pick != target:
+					wish.erase(pick)
+					wish.push_front(target)
+					target = pick
 			if missile != "" and int(data.missile(missile)["blast_radius"]) > 0:
 				target = _best_blast_aim(target, know)
 		elif unfound > 0:

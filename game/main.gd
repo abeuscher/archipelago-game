@@ -857,7 +857,7 @@ func _missile_menu(launcher_hex: int, hex: int, options: Array) -> void:
 
 
 const MISSILE_KEY_COLORS := {"basic": Color(0.96, 0.58, 0.28), "scouting": Color(0.56, 0.78, 0.96),
-	"transport": Color(0.66, 0.64, 0.94), "spy": Color(0.80, 0.82, 0.88)}
+	"transport": Color(0.66, 0.64, 0.94), "spy": Color(0.80, 0.82, 0.88), "stealth": Color(0.42, 0.46, 0.56)}
 
 
 func _aim(hex: int, mt: String) -> void:
@@ -1223,7 +1223,7 @@ func _update_blasts() -> void:
 func _reach(st, type: String, hex: int, b = null) -> Array:
 	var g = st.island.grid
 	if data.mounts_anti_air(type) or data.role(type) == "anti_air":
-		return [g.within(hex, int(data.section("anti_air")["radius"])), Color(0.4, 1.0, 0.5, 0.6)]
+		return [g.within(hex, st.anti_air_radius(data)), Color(0.4, 1.0, 0.5, 0.6)]
 	match data.role(type):
 		"radar":
 			var r: int
@@ -1620,7 +1620,7 @@ func _update_info() -> void:
 				elif b.disabled:
 					lines.append("[color=salmon]Gun out of action until repaired[/color]")
 				else:
-					lines.append("Gun covers %d hexes around it, %d missiles a round" % [int(data.section("anti_air")["radius"]), st.anti_air_engagements(data)])
+					lines.append("Gun covers %d hexes around it, %d missiles a round" % [st.anti_air_radius(data), st.anti_air_engagements(data)])
 				if b.hits > 0.0:
 					lines.append("The enemy knows it is a stronghold")
 			elif data.is_base_like(b.type):
@@ -1678,7 +1678,7 @@ func _building_detail_lines(st, b) -> Array:
 		out.append("Makes %d %s a round" % [st.output_of(b, int(produces[res]), data), res])
 	match data.role(b.type):
 		"anti_air":
-			out.append("Covers %d hexes around it, %d missiles a round" % [int(data.section("anti_air")["radius"]), st.anti_air_engagements(data)])
+			out.append("Covers %d hexes around it, %d missiles a round" % [st.anti_air_radius(data), st.anti_air_engagements(data)])
 		"radar":
 			out.append("Off while under repair" if st.out_for_repair(b, data) else "Range %d hexes" % st.radar_range(b, data))
 		"launcher":
@@ -1878,6 +1878,26 @@ func _run_playout() -> void:
 		_sail_out(sailings[k], k * 0.2)
 	await _wait(0.9 + maxf(launches[0].size() * 0.15, sailings.size() * 0.2 + 0.3))
 
+	# Agents move before any strike lands (as in the rules): our domestic
+	# agents patrol; an enemy spy already here is only seen when they catch
+	# him, and a nuke he disarms shows.
+	var patrols: Array = events.filter(func(e): return e["type"] == "agent_patrol" and e["side"] == 0)
+	var patrol_time := 0.0
+	var patrol_agents := {}
+	for ev in patrols:
+		var agent = effects.add_agent(own_board.position + own_board.tile_center(int(ev["start"])), "player")
+		patrol_agents[ev["agent"]] = agent
+		_patrol_anim(own_board, ev, agent)
+		patrol_time = maxf(patrol_time, SPY_STEP_SECONDS * ev["path"].size())
+	await _wait(patrol_time)
+	for ev in walks[1]:
+		for silo in ev["disarmed"]:
+			effects.float_text(own_board.position + own_board.tile_center(int(silo)), "Nuke disarmed!", Color(1.0, 0.6, 0.5))
+			await _wait(0.9)
+		if int(ev["caught_by"]) >= 0:
+			effects.float_text(own_board.position + own_board.tile_center(int(ev["caught_at"])), "Enemy spy caught", Color(0.7, 1.0, 0.7))
+			await _wait(0.9)
+
 	# Enemy strikes land on our island, then damage shows.
 	if not launches[1].is_empty() or not arrivals[1].is_empty():
 		# Warning first: the siren turns once, then the character warns of the
@@ -1910,26 +1930,16 @@ func _run_playout() -> void:
 		for k in launches[1].size():
 			longest = maxf(longest, _land(own_board, m.sides[0].island, launches[1][k], by_id, Color(1, 0.4, 0.4), off + k * 0.35, []))
 		await _wait(longest)
-	# Our domestic agents patrol; an enemy spy already here is only seen
-	# when they catch him, and a nuke he disarms shows.
-	var patrols: Array = events.filter(func(e): return e["type"] == "agent_patrol" and e["side"] == 0)
-	var patrol_time := 0.0
-	for ev in patrols:
-		var agent = effects.add_agent(own_board.position + own_board.tile_center(int(ev["start"])), "player")
-		_patrol_anim(own_board, ev, agent)
-		patrol_time = maxf(patrol_time, SPY_STEP_SECONDS * ev["path"].size())
-	await _wait(patrol_time)
-	for ev in walks[1]:
-		for silo in ev["disarmed"]:
-			effects.float_text(own_board.position + own_board.tile_center(int(silo)), "Nuke disarmed!", Color(1.0, 0.6, 0.5))
-			await _wait(0.9)
-		if int(ev["caught_by"]) >= 0:
-			effects.float_text(own_board.position + own_board.tile_center(int(ev["caught_at"])), "Enemy spy caught", Color(0.7, 1.0, 0.7))
-			await _wait(0.9)
+	# A stealth missile that hit one of our domestic agents.
+	for ev in events.filter(func(e): return e["type"] == "agent_killed" and e["side"] == 0):
+		effects.float_text(own_board.position + own_board.tile_center(int(ev["hex"])), "Agent killed", Color(1.0, 0.6, 0.5))
+		if patrol_agents.has(ev["agent"]):
+			effects.remove_agent(patrol_agents[ev["agent"]])
+		await _wait(0.6)
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
 	for ev in events:
-		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
+		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed", "agent_killed"]:
 			_log_event(ev)
 		elif ev.get("side", -1) == 1 and ev["type"] in ["platoon", "carrier_lost", "boat_sunk", "boat_no_landing", "spy", "spy_lost", "launcher_revealed", "nuke_disarmed"]:
 			_log_event(ev)
@@ -2458,6 +2468,8 @@ func _log_event(ev: Dictionary) -> void:
 				hud.add_log("[color=lightgreen]Our agent killed an enemy spy.[/color]")
 			elif bool(ev["landed"]):
 				hud.add_log("[color=salmon]An enemy spy landed on our island.%s[/color]" % (" Our agents will hunt him." if not m.agents[0].is_empty() else " Build an enclave: its agent hunts spies."))
+		"agent_killed":
+			hud.add_log("[color=salmon]An enemy stealth missile killed our domestic agent. The enclave will send out a new one in %d rounds.[/color]" % (int(data.section("agents").get("respawn_after_rounds", 0)) + 1))
 		"nuke_disarmed":
 			hud.add_log("[color=lightgreen]Our agent disarmed an enemy nuke.[/color]" if mine else "[color=salmon]An enemy agent disarmed our nuke.[/color]")
 		"launcher_revealed":

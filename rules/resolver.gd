@@ -88,7 +88,7 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 	var isl = def.island
 	var grid = isl.grid
 	var aa_cfg: Dictionary = data.section("anti_air")
-	var aa_radius := int(aa_cfg["radius"])
+	var aa_radius: int = def.anti_air_radius(data)
 
 	# Anti-air active at the start of playout, radar-covered ones first.
 	var radars: Array = def.of_role(data, "radar")
@@ -112,6 +112,8 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 	var shuffled := missiles.duplicate()
 	m.dice.shuffle(shuffled)
 	for ms in shuffled:
+		if bool(data.missile(ms["missile"]).get("anti_air_proof", false)):
+			continue   # a stealth missile: anti-air never sees it
 		for a in defenders:
 			if int(a["left"]) <= 0:
 				continue
@@ -192,6 +194,8 @@ static func _resolve_attack(m, attacker: int, missiles: Array, events: Array, pe
 				seen.append(h)
 		events.append({"type": "impact", "side": attacker, "id": ms["id"], "missile": ms["missile"],
 			"hex": impact, "damaged": damaged, "revealed": seen})
+		if bool(mdef.get("kills_agents", false)):
+			_kill_agents(m, defender, impact, events)
 		m.note_bombed(defender, impact)
 
 
@@ -310,10 +314,25 @@ static func _muster(m, side: int) -> void:
 		ids[e.id] = e
 	m.agents[side] = m.agents[side].filter(func(a): return ids.has(int(a["enclave"])))
 	for id in ids:
+		if int(m.agent_respawn[side].get(id, 0)) > m.round_number:
+			continue   # its last agent was killed: a new one comes later
 		var have: int = m.agents[side].filter(func(a): return int(a["enclave"]) == id).size()
 		for k in per - have:
 			m.agents[side].append({"id": "%d:%d" % [id, have + k], "enclave": id, "hex": ids[id].hex, "home": ids[id].hex,
 				"home_by": m.round_number + int(m.data.section("agents")["return_every"]) - 1})
+
+
+## A stealth missile kills any domestic agent of the defender on the hex it
+## hits; his enclave musters a new one after respawn_after_rounds playouts.
+## Only the defender is told (the event's side is the defender).
+static func _kill_agents(m, defender: int, hex: int, events: Array) -> void:
+	var wait := int(m.data.section("agents").get("respawn_after_rounds", 0))
+	for a in m.agents[defender].duplicate():
+		if int(a["hex"]) != hex:
+			continue
+		m.agents[defender].erase(a)
+		m.agent_respawn[defender][int(a["enclave"])] = m.round_number + 1 + wait
+		events.append({"type": "agent_killed", "side": defender, "hex": hex, "agent": a["id"]})
 
 
 ## A foreign agent's step: to the next hex (see _spy_step), uncovered, then

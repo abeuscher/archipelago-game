@@ -47,6 +47,9 @@ var agents: Array = [[], []]
 var spy_sightings: Array = [[], []]
 ## side -> hex -> round a domestic agent was last there.
 var patrolled: Array = [{}, {}]
+## side -> enclave id -> first round a new domestic agent may muster there
+## (after one was killed by a stealth missile).
+var agent_respawn: Array = [{}, {}]
 var round_number: int = 0
 var phase: int = Phase.SETUP
 var orders: Array = [[], []]

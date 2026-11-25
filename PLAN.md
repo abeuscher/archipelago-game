@@ -9,22 +9,20 @@
 
 To watch in play-testing: the enemy rarely gets coastal cannons before its first boat lands, and a platoon kills a base outright, so boats hit hard (in AI-against-AI games, about one base in four matches falls to troops). Levers: cannon research earlier in data/ai.json, platoon base damage, boat cost.
 
-## Campaign plan (discussed 2026-11-19; levels 1 to 4 built)
+## Campaign plan (discussed 2026-11-19; levels 1 to 5 built)
 
 Aim: 9 or 10 levels, each adding one new thing (a unit or building) and one new upgrade, then a final challenge, then the end of the world (spec). Both sides always get everything new and the AI plays it to win.
 
 - **Level 1:** the base game. **Level 2:** one stronghold per side (built).
 - **Level 3: the nuke, plus a bank upgrade.** Built (ASSUMPTIONS D108, tuned in D111 and D113): to play-test. Silo research needs 4 other items first; a nuke costs 120, is ready the round after, and costs 10 fuel to fire; 2 hits on the centre hex, 1 on the ring; anti-air 5% (20% with radar); 2 nuke hits in a round break a stronghold; bank upgrade makes banks 25. Strong-against-strong: median 31 rounds, a nuke in about 1 match in 4 (`tools/level_study.gd`).
-- **Level 4: the spy, plus a refinery upgrade.** Built (ASSUMPTIONS D116): to play-test. Spy research (60 money, 12 points, needs the airport); the airport sends him instead of its transport for 2 fuel and 60 money a trip; anti-air hits him half as often as a missile; if he lands, every enemy silo is revealed and he flies home. Refinery upgrade: 6 fuel per refinery instead of 3. Strong-against-strong it plays like level 3: the AI researches both only after its silo, which it reaches late or not at all, so it rarely sends a spy. To watch in play-testing: whether the enemy should get to the spy sooner.
-- **Level 5 (likely): the saboteur upgrade.** Once a nuke has been found, the spy goes in a second time and permanently disables it and its hex. Needs the nuke build time long enough for the spy-then-saboteur chain to catch the next nuke. Suggested: the silo is hardened (missile-proof or many hits) so sabotage is the clean answer; a disabled silo can be rebuilt elsewhere at full cost.
+- **Level 4: the enclave, plus a refinery upgrade.** Built (ASSUMPTIONS D118 to D128). Level 3's research carries over. The enclave (a building, no research) sends foreign agents by helicopter, who uncover three hexes a round and disarm nukes within a hex; it keeps a domestic agent patrolling within reach of it (back every 5 rounds) who kills foreign agents within a hex. A nuke launch reveals its silo. Refinery upgrade: 6 fuel per refinery instead of 3.
+- **Level 5: the stealth silo, plus logistics.** Built (ASSUMPTIONS D129): to play-test. Level 4's research and the enclave carry over. The stealth silo fires one stealth missile a round: anti-air can't hit it, it does half a basic missile's damage (half a hit on a base), and it kills an enemy domestic agent on the hex it hits (a new one musters 2 rounds later). Logistics (research): anti-air and radar reach one hex farther.
+- **Level 6 (candidate): the radar scrambler.** A chance to switch off radar and anti-air in a seven-hex patch of the enemy island.
 - Caution: gate + cost + build time + counters stacked too hard means nukes never appear (level 1's median match is about 19 rounds). Set each moderately and tune with batch runs.
 
 ### Ideas for later levels (unsure, just kept in mind)
 
-- **Stealth missile silo:** missiles anti-air can't hit, doing less damage (0.5 hit each).
 - **Barracks:** upgrades for the airport, bunker and docks: soldiers march farther and are harder to hit on the way in.
-- **Logistics:** radar and anti-air bonuses.
-- **Radar scrambler:** a chance to disable radar and anti-air in a seven-hex patch of the enemy island.
 
 ## Waiting on a spec
 
