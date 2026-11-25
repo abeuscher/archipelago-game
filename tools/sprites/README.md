@@ -36,6 +36,8 @@ Every building except the shared states also has a `<name>_damaged` sheet (hit, 
 
 `decoy` is the base in sandy tan instead of cool grey, with the same geometry and flag, so the owner can tell them apart. Draw enemy decoys with the `base` sheet. `stronghold` is a base variant with a steel dome and a twin anti-air gun on top; `stronghold_damaged` (gun knocked out) has the dome cracked and the gun wrecked.
 
+`enclave` (houses the agents) is a six-sided dark glass tower with a cyan lit floor and rooftop antennas, with an `enclave_damaged` sheet (top floors blown off).
+
 `nuclear_silo` has four sheets: `nuclear_silo` (lid closed with the radiation symbol: armed), `nuclear_silo_open` (lid up, empty shaft: build phase), `nuclear_silo_open_loaded` (lid up, missile nose showing) and `nuclear_silo_damaged`.
 
 ## Troop buildings

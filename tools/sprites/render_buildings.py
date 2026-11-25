@@ -606,33 +606,40 @@ def nuclear_silo(state="closed"):
     return m
 
 
+# ---- enclave (spy building) ----------------------------------------------
+GLASS = "#1c2836"
+MULLION = "#6f7a86"
+GLOW = "#57c7d4"
+SLAB = "#2b3038"
+
+
 def enclave(damaged=False):
-    """Walled compound: a slate block with dark windows and an aerial, a low
-    wall at the back, and a helipad marked H for the agents' helicopter."""
-    slate, slate_dk = "#565c68", "#3a3f49"
+    """Six-sided dark glass office tower with a lit floor and rooftop antennas."""
     m = pad()
-    for (x, y, w, d) in ((-.1, .6, 1.0, .06), (-.62, .2, .06, .8)):
-        m += box((w, d, .12), slate_dk, (x, y, .18))
-    pc = (.3, -.28)
-    m += prism(16, .36, .36, .12, .135, ASPHALT, at=pc)
-    m += annulus(16, .27, .31, .136, WHITE, at=pc)
-    for dx in (-.08, .08):
-        m += box((.035, .2, .004), WHITE, (pc[0] + dx, pc[1], .138))
-    m += box((.16, .035, .004), WHITE, (pc[0], pc[1], .138))
-    b = (-.24, .2)
-    if damaged:
-        m += box((.48, .44, .2), slate, (b[0], b[1], .22))
-        m += box((.36, .3, .05), slate_dk, (b[0] + .05, b[1] - .02, .36), pitch=14, yaw=20)
-        m += tube(4, .015, .015, .4, GUNMETAL, (b[0] + .12, b[1] + .1, .34), pitch=30, yaw=200)
-        return wreck(m, (b[0], b[1], .34), 13)
-    m += box((.48, .44, .34), slate, (b[0], b[1], .29))
-    m += box((.52, .48, .04), slate_dk, (b[0], b[1], .48))
-    for z in (.24, .36):
-        m += box((.012, .34, .05), "#1a1d22", (b[0] + .242, b[1], z))
-        m += box((.36, .012, .05), "#1a1d22", (b[0], b[1] - .222, z))
-    m += prism(4, .014, .014, .5, .9, GUNMETAL, at=(b[0] - .12, b[1] + .1))
-    m += prism(8, .1, .02, .58, .64, CONCRETE_LT, at=(b[0] + .1, b[1] + .08))
-    m += prism(6, .03, .03, .88, .93, RED, at=(b[0] - .12, b[1] + .1))
+    m += prism(6, .64, .64, .12, .2, CONCRETE_LT, rot=90)
+    m += box((.05, .2, .16), GLOW, (.44, 0, .28))
+    if damaged:                                           # top floors blown off
+        m += prism(6, .5, .5, .2, .72, GLASS, rot=90)
+        for z in (.34, .5, .66):
+            m += prism(6, .512, .512, z, z + .028, MULLION, rot=90)
+        m += prism(6, .46, .46, .72, .725, "#14161a", rot=90)
+        m += box((.5, .44, .05), SLAB, (-.12, .1, .8), pitch=24, yaw=30)
+        m += box((.3, .05, .22), GLASS, (.3, -.22, .8), pitch=-14, yaw=-35)
+        m += tube(4, .02, .02, .42, GUNMETAL, (.05, .15, .74), pitch=12, yaw=150)
+        m += tube(12, .03, .15, .07, WHITE, (.34, .34, .26), pitch=-30, yaw=60, caps=(True, False))
+        return wreck(m, (0, -.05, .72), 17)
+    m += prism(6, .5, .5, .2, 1.0, GLASS, rot=90)
+    for z in (.34, .5, .66, .82):
+        m += prism(6, .512, .512, z, z + .028, MULLION, rot=90)
+    m += prism(6, .508, .508, .9, .935, GLOW, rot=90)
+    m += prism(6, .54, .54, 1.0, 1.05, SLAB, rot=90)
+    z = 1.05
+    m += prism(4, .02, .02, z, z + .42, GUNMETAL, at=(-.18, .12))
+    m += prism(4, .015, .015, z, z + .28, GUNMETAL, at=(-.26, -.08))
+    m += prism(6, .035, .035, z + .4, z + .45, GLOW, at=(-.18, .12))
+    m += box((.2, .16, .08), MULLION, (.1, .18, z + .04))
+    m += prism(6, .03, .03, z, z + .12, STEEL_LT, at=(.16, -.14))
+    m += tube(12, .03, .15, .07, WHITE, (.16, -.14, z + .14), pitch=40, caps=(True, False))
     return m
 
 

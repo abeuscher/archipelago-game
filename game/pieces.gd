@@ -88,7 +88,7 @@ const SHEET_FOR := {
 	"basic_launcher": "missile_launcher", "ballistic_launcher": "ballistic_launcher",
 	"anti_air": "anti_air", "radar": "radar",
 	"airport": "airport", "bunker": "bunker", "docks": "docks", "coastal_cannon": "coastal_cannon",
-	"nuclear_silo": "nuclear_silo",
+	"nuclear_silo": "nuclear_silo", "enclave": "enclave",
 }
 ## Toolbar tile colours, one per building, so a tile reads without its name.
 const TILE_COLORS := {
@@ -103,13 +103,13 @@ const TILE_COLORS := {
 
 ## Buildings drawn as placeholder blocks until their sprite sheets arrive
 ## (docs/troop_assets.md).
-const ART_PENDING := ["enclave"]
+const ART_PENDING := []
 ## Sheets with a separate frame set for a launcher that has fired.
 const EMPTY_SHEETS := ["missile_launcher", "ballistic_launcher"]
 ## Sheets with a <name>_damaged version: hit and not yet repaired.
 const DAMAGED_SHEETS := ["missile_launcher", "ballistic_launcher", "anti_air", "radar", "bank",
 	"refinery", "lab", "base", "decoy", "airport", "bunker", "docks", "coastal_cannon", "stronghold",
-	"nuclear_silo"]
+	"nuclear_silo", "enclave"]
 
 static var _sheets: Dictionary = {}
 static var _meta = null
