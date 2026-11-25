@@ -248,10 +248,11 @@ static func _agents_round(m, defender: int, events: Array, reveals: Array) -> vo
 		walk.append({"sp": sp, "ev": ev, "left": int(m.data.missile(String(sp["missile"]))["walks"]), "fresh": {}})
 		_catch(m, attacker, sp, ev)
 	var patrol := []
+	var isl = m.sides[defender].island
 	for a in m.agents[defender]:
 		var n: int = m.dice.rand_int(int(ag["domestic_walks_min"]), int(ag["domestic_walks_max"]))
-		patrol.append({"a": a, "left": n, "ev": {"type": "agent_patrol", "side": defender, "agent": a["id"],
-			"start": int(a["hex"]), "path": []}})
+		patrol.append({"a": a, "left": n, "home": _land_distances(isl, int(a["home"])), "ev": {"type": "agent_patrol",
+			"side": defender, "agent": a["id"], "start": int(a["hex"]), "path": [], "home_by": int(a["home_by"])}})
 		m.patrolled[defender][int(a["hex"])] = m.round_number
 	var moving := true
 	while moving:
@@ -267,8 +268,11 @@ static func _agents_round(m, defender: int, events: Array, reveals: Array) -> vo
 		for p in patrol:
 			if int(p["left"]) <= 0:
 				continue
+			# Steps he can count on before he must be home: the rest of this
+			# round's, and the fewest a round for the rounds after it.
+			var budget: int = int(p["left"]) + (int(p["a"]["home_by"]) - m.round_number) * int(ag["domestic_walks_min"])
+			var nxt := _agent_step(m, defender, p["a"], p["home"], budget)
 			p["left"] = int(p["left"]) - 1
-			var nxt := _agent_step(m, defender, int(p["a"]["hex"]))
 			if nxt < 0:
 				p["left"] = 0
 				continue
@@ -281,6 +285,9 @@ static func _agents_round(m, defender: int, events: Array, reveals: Array) -> vo
 				if m.spies[attacker].has(w["sp"]):
 					_catch(m, attacker, w["sp"], w["ev"])
 	for p in patrol:
+		if m.round_number >= int(p["a"]["home_by"]):
+			# Back home on time: the next leg starts.
+			p["a"]["home_by"] = int(p["a"]["home_by"]) + int(ag["return_every"])
 		events.append(p["ev"])
 	for w in walk:
 		events.append(w["ev"])
@@ -292,7 +299,9 @@ static func _spy_event(attacker: int, id, start: int, landed: bool) -> Dictionar
 
 
 ## One domestic agent per enclave (agents.domestic_per_enclave), starting on
-## the enclave; an enclave's agents go when it does.
+## the enclave; an enclave's agents go when it does. home_by: the round at
+## whose end he must be back on his enclave (every return_every rounds,
+## counting the round he appears as the first).
 static func _muster(m, side: int) -> void:
 	var st = m.sides[side]
 	var per := int(m.data.section("agents")["domestic_per_enclave"])
@@ -303,7 +312,8 @@ static func _muster(m, side: int) -> void:
 	for id in ids:
 		var have: int = m.agents[side].filter(func(a): return int(a["enclave"]) == id).size()
 		for k in per - have:
-			m.agents[side].append({"id": "%d:%d" % [id, have + k], "enclave": id, "hex": ids[id].hex})
+			m.agents[side].append({"id": "%d:%d" % [id, have + k], "enclave": id, "hex": ids[id].hex, "home": ids[id].hex,
+				"home_by": m.round_number + int(m.data.section("agents")["return_every"]) - 1})
 
 
 ## A foreign agent's step: to the next hex (see _spy_step), uncovered, then
@@ -406,15 +416,40 @@ static func _spy_step(m, attacker: int, here: int, fresh: Dictionary, disarmed: 
 
 ## A domestic agent heads for the nearest hex where a foreign agent was seen
 ## landing and no patrol has been since, else the nearest hex least recently
-## patrolled (never first).
-static func _agent_step(m, side: int, here: int) -> int:
+## patrolled (never first); but only for a hex he can reach and still get
+## home from within `budget` steps (walking there, then back: home holds the
+## land distances to his enclave). With none, he heads home, or waits there.
+static func _agent_step(m, side: int, a: Dictionary, home: Dictionary, budget: int) -> int:
 	var isl = m.sides[side].island
+	var here := int(a["hex"])
 	var seen: Array = m.spy_sightings[side]
 	var pat: Dictionary = m.patrolled[side]
-	return _first_step(isl, here, func(n: int, d: int):
+	var nxt := _first_step(isl, here, func(n: int, d: int):
+		if d + int(home.get(n, 1 << 20)) > budget:
+			return null
 		if seen.has(n):
 			return [0, 0, d, n]
 		return [1, int(pat.get(n, -1)), d, n])
+	if nxt >= 0 or here == int(a["home"]):
+		return nxt
+	return _first_step(isl, here, func(n: int, d: int):
+		return [0, d, n] if n == int(a["home"]) else null)
+
+
+## Land distance from `from` to every land hex it can reach.
+static func _land_distances(isl, from: int) -> Dictionary:
+	var dist := {from: 0}
+	var frontier: Array = [from]
+	while not frontier.is_empty():
+		var next: Array = []
+		for h in frontier:
+			for n in isl.grid.neighbors(h):
+				if dist.has(n) or not isl.is_land(n):
+					continue
+				dist[n] = int(dist[h]) + 1
+				next.append(n)
+		frontier = next
+	return dist
 
 
 ## Boats due this round reach the defender's coast. Each active coastal

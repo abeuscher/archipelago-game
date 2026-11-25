@@ -97,8 +97,8 @@ static func _missiles(data) -> String:
 				out.append("[b]Foreign agent[/b]: sent from an enclave, %d fuel and %d money; one per enclave on the enemy island at a time. He flies in by helicopter and lands on any hex you choose (the enemy sees where), then stays: every round he walks %d hexes, uncovering each, heading for any silo we have seen with a nuke in it, otherwise for ground we haven't seen. He disarms every nuke within %d hex of him; the silo needs a new one. An enemy domestic agent within %d hex kills him. Anti-air hits his helicopter %d%% of the time, %d%% with radar." % [
 					int(m["fuel"]), int(m.get("money", 0)), int(m["walks"]), int(m.get("disarm_range", 0)), int(ag["catch_range"]),
 					roundi(float(m["anti_air_accuracy"]) * 100), roundi(float(m["anti_air_accuracy_with_radar"]) * 100)])
-				out.append("[b]Domestic agent[/b]: each enclave keeps %d on patrol on our island, from the round it is built. He walks %d or %d hexes a round, first to where an enemy agent was seen landing, otherwise to the ground patrolled longest ago, and kills any enemy agent within %d hex of him. Radar and bunkers don't catch agents." % [
-					int(ag["domestic_per_enclave"]), int(ag["domestic_walks_min"]), int(ag["domestic_walks_max"]), int(ag["catch_range"])])
+				out.append("[b]Domestic agent[/b]: each enclave keeps %d on patrol on our island, from the round it is built. He walks %d or %d hexes a round, first to where an enemy agent was seen landing, otherwise to the ground patrolled longest ago, and kills any enemy agent within %d hex of him. He must be back at the enclave every %d rounds, so he only patrols the ground around it. Radar and bunkers don't catch agents." % [
+					int(ag["domestic_per_enclave"]), int(ag["domestic_walks_min"]), int(ag["domestic_walks_max"]), int(ag["catch_range"]), int(ag["return_every"])])
 			continue
 		var bits: Array = ["%d fuel" % int(m["fuel"])]
 		if int(m["damage_max"]) > 0:

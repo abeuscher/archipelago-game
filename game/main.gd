@@ -1706,7 +1706,7 @@ func _building_detail_lines(st, b) -> Array:
 			out.append("Sends a foreign agent by helicopter: %d fuel, %d money" % [int(sm["fuel"]), int(sm.get("money", 0))])
 			if m.agent_out(0, b.hex):
 				out.append("Its agent is on the enemy island")
-			out.append("Keeps an agent on patrol here, who kills enemy spies he comes across")
+			out.append("Keeps an agent on patrol nearby, who kills enemy spies he comes across; he is back here every %d rounds" % int(data.section("agents")["return_every"]))
 		"silo":
 			var nk: Dictionary = data.missile("nuke")
 			out.append("One nuke at a time: %d money to build, ready the round after; %d fuel to fire" % [int(nk.get("replace_money", 0)), int(nk["fuel"])])

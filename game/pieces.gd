@@ -47,7 +47,7 @@ const BUILDING_TEXT := {
 	"bunker": "Wipes out enemy platoons that land or march within range.",
 	"docks": "Sends a boat with a platoon to the enemy coast. It lands in the round it sails. Built on the coast.",
 	"coastal_cannon": "Fires on enemy boats coming ashore nearby. Built on the coast.",
-	"enclave": "Sends foreign agents by helicopter to scout the enemy island and disarm their nukes, and keeps a domestic agent on patrol at home who kills enemy spies.",
+	"enclave": "Sends foreign agents by helicopter to scout the enemy island and disarm their nukes, and keeps a domestic agent patrolling the ground around it who kills enemy spies. Place it where you most need guarding.",
 	"nuclear_silo": "Holds one nuke. Building a nuke takes a round; it hits its target twice as hard as a missile and every hex around it as hard as one. Anti-air rarely stops it, and it can take a stronghold.",
 }
 const RESEARCH_NAMES := {

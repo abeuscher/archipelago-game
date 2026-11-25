@@ -241,7 +241,7 @@ func test_a_domestic_agent_kills_a_foreign_agent_next_to_him() -> void:
 	var r = _spy_match()
 	var m = r[0]
 	var their = put(m, 1, "enclave", 6, 6)
-	m.agents[1] = [{"id": "x", "enclave": their.id, "hex": hex(m, 6, 6)}]
+	m.agents[1] = [{"id": "x", "enclave": their.id, "hex": hex(m, 6, 6), "home": their.hex, "home_by": 100}]
 	m.spies[0] = [{"id": 99, "missile": "spy", "hex": hex(m, 7, 6), "enclave": r[1].id, "landed_round": 0}]
 	var s: Array = events_of(play_round(m), "spy")
 	eq(s.size(), 1, "his round")
@@ -258,7 +258,7 @@ func test_a_foreign_agent_landing_beside_a_domestic_agent_is_killed() -> void:
 	var their = put(m, 1, "enclave", 12, 12)
 	m.data.set_path("rules.agents.domestic_walks_min", 0)
 	m.data.set_path("rules.agents.domestic_walks_max", 0)
-	m.agents[1] = [{"id": "x", "enclave": their.id, "hex": hex(m, 6, 7)}]
+	m.agents[1] = [{"id": "x", "enclave": their.id, "hex": hex(m, 6, 7), "home": their.hex, "home_by": 100}]
 	var s: Array = events_of(play_round(m, [_spy(r[1], hex(m, 6, 6))]), "spy")
 	eq(s[0]["path"], [hex(m, 6, 6)], "only the landing hex")
 	eq(int(s[0]["caught_by"]), hex(m, 6, 7), "killed on landing")
@@ -268,16 +268,53 @@ func test_a_foreign_agent_landing_beside_a_domestic_agent_is_killed() -> void:
 func test_a_domestic_agent_heads_for_where_a_foreign_agent_landed() -> void:
 	var r = _spy_match()
 	var m = r[0]
-	var their = put(m, 1, "enclave", 2, 2)
+	var their = put(m, 1, "enclave", 4, 4)
 	play_round(m)   # their agent mustered
 	var g = m.sides[1].island.grid
-	var land := hex(m, 12, 12)
+	var land: int = g.step(g.step(g.step(their.hex, 0), 0), 0)
+	eq(g.distance(their.hex, land), 3, "the landing is well inside his circle")
 	play_round(m, [_spy(r[1], land)])
-	check(m.spy_sightings[1].has(land), "they saw him land")
+	if m.spy_sightings[1].is_empty():
+		return   # he happened to walk onto it already
 	var was: int = int(m.agents[1][0]["hex"])
 	var p: Array = events_of(play_round(m), "agent_patrol").filter(func(e): return e["side"] == 1)
-	var now: int = int(p[0]["path"][-1])
-	eq(g.distance(now, land), g.distance(was, land) - p[0]["path"].size(), "straight toward the landing hex")
+	if was != land:
+		eq(g.distance(int(p[0]["path"][0]), land), g.distance(was, land) - 1, "his first step is toward the landing hex")
+
+
+func test_a_domestic_agent_is_home_every_fifth_round_and_never_strays_too_far() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	var ag: Dictionary = m.data.section("agents")
+	var every := int(ag["return_every"])
+	var lo := int(ag["domestic_walks_min"])
+	var g = m.sides[0].island.grid
+	var first: int = m.round_number + 1
+	for k in 3 * every:
+		play_round(m)
+		var a: Dictionary = m.agents[0][0]
+		var d: int = g.distance(int(a["hex"]), r[1].hex)
+		var due: int = first + every - 1 + (k / every) * every
+		if m.round_number == due:
+			eq(int(a["hex"]), r[1].hex, "round %d: back on the enclave" % m.round_number)
+		else:
+			check(d <= (due - m.round_number) * lo, "round %d: %d hexes out, can still make it home" % [m.round_number, d])
+
+
+func test_a_domestic_agent_leaves_landings_outside_his_circle_alone() -> void:
+	var r = _spy_match()
+	var m = r[0]
+	var ag: Dictionary = m.data.section("agents")
+	var their = put(m, 1, "enclave", 0, 0)
+	var g = m.sides[1].island.grid
+	var land := hex(m, 14, 0)
+	var reach: int = int(ag["return_every"]) * int(ag["domestic_walks_max"]) / 2
+	check(g.distance(their.hex, land) > reach, "the landing is beyond his reach")
+	play_round(m, [_spy(r[1], land)])
+	for k in 10:
+		play_round(m)
+		check(g.distance(int(m.agents[1][0]["hex"]), their.hex) <= reach, "round %d: within his circle" % k)
+	check(m.spy_sightings[1].has(land), "the far landing is left alone")
 
 
 # --- The AI ------------------------------------------------------------------
