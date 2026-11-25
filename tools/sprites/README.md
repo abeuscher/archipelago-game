@@ -38,6 +38,8 @@ Every building except the shared states also has a `<name>_damaged` sheet (hit, 
 
 `enclave` (houses the agents) is a six-sided dark glass tower with a cyan lit floor and rooftop antennas, with an `enclave_damaged` sheet (top floors blown off).
 
+`stealth_launcher` (the stealth silo) is the missile launcher in near-black with a faceted dart missile; it has `stealth_launcher`, `stealth_launcher_empty` and `stealth_launcher_damaged` sheets, like the missile launcher.
+
 `nuclear_silo` has four sheets: `nuclear_silo` (lid closed with the radiation symbol: armed), `nuclear_silo_open` (lid up, empty shaft: build phase), `nuclear_silo_open_loaded` (lid up, missile nose showing) and `nuclear_silo_damaged`.
 
 ## Troop buildings

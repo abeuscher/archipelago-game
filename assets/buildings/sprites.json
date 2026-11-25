@@ -49,6 +49,9 @@
     "nuclear_silo_open_loaded": "nuclear_silo_open_loaded.png",
     "nuclear_silo_damaged": "nuclear_silo_damaged.png",
     "enclave": "enclave.png",
-    "enclave_damaged": "enclave_damaged.png"
+    "enclave_damaged": "enclave_damaged.png",
+    "stealth_launcher": "stealth_launcher.png",
+    "stealth_launcher_empty": "stealth_launcher_empty.png",
+    "stealth_launcher_damaged": "stealth_launcher_damaged.png"
   }
 }

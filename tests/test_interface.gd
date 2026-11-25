@@ -233,7 +233,7 @@ func test_every_building_has_a_sprite_sheet() -> void:
 	var meta: Dictionary = Pieces.sprite_meta()
 	check(not meta.is_empty(), "sprites.json read")
 	eq(int(meta["frames_per_sheet"]), 6, "one frame per rotation")
-	var names: Array = Pieces.SHEET_FOR.values() + ["repair", "rubble", "missile_launcher_empty", "ballistic_launcher_empty"]
+	var names: Array = Pieces.SHEET_FOR.values() + ["repair", "rubble", "missile_launcher_empty", "ballistic_launcher_empty", "stealth_launcher_empty"]
 	for n in Pieces.DAMAGED_SHEETS:
 		names.append(n + "_damaged")
 	for n in names:

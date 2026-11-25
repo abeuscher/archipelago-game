@@ -643,6 +643,39 @@ def enclave(damaged=False):
     return m
 
 
+# ---- stealth missile launcher ---------------------------------------------
+S_TABLE = "#34373c"
+S_RAIL = "#232529"
+S_DARK = "#2a2d32"
+S_SKIN = "#40444c"       # missile skin: dark, but light enough for the facets to shade
+
+
+def stealth_launcher(loaded=True, damaged=False):
+    """The missile launcher in near-black with a faceted, diamond-section dart."""
+    pivot = (-.3, 0, .25)
+    m = pad()
+    m += prism(12, .42, .42, .12, .2, S_TABLE, at=(-.05, 0))
+    m += box((.4, .26, .22), "#6f6e68", (-.1, .5, .23))
+    if damaged:
+        m += box((.1, .22, .16), S_DARK, (.16, 0, .28))
+        m += rail(1.1, .16, .06, S_RAIL, pivot, pitch=7, yaw=24)
+        m += box((.42, .62, .06), S_RAIL, (-.6, .05, .16), pitch=6, yaw=12)
+        m += box((.44, .3, .04), S_DARK, (-.02, .56, .36), pitch=14, yaw=25)
+        m += tube(4, .22, .001, .42, S_SKIN, (.3, -.42, .14), pitch=-4, yaw=-70, sy=1.5, sz=.14)
+        return wreck(m, (.12, 0, .26), 18)
+    m += box((.1, .22, .42), S_DARK, (.16, 0, .41))
+    m += rail(1.1, .16, .06, S_RAIL, pivot, pitch=40)
+    m += box((.06, .62, .42), S_RAIL, (-.62, 0, .33), pitch=-18)
+    m += box((.44, .3, .04), S_DARK, (-.1, .5, .36))
+    if loaded:
+        kw = dict(pos=pivot, pitch=40, lift=.15)
+        m += tube(4, .22, .001, .42, S_SKIN, x0=.08, sy=1.5, sz=.14, **kw)
+        m += tube(4, .11, .11, .8, S_SKIN, x0=.1, sy=1, sz=.62, **kw)
+        m += tube(4, .11, .001, .36, S_SKIN, x0=.9, sy=1, sz=.62, **kw)
+        m += tube(4, .04, .001, .1, RED_DK, x0=1.17, sy=1, sz=.62, **kw)
+    return m
+
+
 def repair():
     m = pad()
     m += box((.62, .62, .52), TARP, (0, 0, .38))
@@ -712,6 +745,9 @@ BUILDINGS = {
     "nuclear_silo_damaged": lambda: nuclear_silo("damaged"),
     "enclave": enclave,
     "enclave_damaged": lambda: enclave(damaged=True),
+    "stealth_launcher": lambda: stealth_launcher(True),
+    "stealth_launcher_empty": lambda: stealth_launcher(False),
+    "stealth_launcher_damaged": lambda: stealth_launcher(damaged=True),
     "repair": repair,
     "rubble": rubble,
 }
