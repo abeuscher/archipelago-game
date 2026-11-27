@@ -585,6 +585,11 @@ func set_timer(seconds: float) -> void:
 	_timer.set_time(seconds)
 
 
+## Flashes a word ("ATTACK") on the scoreboard timer, three times.
+func flash_timer_word(word: String) -> void:
+	_timer.flash_word(word)
+
+
 ## The alarm light: on from the moment the battle begins.
 func set_alarm(on: bool) -> void:
 	_beacon.set_active(on)

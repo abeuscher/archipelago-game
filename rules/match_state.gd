@@ -315,6 +315,37 @@ func view_for(side: int):
 	return v
 
 
+# --- Saved games -------------------------------------------------------------
+
+const SAVE_FIELDS := ["knowledge", "bases_destroyed_by", "bombed", "boats", "boats_arrived_at", "spies",
+	"agents", "spy_sightings", "patrolled", "agent_respawn", "round_number", "phase", "orders",
+	"winner", "end_reason", "coin", "stats"]
+
+
+## The whole match as plain values (Godot variants, kept as they are by
+## FileAccess.store_var), for a saved game. The event history is left out:
+## only the study tools read it.
+func to_save() -> Dictionary:
+	var d := {"seed": seed_value, "settings": settings.duplicate(true), "dice": dice.get_state(),
+		"sides": [sides[0].to_save(), sides[1].to_save()]}
+	for f in SAVE_FIELDS:
+		var v = get(f)
+		d[f] = v.duplicate(true) if (v is Array or v is Dictionary) else v
+	return d
+
+
+## A match from to_save(), for `game_data` (the same level's data).
+static func from_save(game_data, d: Dictionary):
+	var m = create(game_data, int(d["seed"]), d["settings"])
+	m.dice.set_state(d["dice"])
+	for s in 2:
+		m.sides[s].load_save(d["sides"][s])
+	for f in SAVE_FIELDS:
+		var v = d[f]
+		m.set(f, v.duplicate(true) if (v is Array or v is Dictionary) else v)
+	return m
+
+
 ## A stable fingerprint of the full match state, for determinism tests.
 func fingerprint() -> String:
 	var parts: Array = [round_number, phase, winner, end_reason, dice.get_state()]

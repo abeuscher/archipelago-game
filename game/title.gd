@@ -1,7 +1,8 @@
 ## Title screen: an island behind the game's title, with Start and Options.
 ## The island is a picture if assets/title/title.png exists; otherwise a
 ## generated island drawn in the map style, drifting slowly. Plays the
-## island ambience. Save and load, and single map and campaign modes, come later.
+## island ambience. Continue carries on from the most recent save; Load Game
+## lists every save.
 extends Node2D
 
 const GameData = preload("res://rules/game_data.gd")
@@ -15,6 +16,8 @@ const UserSettings = preload("res://game/user_settings.gd")
 const RulesText = preload("res://game/rules_text.gd")
 const Audio = preload("res://game/audio.gd")
 const Textures = preload("res://game/textures.gd")
+const SaveGame = preload("res://game/save_game.gd")
+const Campaign = preload("res://game/campaign.gd")
 
 const PICTURE := "res://assets/title/title.png"
 const MAIN_SCENE := "res://game/main.tscn"
@@ -80,8 +83,15 @@ func _ready() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 150)
 	col.add_child(gap)
-	var start := _button("START", true, _start)
+	var latest := SaveGame.most_recent()
+	if latest != "":
+		var cont := _button("CONTINUE", true, func(): _load(latest))
+		cont.tooltip_text = SaveGame.describe(SaveGame.list()[0])
+		col.add_child(cont)
+	var start := _button("NEW GAME", latest == "", _start)
 	col.add_child(start)
+	if latest != "":
+		col.add_child(_button("LOAD GAME", false, func(): menu.open_saves()))
 	col.add_child(_button("OPTIONS", false, _options))
 
 	menu = EscMenu.new()
@@ -94,6 +104,7 @@ func _ready() -> void:
 		UserSettings.save_settings(prefs)
 		menu.setup(data.settings, prefs))
 	menu.quit_requested.connect(func(): get_tree().quit())
+	menu.load_requested.connect(_load)
 
 
 ## A generated island in the map style, with sea round it.
@@ -141,7 +152,22 @@ func _button(text: String, primary: bool, action: Callable) -> Button:
 	return b
 
 
+## A new campaign from level 1. It autosaves to the default save.
 func _start() -> void:
+	Campaign.restart()
+	SaveGame.current = SaveGame.default_path()
+	SaveGame.pending = {}
+	get_tree().change_scene_to_file(MAIN_SCENE)
+
+
+## Carry on from a save; it becomes the one the game autosaves to.
+func _load(path: String) -> void:
+	var s := SaveGame.read(path)
+	if s.is_empty():
+		return
+	SaveGame.pending = s
+	SaveGame.current = path
+	get_tree().paused = false
 	get_tree().change_scene_to_file(MAIN_SCENE)
 
 

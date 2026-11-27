@@ -73,6 +73,18 @@ func _init(side_index: int, game_data, match_seed: int, handicap: String = "") -
 		research.erase(item)
 
 
+## What a saved game needs to carry on exactly where it left off: the dice,
+## the research order and the last spy trip. The rest is worked out again.
+func to_save() -> Dictionary:
+	return {"rng": rng.get_state(), "research": research.duplicate(), "last_spy": _last_spy}
+
+
+func load_save(d: Dictionary) -> void:
+	rng.set_state(d["rng"])
+	research = d["research"].duplicate()
+	_last_spy = int(d["last_spy"])
+
+
 ## A research item this level offers.
 func _in_level(item: String) -> bool:
 	return data.rules["research"].has(item) and bool(data.research_item(item).get("available", true))

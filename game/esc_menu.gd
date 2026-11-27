@@ -1,4 +1,5 @@
-## The Esc menu (section 14): pauses the game and offers options and quit.
+## The Esc menu (section 14): pauses the game and offers saved games,
+## options and quit.
 ## Options holds the game settings. Clock changes apply from the next phase;
 ## decoys per side applies from the next game, since both sides have already
 ## been set up under the current value.
@@ -6,9 +7,14 @@ extends Control
 
 const UserSettings = preload("res://game/user_settings.gd")
 const DevicePanel = preload("res://game/device_panel.gd")
+const SaveGame = preload("res://game/save_game.gd")
 
 signal settings_changed(s: Dictionary)
 signal quit_requested
+signal opened
+## Save into the current save, or (as_new) a new one called `name`.
+signal save_requested(as_new: bool, name: String)
+signal load_requested(path: String)
 
 var defaults: Dictionary
 var settings: Dictionary
@@ -26,7 +32,16 @@ var _rules_box: VBoxContainer
 var _rules_label: RichTextLabel
 var rules_text: String = ""      ## the Game Rules page, set by the game (rules_text.gd)
 var options_only: bool = false   ## title screen: no pause menu; leaving Options closes it
-var _plate_label: Label          ## the plate on top: PAUSED, OPTIONS or GAME RULES
+var _plate_label: Label          ## the plate on top: PAUSED, OPTIONS, GAME RULES or SAVED GAMES
+var _saves_box: VBoxContainer
+var _save_controls: VBoxContainer
+var _save_current: Button
+var _save_name: LineEdit
+var _save_note: Label
+var _save_list: VBoxContainer
+var can_save: bool = false       ## set by the game: saving only in build and repair
+var current_save: String = ""    ## the name of the save autosaves go to
+var load_only: bool = false      ## title screen: the saves list opens alone, for loading
 
 
 func _ready() -> void:
@@ -78,6 +93,7 @@ func _ready() -> void:
 	_main_box.custom_minimum_size = Vector2(300, 0)
 	stack.add_child(_main_box)
 	_main_box.add_child(_menu_key("RESUME", "play", Color(0.42, 0.80, 0.38), close_menu))
+	_main_box.add_child(_menu_key("SAVE / LOAD", "disk", Color(0.40, 0.70, 0.95), _show_saves))
 	_main_box.add_child(_menu_key("OPTIONS", "gear", Color(0.98, 0.82, 0.22), _show_options))
 	_main_box.add_child(_menu_key("QUIT", "exit", Color(0.90, 0.36, 0.22), func(): quit_requested.emit()))
 
@@ -157,6 +173,52 @@ func _ready() -> void:
 	_rules_box.add_child(rrow)
 	rrow.add_child(_button("Back", _show_options))
 
+	# Saved games: save into the current save or a new one, and the list of
+	# saves to load or delete.
+	_saves_box = VBoxContainer.new()
+	_saves_box.add_theme_constant_override("separation", 8)
+	_saves_box.visible = false
+	stack.add_child(_saves_box)
+	_save_controls = VBoxContainer.new()
+	_save_controls.add_theme_constant_override("separation", 8)
+	_saves_box.add_child(_save_controls)
+	var cur_row := HBoxContainer.new()
+	cur_row.add_theme_constant_override("separation", 10)
+	_save_controls.add_child(cur_row)
+	_save_current = _button("Save", func(): save_requested.emit(false, ""))
+	_save_current.custom_minimum_size = Vector2(150, 38)
+	cur_row.add_child(_save_current)
+	var new_row := HBoxContainer.new()
+	new_row.add_theme_constant_override("separation", 10)
+	_save_controls.add_child(new_row)
+	_save_name = LineEdit.new()
+	_save_name.placeholder_text = "Name for a new save"
+	_save_name.max_length = 40
+	_save_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_save_name.text_submitted.connect(func(t: String): save_requested.emit(true, t))
+	new_row.add_child(_save_name)
+	var save_new := _button("Save as new", func(): save_requested.emit(true, _save_name.text))
+	save_new.custom_minimum_size = Vector2(150, 38)
+	new_row.add_child(save_new)
+	_save_note = Label.new()
+	_save_note.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_save_note.custom_minimum_size = Vector2(560, 0)
+	_save_note.add_theme_font_size_override("font_size", 13)
+	_save_note.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
+	_saves_box.add_child(_save_note)
+	var list_scroll := ScrollContainer.new()
+	list_scroll.custom_minimum_size = Vector2(600, 300)
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_saves_box.add_child(list_scroll)
+	_save_list = VBoxContainer.new()
+	_save_list.add_theme_constant_override("separation", 6)
+	_save_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_scroll.add_child(_save_list)
+	var srow := HBoxContainer.new()
+	srow.alignment = BoxContainer.ALIGNMENT_END
+	_saves_box.add_child(srow)
+	srow.add_child(_button("Back", _show_main))
+
 
 func setup(defaults_in: Dictionary, settings_in: Dictionary) -> void:
 	defaults = defaults_in
@@ -170,6 +232,7 @@ func setup(defaults_in: Dictionary, settings_in: Dictionary) -> void:
 
 
 func open_menu() -> void:
+	opened.emit()
 	visible = true
 	# Fill the screen explicitly: a control first shown while the tree is
 	# pausing may not have had its anchored size applied yet.
@@ -187,10 +250,22 @@ func close_menu() -> void:
 	get_tree().paused = false
 
 
+## Title screen: the saves list on its own, for loading a game.
+func open_saves() -> void:
+	load_only = true
+	visible = true
+	position = Vector2.ZERO
+	size = get_viewport_rect().size
+	_show_saves()
+	get_tree().paused = true
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if not visible:
 			open_menu()
+		elif _saves_box.visible:
+			_show_main()
 		elif _rules_box.visible:
 			_show_options()
 		elif _opts_box.visible:
@@ -202,12 +277,91 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _show_main() -> void:
 	if options_only:
+		load_only = false
 		close_menu()
 		return
 	_plate_label.text = "PAUSED"
 	_main_box.visible = true
 	_opts_box.visible = false
 	_rules_box.visible = false
+	_saves_box.visible = false
+
+
+func _show_saves() -> void:
+	_plate_label.text = "SAVED GAMES"
+	_main_box.visible = false
+	_opts_box.visible = false
+	_rules_box.visible = false
+	_saves_box.visible = true
+	_save_controls.visible = not load_only
+	_label_save_key()
+	_save_name.editable = can_save
+	_save_name.text = ""
+	if load_only:
+		_save_note.text = "Pick a saved game to carry on from."
+	elif can_save:
+		_save_note.text = "Autosaves go to \"%s\" at the start of every build and repair phase. Saving as new makes the new save the one autosaves go to." % current_save
+	else:
+		_save_note.text = "Saving is possible during build and repair. Autosaves go to \"%s\"." % current_save
+	_fill_save_list()
+
+
+func _label_save_key() -> void:
+	_save_current.disabled = not can_save
+	_save_current.text = ("  SAVE TO \"%s\"  " % current_save).to_upper() if current_save != "" else "SAVE"
+
+
+## The game's answer to a save request, shown under the save keys.
+func save_done(message: String) -> void:
+	_label_save_key()
+	_save_note.text = message
+	_save_name.text = ""
+	_fill_save_list()
+
+
+## One row per save, newest first: its name, where it is and when, and keys
+## to load it or delete it (delete asks again first).
+func _fill_save_list() -> void:
+	for c in _save_list.get_children():
+		c.queue_free()
+	var saves: Array = SaveGame.list()
+	if saves.is_empty():
+		var none := Label.new()
+		none.text = "No saved games yet."
+		_save_list.add_child(none)
+		return
+	for entry in saves:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_save_list.add_child(row)
+		var text := VBoxContainer.new()
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text.add_theme_constant_override("separation", 0)
+		row.add_child(text)
+		var name := Label.new()
+		name.text = String(entry["name"]) + ("   (autosaving here)" if String(entry["path"]) == SaveGame.current and not load_only else "")
+		name.add_theme_font_size_override("font_size", 16)
+		text.add_child(name)
+		var info := Label.new()
+		info.text = SaveGame.describe(entry)
+		info.add_theme_font_size_override("font_size", 13)
+		info.add_theme_color_override("font_color", Color(0.75, 0.78, 0.72))
+		text.add_child(info)
+		var path := String(entry["path"])
+		var load_key := _button("Load", func(): load_requested.emit(path))
+		load_key.custom_minimum_size = Vector2(90, 34)
+		row.add_child(load_key)
+		var del := _button("Delete", Callable())
+		del.custom_minimum_size = Vector2(100, 34)
+		del.pressed.connect(func():
+			if del.text != "SURE?":
+				del.text = "SURE?"
+				return
+			SaveGame.remove(path)
+			if not load_only:
+				current_save = SaveGame.name_of(SaveGame.current)
+			_show_saves())
+		row.add_child(del)
 
 
 func _show_rules() -> void:
@@ -215,6 +369,7 @@ func _show_rules() -> void:
 	_plate_label.text = "GAME RULES"
 	_main_box.visible = false
 	_opts_box.visible = false
+	_saves_box.visible = false
 	_rules_box.visible = true
 
 
@@ -231,6 +386,7 @@ func _show_options() -> void:
 	_plate_label.text = "OPTIONS"
 	_rules_box.visible = false
 	_main_box.visible = false
+	_saves_box.visible = false
 	_opts_box.visible = true
 
 
@@ -262,7 +418,8 @@ func _button(text: String, action: Callable) -> Button:
 	b.custom_minimum_size = Vector2(96, 38)
 	DevicePanel.style_key(b, DevicePanel.BEZEL)
 	_key_text(b, 15)
-	b.pressed.connect(action)
+	if action.is_valid():
+		b.pressed.connect(action)
 	return b
 
 
@@ -310,6 +467,12 @@ static func _draw_icon(ci: CanvasItem, kind: String, c: Vector2, key_color: Colo
 					c + d * 13 + side * 2.5, c + d * 8 + side * 3]), ink)
 			ci.draw_circle(c, 9.5, ink)
 			ci.draw_circle(c, 4.0, key_color)
+		"disk":
+			# A floppy disk: body, shutter and label.
+			ci.draw_rect(Rect2(c + Vector2(-12, -12), Vector2(24, 24)), ink)
+			ci.draw_rect(Rect2(c + Vector2(-6, -12), Vector2(12, 8)), key_color)
+			ci.draw_rect(Rect2(c + Vector2(1, -11), Vector2(3, 6)), ink)
+			ci.draw_rect(Rect2(c + Vector2(-8, 1), Vector2(16, 9)), key_color)
 		"exit":
 			ci.draw_rect(Rect2(c + Vector2(-12, -12), Vector2(14, 24)), ink, false, 3.0)
 			ci.draw_line(c + Vector2(-4, 0), c + Vector2(11, 0), ink, 3.5)

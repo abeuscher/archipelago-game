@@ -22,6 +22,7 @@ const RulesText = preload("res://game/rules_text.gd")
 const Levels = preload("res://rules/levels.gd")
 const Campaign = preload("res://game/campaign.gd")
 const SideState = preload("res://rules/side_state.gd")
+const SaveGame = preload("res://game/save_game.gd")
 
 const CHANNEL_ROWS := 4        ## rows of open sea between the two islands
 const FLY_SECONDS := 0.9       ## camera move between islands at a phase change
@@ -79,9 +80,20 @@ var level: Dictionary = {}           ## this match's level (data/levels.json)
 var unaimed_warned: bool = false   ## Ginger's "target your weapons" said this game (a new game reloads the scene)
 var first_base_line_said: bool = false   ## the level's line for losing our first base, once
 var enemy_stronghold_seen: bool = false   ## set when a missile gives the enemy's stronghold away
+var resumed: Dictionary = {}   ## the save this match was loaded from ({} for a new match)
 
 
 func _ready() -> void:
+	if has_meta("save_dir"):
+		SaveGame.dir = String(get_meta("save_dir"))
+	# A save to carry on from (set by the title screen or the Esc menu).
+	var save: Dictionary = SaveGame.pending
+	SaveGame.pending = {}
+	if not save.is_empty():
+		Campaign.level = int(save["level"])
+		Campaign.award_money = int(save.get("award_money", 0))
+	if SaveGame.current == "":
+		SaveGame.current = SaveGame.default_path()
 	level = Levels.level(Campaign.level)
 	data = Levels.data_for(GameData.load_default(), Campaign.level)
 	if has_meta("settings_path"):
@@ -89,13 +101,20 @@ func _ready() -> void:
 	prefs = UserSettings.load_settings(data.settings, prefs_path)
 	tips = Tips.load_tips(data)
 	lines = Tips.load_lines()
-	seed_value = _seed_from_args()
-	m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
-	# The last win's award; the enemy gets the same, so it buys a head start
-	# for the player's plans rather than an edge.
-	m.sides[MatchState.PLAYER].money += Campaign.award_money
-	m.sides[MatchState.ENEMY].money += Campaign.award_money
-	enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
+	if save.get("match") != null and not save.is_empty():
+		resumed = save
+		m = MatchState.from_save(data, save["match"])
+		seed_value = m.seed_value
+		enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
+		enemy_ai.load_save(save["ai"])
+	else:
+		seed_value = _seed_from_args()
+		m = MatchState.create(data, seed_value, UserSettings.match_overrides(prefs))
+		# The last win's award; the enemy gets the same, so it buys a head start
+		# for the player's plans rather than an edge.
+		m.sides[MatchState.PLAYER].money += Campaign.award_money
+		m.sides[MatchState.ENEMY].money += Campaign.award_money
+		enemy_ai = StrongAI.new(MatchState.ENEMY, data, seed_value)
 
 	# Beyond the drawn sea hexes the screen is plain sea, so there is never
 	# a black edge. Then the sea, the enemy island (north, further back),
@@ -149,7 +168,13 @@ func _ready() -> void:
 	_update_rules_text()
 	hud.esc_menu.settings_changed.connect(_on_settings_changed)
 	hud.esc_menu.quit_requested.connect(func(): get_tree().quit())
+	hud.esc_menu.save_requested.connect(_save_requested)
+	hud.esc_menu.load_requested.connect(_load_requested)
+	hud.esc_menu.opened.connect(_update_save_menu)
 
+	if not resumed.is_empty():
+		_resume(resumed)
+		return
 	var es: Dictionary = enemy_ai.choose_setup(m.view_for(MatchState.ENEMY))
 	var e: String = m.setup_side(MatchState.ENEMY, es["bases"], es["decoys"])
 	assert(e == "", "Enemy setup failed: " + e)
@@ -274,6 +299,13 @@ func _start_round() -> void:
 	# The enemy commits its build for the round from its own view.
 	for a in enemy_ai.choose_build(m.view_for(MatchState.ENEMY)):
 		m.build_action(MatchState.ENEMY, a)
+	_enter_build()
+	_autosave()
+
+
+## The build and repair phase's screen, at the start of a round (or when a
+## saved game is loaded, which was saved at that point or during it).
+func _enter_build() -> void:
 	hud.set_alarm(false)
 	ui = Ui.BUILD
 	audio.set_music("main")
@@ -458,8 +490,10 @@ func _show_game_over() -> void:
 		var award := int(level.get("win_award_money", 0))
 		if award > 0:
 			text += "\nCommand awards you %d money toward your next battle." % award
-		buttons.append(["On to %s" % String(Levels.level(Campaign.level + 1).get("name", "")), func():
-			Campaign.advance()
+		# The win is kept: the current save now starts the next level.
+		Campaign.advance()
+		_save_level_start()
+		buttons.append(["On to %s" % String(Levels.level(Campaign.level).get("name", "")), func():
 			get_tree().reload_current_scene()])
 	elif won:
 		text += "\nThat was the last level for now."
@@ -1112,6 +1146,7 @@ func _debug_next_level() -> void:
 		hud.add_log("[color=gray]Debug: this is the last level.[/color]")
 		return
 	Campaign.advance()
+	_save_level_start()
 	get_tree().reload_current_scene()
 
 
@@ -1584,6 +1619,92 @@ func _apply_grid() -> void:
 		v.queue_redraw()
 
 
+# --- Saved games -------------------------------------------------------------
+
+## A save of the game as it stands (only taken in build and repair, where
+## nothing is in flight).
+func _make_save(name: String) -> Dictionary:
+	return {
+		"name": name, "level": Campaign.level, "level_name": String(level.get("name", "")),
+		"round": m.round_number, "award_money": Campaign.award_money,
+		"match": m.to_save(), "ai": enemy_ai.to_save(),
+		"ui": {"battle_report": battle_report.duplicate(), "unaimed_warned": unaimed_warned,
+			"first_base_line_said": first_base_line_said, "stronghold_line_said": not lines.has("enemy_stronghold")},
+	}
+
+
+## The autosave, into the current save, at the start of each build and
+## repair phase (just after the battle summary).
+func _autosave() -> void:
+	var e := SaveGame.write(SaveGame.current, _make_save(SaveGame.name_of(SaveGame.current)))
+	if e != "":
+		hud.add_log("[color=salmon]Autosave failed: %s.[/color]" % e, false)
+
+
+## A level just won: the current save now starts the next one (Campaign has
+## already moved on), with no match in it yet.
+func _save_level_start() -> void:
+	var name := SaveGame.name_of(SaveGame.current)
+	var nxt := Levels.level(Campaign.level)
+	SaveGame.write(SaveGame.current, {"name": name, "level": Campaign.level, "level_name": String(nxt.get("name", "")),
+		"round": 0, "award_money": Campaign.award_money, "match": null, "ai": {}, "ui": {}})
+
+
+## Carry on from a save taken in build and repair.
+func _resume(save: Dictionary) -> void:
+	var u: Dictionary = save.get("ui", {})
+	battle_report = u.get("battle_report", []).duplicate()
+	unaimed_warned = bool(u.get("unaimed_warned", false))
+	first_base_line_said = bool(u.get("first_base_line_said", false))
+	if bool(u.get("stronghold_line_said", false)):
+		lines.erase("enemy_stronghold")
+	hud.add_log("[b]%s[/b]. Seed %d." % [String(level.get("name", "")), seed_value])
+	hud.add_log("Loaded \"%s\": round %d." % [String(save.get("name", SaveGame.DEFAULT_NAME)), m.round_number])
+	audio.start_ambient()
+	_enter_build()
+
+
+## Whether the game can be saved now, and the Esc menu's saves screen.
+func _update_save_menu() -> void:
+	hud.esc_menu.can_save = ui == Ui.BUILD
+	hud.esc_menu.current_save = SaveGame.name_of(SaveGame.current)
+
+
+## From the Esc menu: save into the current save, or a new one called `name`
+## (which then becomes the current save, and takes the autosaves).
+func _save_requested(as_new: bool, name: String) -> void:
+	if ui != Ui.BUILD:
+		hud.esc_menu.save_done("Saving is possible during build and repair.")
+		return
+	var path := SaveGame.current
+	if as_new:
+		if name.strip_edges() == "":
+			name = "%s, round %d" % [String(level.get("name", "")), m.round_number]
+		path = SaveGame.new_path(name)
+	else:
+		name = SaveGame.name_of(path)
+	var e := SaveGame.write(path, _make_save(name))
+	if e != "":
+		hud.esc_menu.save_done(e + ".")
+		return
+	SaveGame.current = path
+	_update_save_menu()
+	hud.esc_menu.save_done("Saved as \"%s\". Autosaves go here from now on." % name if as_new else "Saved.")
+
+
+## From the Esc menu: carry on from a save (this game's progress since its
+## last save is left behind).
+func _load_requested(path: String) -> void:
+	var s := SaveGame.read(path)
+	if s.is_empty():
+		hud.esc_menu.save_done("That save could not be read.")
+		return
+	SaveGame.pending = s
+	SaveGame.current = path
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
 func _save_prefs() -> void:
 	UserSettings.save_settings(prefs, prefs_path)
 	hud.esc_menu.setup(data.settings, prefs)
@@ -1915,6 +2036,7 @@ func _run_playout() -> void:
 			key = "incoming_boat"
 		var incoming := _line_text(key).format({"n": n})
 		hud.set_alarm(true)
+		hud.flash_timer_word("ATTACK")
 		audio.effect("siren")
 		audio.set_music("battle")   # loops until our strikes are in
 		hud.add_log("Enemy helicopter incoming." if spies_only else "%d enemy missile%s incoming." % [n, "" if n == 1 else "s"], false)

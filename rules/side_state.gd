@@ -47,6 +47,40 @@ func duplicate_state():
 	return c
 
 
+## Everything about this side, for a saved game (see MatchState.to_save).
+func to_save() -> Dictionary:
+	var bl: Array = []
+	for b in buildings_sorted():
+		bl.append(b.to_dict())
+	return {
+		"money": money, "fuel": fuel, "buildings": bl, "next_building_id": next_building_id,
+		"unlocked": unlocked.keys(), "projects": projects.duplicate(true),
+		"next_project_order": next_project_order, "stored_research": stored_research,
+		"setup_done": setup_done, "land": island.land, "level": island.level,
+	}
+
+
+## Puts back what to_save() wrote. The island's grid is kept; its land and
+## heights come from the save.
+func load_save(d: Dictionary) -> void:
+	money = int(d["money"])
+	fuel = int(d["fuel"])
+	buildings = {}
+	for bd in d["buildings"]:
+		var b = Building.from_dict(bd)
+		buildings[b.hex] = b
+	next_building_id = int(d["next_building_id"])
+	unlocked = {}
+	for item in d["unlocked"]:
+		unlocked[String(item)] = true
+	projects = d["projects"].duplicate(true)
+	next_project_order = int(d["next_project_order"])
+	stored_research = int(d["stored_research"])
+	setup_done = bool(d["setup_done"])
+	island.land = PackedByteArray(d["land"])
+	island.level = PackedInt32Array(d["level"])
+
+
 ## Research both sides start a level with, carried over from the levels
 ## before it (start_researched in data/levels.json's "set").
 static func starting_research(data) -> Array:

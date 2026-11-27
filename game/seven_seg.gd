@@ -14,11 +14,20 @@ const URGENT_SECONDS := 10
 const DIGITS := {
 	"0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc",
 	"5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcdfg", " ": "",
+	# Letters for flash_word, as scoreboards spell them: t is the low "t",
+	# K the H shape.
+	"A": "abcefg", "T": "defg", "C": "adef", "K": "bcefg",
 }
+## flash_word: lit for FLASH_ON seconds, dark for FLASH_OFF, FLASH_TIMES times.
+const FLASH_ON := 0.5
+const FLASH_OFF := 0.25
+const FLASH_TIMES := 3
 
 var running: bool = false
 var seconds: int = 0
 var _blink: float = 0.0
+var _word: String = ""          ## a word being flashed over the clock (flash_word)
+var _word_t: float = -1.0       ## seconds into the flashing; < 0 when not flashing
 
 
 func _ready() -> void:
@@ -34,7 +43,24 @@ func set_time(secs: float) -> void:
 		queue_redraw()
 
 
+## Flashes `word` across the readout, FLASH_TIMES times, over whatever the
+## clock shows; then the clock comes back.
+func flash_word(word: String) -> void:
+	_word = word.to_upper()
+	_word_t = 0.0
+	queue_redraw()
+
+
+func flashing() -> bool:
+	return _word_t >= 0.0
+
+
 func _process(delta: float) -> void:
+	if _word_t >= 0.0:
+		_word_t += delta
+		if _word_t >= FLASH_TIMES * (FLASH_ON + FLASH_OFF):
+			_word_t = -1.0
+		queue_redraw()
 	if running and seconds <= URGENT_SECONDS:
 		_blink += delta
 		queue_redraw()
@@ -49,6 +75,10 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.018, 0.015))
 	draw_rect(Rect2(Vector2.ZERO, size), BEZEL, false, 3.0)
 	draw_rect(Rect2(Vector2(3, 3), size - Vector2(6, 6)), Color(0, 0, 0, 0.6), false, 1.0)
+	if _word_t >= 0.0:
+		if fmod(_word_t, FLASH_ON + FLASH_OFF) < FLASH_ON:
+			_draw_word(_word)
+		return
 	if not running:
 		return
 	var txt := text_for(seconds)
@@ -71,6 +101,19 @@ func _draw() -> void:
 			draw_circle(Vector2(cx, y + h * 0.3), r, lit)
 			draw_circle(Vector2(cx, y + h * 0.7), r, lit)
 			x += colon
+
+
+## A word in the digit cells, as wide as the box allows at the clock's height.
+func _draw_word(word: String) -> void:
+	var n := word.length()
+	var h := size.y * 0.7
+	var w := minf(h * 0.55, size.x * 0.88 / (n + (n - 1) * 0.6))
+	var gap := w * 0.6
+	var x := (size.x - (w * n + gap * (n - 1))) / 2.0
+	var y := (size.y - h) / 2.0
+	for i in n:
+		_digit(Vector2(x, y), w, h, word[i], LIT)
+		x += w + gap
 
 
 func _digit(o: Vector2, w: float, h: float, ch: String, lit: Color) -> void:

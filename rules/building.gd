@@ -30,6 +30,23 @@ func duplicate_building():
 	return b
 
 
+## A building from to_dict() (a saved game).
+static func from_dict(d: Dictionary):
+	var b = load("res://rules/building.gd").new()
+	b.id = int(d["id"])
+	b.type = String(d["type"])
+	b.hex = int(d["hex"])
+	b.hp = int(d["hp"])
+	b.hits = float(d["hits"])
+	b.disabled = bool(d["disabled"])
+	b.repairing = bool(d["repairing"])
+	b.built_round = int(d["built_round"])
+	b.carrier_lost = bool(d["carrier_lost"])
+	b.boat_out = bool(d["boat_out"])
+	b.loading = int(d["loading"])
+	return b
+
+
 func to_dict() -> Dictionary:
 	return {
 		"id": id, "type": type, "hex": hex, "hp": hp, "hits": hits,
