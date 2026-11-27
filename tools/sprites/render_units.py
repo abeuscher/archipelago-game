@@ -205,32 +205,51 @@ def _scaled(parts, k):
 
 
 # -------------------------------------------------------------------- spy --
-TUX = "#16171b"
-SHIRT = "#f3f1ea"
+TUX = "#1b1c21"
+LAPEL = "#2c2f37"        # satin lapels, a shade off the cloth: black against the white V
+SHIRT = "#ffffff"
+SHOE = "#050506"
 
 
 def spy(c, frame):
     """A man in a tuxedo, feet at the origin, facing +x. frame: 0 stand, 1 step,
-    2 hand to ear (reporting)."""
+    2 hand to ear (reporting). Built to read at a few dozen pixels: a white
+    V of shirt framed by pale satin lapels, a bow tie (red for the enemy),
+    white cuffs and pocket square, and coat tails behind."""
     swing = [0, 1, 0][frame]
     m = []
     for side in (1, -1):
         fx = .06 * swing * side
         y = .036 * side
-        m += beam((0, y, .18), (fx, y, .02), .048, TUX)
-        m += box((.075, .048, .03), "#050506", (fx + .012, y, .016))
-    m += box((.085, .15, .17), TUX, (0, 0, .265))                          # jacket
-    m += box((.012, .05, .12), SHIRT, (.044, 0, .28))                      # shirt front
-    m += box((.014, .05, .018), "#7b1420" if c is SIDES["enemy"] else TUX, (.052, 0, .335))   # bow tie
+        m += beam((0, y, .18), (fx, y, .02), .048, TUX)                  # trousers
+        m += box((.075, .048, .03), SHOE, (fx + .012, y, .016))
+    m += box((.085, .15, .17), TUX, (0, 0, .265))                        # jacket
+    for side in (1, -1):                                                 # tails
+        m += box((.03, .05, .13), TUX, (-.052, .035 * side, .15), pitch=-12)
+    # Shirt front narrowing down to the waist, lapels along both edges.
+    for w, z, h in ((.09, .322, .05), (.06, .282, .036), (.03, .25, .03)):
+        m += box((.02, w, h), SHIRT, (.05, 0, z))
+        for side in (1, -1):
+            m += box((.02, .018, h), LAPEL, (.048, (w / 2 + .009) * side, z))
+    tie = "#9b1424" if c is SIDES["enemy"] else "#08080a"
+    m += box((.012, .044, .018), tie, (.062, 0, .336))                   # bow tie
+    m += box((.012, .012, .022), tie, (.062, 0, .336))
+    m += box((.014, .016, .014), SHIRT, (.046, -.066, .3))               # pocket square
     m += blob(.048, SKIN, (.004, 0, .39))
-    m += prism(8, .05, .04, .405, .44, "#2a1d14", at=(-.008, 0))           # slicked hair
+    m += prism(8, .05, .04, .405, .44, "#2a1d14", at=(-.008, 0))         # slicked hair
     sh = .33
-    m += beam((0, .09, sh), (.01, .1, .2), .04, TUX)
+    hands = [(.01, .1, .2)]
+    m += beam((0, .09, sh), hands[0], .04, TUX)
     if frame == 2:
-        m += beam((0, -.09, sh), (.02, -.07, .4), .04, TUX)
+        hands.append((.02, -.07, .4))
     else:
-        m += beam((0, -.09, sh), (-.01 * swing, -.1, .2), .04, TUX)
-    return _scaled(m, 1.35)   # a little larger than a soldier, to read on his own
+        hands.append((-.01 * swing, -.1, .2))
+    m += beam((0, -.09, sh), hands[1], .04, TUX)
+    for hx, hy, hz in hands:                                             # cuffs and hands
+        down = -.018 if hz < .3 else .018
+        m += blob(.022, SHIRT, (hx, hy, hz))
+        m += blob(.018, SKIN, (hx, hy, hz + down))
+    return _scaled(m, 1.75)   # well over a soldier's size, so the suit reads at play zoom
 
 
 # ------------------------------------------------------------------- boat --
