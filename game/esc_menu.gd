@@ -39,6 +39,7 @@ var _saves_box: VBoxContainer
 var _save_controls: VBoxContainer
 var _save_current: Button
 var _save_name: LineEdit
+var _save_new_row: HBoxContainer   ## name box and Save as new: shown only when saving is possible
 var _save_note: Label
 var _save_list: VBoxContainer
 var can_save: bool = false       ## set by the game: saving only in build and repair
@@ -223,6 +224,7 @@ func _ready() -> void:
 	_save_current.custom_minimum_size = Vector2(150, 38)
 	cur_row.add_child(_save_current)
 	var new_row := HBoxContainer.new()
+	_save_new_row = new_row
 	new_row.add_theme_constant_override("separation", 10)
 	_save_controls.add_child(new_row)
 	_save_name = LineEdit.new()
@@ -332,6 +334,7 @@ func _show_saves() -> void:
 	_save_controls.visible = not load_only
 	_label_save_key()
 	_save_name.editable = can_save
+	_save_new_row.visible = can_save   # setup, targeting and playout: no saving, so no Save as new
 	_save_name.text = ""
 	if load_only:
 		_save_note.text = "Pick a saved game to carry on from."

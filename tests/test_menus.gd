@@ -80,3 +80,15 @@ func test_a_save_snapshot_changes_only_when_the_game_does() -> void:
 	eq(var_to_bytes(m.to_save()), a, "same game, same snapshot")
 	put(m, 0, "bank", 3, 3)
 	check(var_to_bytes(m.to_save()) != a, "a new building changes it")
+
+
+func test_save_as_new_shows_only_when_saving_is_possible() -> void:
+	var sent: Array = []
+	var menu = _menu([false], false, sent)
+	menu._show_saves()
+	check(not menu._save_new_row.visible, "setup, targeting, playout: no Save as new")
+	check(menu._save_current.disabled, "and the Save key is dimmed")
+	menu.can_save = true
+	menu._show_saves()
+	check(menu._save_new_row.visible and menu._save_name.editable, "build and repair: name box and Save as new")
+	_done(menu)
