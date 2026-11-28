@@ -18,6 +18,7 @@ const Audio = preload("res://game/audio.gd")
 const Textures = preload("res://game/textures.gd")
 const SaveGame = preload("res://game/save_game.gd")
 const Campaign = preload("res://game/campaign.gd")
+const Cursors = preload("res://game/cursors.gd")
 
 const PICTURE := "res://assets/title/title.png"
 const MAIN_SCENE := "res://game/main.tscn"
@@ -34,6 +35,7 @@ var _time: float = 0.0
 
 
 func _ready() -> void:
+	Cursors.install(self)   # the gloved hand over buttons
 	data = GameData.load_default()
 	prefs = UserSettings.load_settings(data.settings)
 	RenderingServer.set_default_clear_color(Palette.SEA)

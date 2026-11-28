@@ -92,3 +92,17 @@ func test_save_as_new_shows_only_when_saving_is_possible() -> void:
 	menu._show_saves()
 	check(menu._save_new_row.visible and menu._save_name.editable, "build and repair: name box and Save as new")
 	_done(menu)
+
+
+func test_the_hand_cursor_goes_on_clickable_controls_only() -> void:
+	var Cursors = load("res://game/cursors.gd")
+	var made: Array = []
+	for pair in [[Button.new(), true], [CheckBox.new(), true], [HSlider.new(), true],
+			[load("res://game/minimap.gd").new(), true], [LineEdit.new(), false], [Label.new(), false],
+			[load("res://game/volume_slider.gd").new(), false]]:
+		made.append(pair[0])
+		eq(Cursors.wants_hand(pair[0]), pair[1], pair[0].get_class())
+	for n in made:
+		n.free()
+	for tag in ["", "_2x", "_pressed", "_pressed_2x"]:
+		check(ResourceLoader.exists("res://assets/ui/cursor_hand%s.png" % tag), "cursor picture%s" % tag)

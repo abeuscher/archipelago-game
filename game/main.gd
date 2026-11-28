@@ -23,6 +23,7 @@ const Levels = preload("res://rules/levels.gd")
 const Campaign = preload("res://game/campaign.gd")
 const SideState = preload("res://rules/side_state.gd")
 const SaveGame = preload("res://game/save_game.gd")
+const Cursors = preload("res://game/cursors.gd")
 
 const CHANNEL_ROWS := 4        ## rows of open sea between the two islands
 const FLY_SECONDS := 0.9       ## camera move between islands at a phase change
@@ -89,6 +90,7 @@ var resumed: Dictionary = {}   ## the save this match was loaded from ({} for a 
 
 
 func _ready() -> void:
+	Cursors.install(self)   # the gloved hand over buttons
 	if has_meta("save_dir"):
 		SaveGame.dir = String(get_meta("save_dir"))
 	# A save to carry on from (set by the title screen or the Esc menu).
