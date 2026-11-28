@@ -1,5 +1,6 @@
-## The end-of-round battle summary: what each side's attack did this round,
-## counted from the playout events and listed as stats in the comms screen.
+## The battle summary: what each side's attack did this round, counted from
+## the playout events and listed as stats in the comms screen, the enemy's
+## half as soon as its strikes land and ours when ours do.
 ## Only counts that aren't zero are listed, so a quiet round gives none.
 extends RefCounted
 
@@ -10,11 +11,15 @@ const SOLDIERS_PER_PLATOON := 8   ## the eight parachutes of a drop
 
 ## The summary as stats for the comms screen: "label: n" for each count in
 ## `labels` (count name -> label, from battle_report.stats in
-## data/dialogue.json), in that order. Counts of zero are skipped.
-static func stat_lines(events: Array, labels: Dictionary) -> Array:
+## data/dialogue.json), in that order. Counts of zero are skipped. keys:
+## only these counts (one half of the summary, battle_report.sections);
+## empty for all of them.
+static func stat_lines(events: Array, labels: Dictionary, keys: Array = []) -> Array:
 	var c := counts(events)
 	var out: Array = []
 	for key in labels:
+		if not keys.is_empty() and not keys.has(key):
+			continue
 		var n := int(c.get(key, 0))
 		if n != 0:
 			out.append("%s: %d" % [String(labels[key]), n])

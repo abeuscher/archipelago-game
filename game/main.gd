@@ -58,7 +58,11 @@ var ui: int = Ui.SETUP
 var _saved_snapshot: PackedByteArray   ## the game as last saved (_snapshot), empty if not saved yet
 var viewing: int = 0
 var rot: int = 0
-var battle_report: Array = []   ## the last attack's summary, "label: n" lines, in the comms screen until the next attack
+## The round's battle summary, in the comms screen from the enemy's strikes
+## until the next attack: {"round", "enemy": "label: n" lines, "ours": lines,
+## or null while our strikes are still to land, "<half>_attacked": whether
+## that side sent anything}. Empty before any.
+var battle_report: Dictionary = {}
 var clock_left: float = 0.0
 var clock_running: bool = false
 var tool: String = ""
@@ -288,8 +292,11 @@ func _start_round() -> void:
 	var events: Array = m.begin_round()
 	# Income and last round's battle summary go to the log without flashing
 	# it; the summary is also listed in the comms screen. Neither is said.
-	if not battle_report.is_empty():
-		hud.add_log("Battle summary: " + "; ".join(battle_report) + ".", false)
+	var summary: Array = battle_report.get("enemy", []).duplicate()
+	if battle_report.get("ours") != null:
+		summary.append_array(battle_report["ours"])
+	if not summary.is_empty():
+		hud.add_log("Battle summary: " + "; ".join(summary) + ".", false)
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
@@ -443,7 +450,7 @@ func _attack() -> void:
 		return
 	_set_clock(0)
 	audio.set_music("")   # the attack plays out with no music
-	battle_report = []    # this attack's summary replaces it
+	battle_report = {}    # this attack's summary replaces it, half by half
 	ui = Ui.PLAYOUT
 	_refresh_spy_marks()
 	_reset_rotation()
@@ -1688,7 +1695,9 @@ func _save_level_start() -> void:
 ## Carry on from a save taken in build and repair.
 func _resume(save: Dictionary) -> void:
 	var u: Dictionary = save.get("ui", {})
-	battle_report = u.get("battle_report", []).duplicate()
+	# Saves from before the summary was split kept a plain list: dropped.
+	var br = u.get("battle_report", {})
+	battle_report = br.duplicate(true) if br is Dictionary else {}
 	unaimed_warned = bool(u.get("unaimed_warned", false))
 	first_base_line_said = bool(u.get("first_base_line_said", false))
 	if bool(u.get("stronghold_line_said", false)):
@@ -1753,14 +1762,51 @@ func _level_text(level: int) -> String:
 	return "Land, %s" % LEVEL_NAMES[clampi(level, 0, LEVEL_NAMES.size() - 1)]
 
 
+## The battle summary for the comms screen: the round, then the enemy's
+## attack and ours side by side (labels in dialogue.json battle_report).
+func _battle_report_text() -> String:
+	var br: Dictionary = lines.get("battle_report", {})
+	var sec: Dictionary = br.get("sections", {})
+	var cols: Array = []
+	for half in ["enemy", "ours"]:
+		var d: Dictionary = sec.get(half, {})
+		var v = battle_report.get(half)
+		var body: String
+		if v == null:
+			body = String(d.get("pending", ""))
+		elif (v as Array).is_empty():
+			body = String(d.get("quiet" if bool(battle_report.get(half + "_attacked", false)) else "none", ""))
+		else:
+			body = "\n".join(v)
+		cols.append([String(d.get("title", half)), body])
+	var cell := "[cell expand=1 padding=0,0,14,2]%s[/cell]"
+	var t := "[b]%s[/b]\n[table=2]" % String(br.get("title", "Round {n}")).format({"n": int(battle_report.get("round", 0))})
+	t += cell % ("[b]%s[/b]" % cols[0][0]) + cell % ("[b]%s[/b]" % cols[1][0])
+	t += cell % cols[0][1] + cell % cols[1][1]
+	return t + "[/table]"
+
+
+## One half of the battle summary ("enemy" or "ours") from the playout's
+## events, shown in the comms screen at once. attacked: that side sent
+## something this round.
+func _report_half(half: String, events: Array, attacked: bool) -> void:
+	var br: Dictionary = lines.get("battle_report", {})
+	var keys: Array = br.get("sections", {}).get(half, {}).get("keys", [])
+	if battle_report.is_empty():
+		battle_report = {"round": m.round_number, "enemy": [], "ours": null}
+	battle_report[half] = BattleReport.stat_lines(events, br.get("stats", {}), keys)
+	battle_report[half + "_attacked"] = attacked
+	_update_info()
+
+
 func _update_info() -> void:
 	var target := selected if selected.y >= 0 else hovered
 	hud.clear_info_actions()
 	_update_hover_text()
 	if target.y < 0:
 		# Nothing pointed at: the last attack's summary, until the next one.
-		var show_report: bool = not battle_report.is_empty() and ui in [Ui.BUILD, Ui.TARGETING]
-		hud.set_info("[b]Battle summary, round %d[/b]\n%s" % [m.round_number - 1, "\n".join(battle_report)] if show_report else "")
+		var show_report: bool = not battle_report.is_empty() and ui in [Ui.BUILD, Ui.TARGETING, Ui.PLAYOUT]
+		hud.set_info(_battle_report_text() if show_report else "")
 		return
 	if target.x == 0:
 		var st = _own_state()
@@ -2097,6 +2143,8 @@ func _run_playout() -> void:
 		await _wait(0.6)
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
+	# The summary starts in the comms screen: what the enemy's attack did.
+	_report_half("enemy", events, not launches[1].is_empty() or not arrivals[1].is_empty())
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed", "agent_killed"]:
 			_log_event(ev)
@@ -2140,6 +2188,8 @@ func _run_playout() -> void:
 		await _wait(longest)
 	audio.set_music("")   # our missiles are down: the battle theme fades out
 	enemy_board.set_tiles(_enemy_tiles())
+	# Our half of the summary joins the enemy's in the comms screen.
+	_report_half("ours", events, not launches[0].is_empty() or not arrivals[0].is_empty())
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)
@@ -2150,7 +2200,6 @@ func _run_playout() -> void:
 	await _wait(0.8)
 	effects.clear()
 	spy_marks.clear()
-	battle_report = BattleReport.stat_lines(events, lines.get("battle_report", {}).get("stats", {}))
 	ui = Ui.BUILD   # placeholder until the next phase sets itself
 	_refresh_spy_marks()
 	_after_playout()

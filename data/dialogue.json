@@ -155,7 +155,7 @@
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
   ],
-  "_announcements": "Said at moments in the game. Income and the last round's battle summary are not said: income goes to the log, and the summary to the log and the comms screen (from battle_report.stats). Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
+  "_announcements": "Said at moments in the game. Income and the round's battle summary are not said: income goes to the log, and the summary to the log and the comms screen (from battle_report.stats, built up during the playout: the enemy's half when its strikes land, ours when ours do). Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
   "announcements": {
     "incoming_one": {
       "character": "ginger",
@@ -256,6 +256,23 @@
         "enemy_destroyed": "Enemy buildings destroyed",
         "our_soldiers_lost": "Our soldiers lost",
         "enemy_soldiers_lost": "Enemy soldiers stopped"
+      },
+      "_sections": "The summary in two halves, side by side in the comms screen: the enemy's attack, listed as soon as its strikes have landed, then ours, added when our strikes have landed. keys: which stats go in each half. none: the half's text when that side sent nothing; quiet: when it attacked but there is nothing to count; pending: our half while our strikes are still to land. title: over both halves, {n} the round.",
+      "title": "Round {n}",
+      "sections": {
+        "enemy": {
+          "title": "Enemy attack",
+          "keys": ["hit_us", "our_damaged", "our_destroyed", "shot_down_by_us", "transports_shot_down_by_us", "enemy_soldiers_lost"],
+          "none": "No attack.",
+          "quiet": "Nothing to report."
+        },
+        "ours": {
+          "title": "Our attack",
+          "keys": ["hit_them", "our_shot_down", "our_transports_shot_down", "enemy_damaged", "enemy_destroyed", "our_soldiers_lost"],
+          "none": "No attack.",
+          "quiet": "Nothing to report.",
+          "pending": "Going in..."
+        }
       }
     },
     "_endings": "endings: one of these, picked at random each time, is said after the line."

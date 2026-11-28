@@ -443,3 +443,23 @@ func test_walkthrough_comes_first_and_points_at_the_controls() -> void:
 		done.append(ids[k])
 		r = Tips.update(tips, {"phase": "setup"}, done, null)
 	eq(r["current"]["id"], "place_bases", "then the Admiral on placing bases")
+
+
+func test_battle_report_halves_split_every_stat_once() -> void:
+	var br: Dictionary = Tips.load_lines()["battle_report"]
+	var enemy: Array = br["sections"]["enemy"]["keys"]
+	var ours: Array = br["sections"]["ours"]["keys"]
+	for key in br["stats"]:
+		eq(int(enemy.has(key)) + int(ours.has(key)), 1, "%s in exactly one half" % key)
+	eq(enemy.size() + ours.size(), br["stats"].size(), "no keys beyond the stats")
+	var ev := [
+		{"type": "impact", "side": 1, "id": 1, "damaged": [{"hex": 9, "damage": 30}]},
+		{"type": "destroyed", "side": 0, "hex": 9, "building": "bank"},
+		{"type": "engage", "side": 0, "id": 3, "hit": true},
+		{"type": "impact", "side": 0, "id": 10, "damaged": [{"hex": 3, "hits": 1.0}]},
+		{"type": "engage", "side": 1, "id": 11, "hit": true},
+	]
+	eq(BattleReport.stat_lines(ev, br["stats"], enemy), [
+		"Enemy missiles that hit us: 1", "Our buildings lost: 1", "Enemy missiles shot down: 1"], "the enemy's attack")
+	eq(BattleReport.stat_lines(ev, br["stats"], ours), [
+		"Our missiles on target: 1", "Our missiles shot down: 1", "Enemy buildings damaged: 1"], "our attack")

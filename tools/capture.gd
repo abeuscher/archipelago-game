@@ -263,10 +263,21 @@ func _run() -> void:
 	await _shot("14b_missile_falling")
 	await create_timer(0.35).timeout
 	await _shot("14c_explosion")
+	# The comms screen with the enemy's half of the summary, ours to come.
+	while main.ui == main.Ui.PLAYOUT and not main.battle_report.has("enemy_attacked"):
+		await process_frame
+	main.selected = Vector2i(-1, -1)
+	main.hovered = Vector2i(-1, -1)
+	main._update_info()
+	await _shot("14d_summary_enemy_half")
 	while main.ui == main.Ui.PLAYOUT:
 		await process_frame
 	await create_timer(0.3).timeout
 	await _shot("15a_income_report")
+	main.selected = Vector2i(-1, -1)
+	main.hovered = Vector2i(-1, -1)
+	main._update_info()
+	await _shot("15b_battle_summary")
 	main.hud.announcer._ok.pressed.emit()   # round 2 income report
 	main.hud._log_button.button_pressed = true
 	await _shot("15_round2_log")
