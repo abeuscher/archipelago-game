@@ -1244,14 +1244,15 @@ func _update_blasts() -> void:
 		var mdef: Dictionary = data.missile(String(s[0]))
 		if mdef.has("carries"):
 			continue   # troops show their drop arrow instead
+		# What the impact will uncover, lightened as for the scouting missile,
+		# then the blast over it (a blast always wins over a view).
+		for h in g.within(int(s[1]), int(mdef["view_radius"])):
+			if not enemy_board.blast_fill.has(h):
+				enemy_board.blast_fill[h] = VIEW_TINT
 		var r := int(mdef["blast_radius"])
-		var tint := BLAST_TINT
-		if r < 0:
-			r = int(mdef["view_radius"])
-			tint = VIEW_TINT
-		for h in g.within(int(s[1]), r):
-			if not enemy_board.blast_fill.has(h) or tint == BLAST_TINT:
-				enemy_board.blast_fill[h] = tint
+		if r >= 0:
+			for h in g.within(int(s[1]), r):
+				enemy_board.blast_fill[h] = BLAST_TINT
 	if centre >= 0:
 		enemy_board.blast_fill[centre] = CENTRE_TINT
 	enemy_board.queue_redraw()
