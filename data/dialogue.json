@@ -34,21 +34,21 @@
           3.4
         ]
       ],
-      "text": "In the top right is what we have on hand: our money, our fuel, and any research points. In parentheses next to each is how much of it we're producing every round."
+      "text": "In the top right is what we have on hand: our money, our fuel, and any research points. In parentheses next to each is how much of it we're producing per round."
     },
     {
       "id": "intro_minimap",
       "character": "ginger",
       "when": "setup",
       "anchor": "minimap",
-      "text": "This is the minimap. Use it to move around the map, and the buttons beneath it to rotate and zoom your view."
+      "text": "This is the minimap. Use it to change the view. The buttons beneath it adjust rotation and zoom."
     },
     {
       "id": "intro_info",
       "character": "ginger",
       "when": "setup",
       "anchor": "info",
-      "text": "And this is the info panel. It reads out whatever's relevant to what you're doing as you move through the game."
+      "text": "This is the status panel, providing in-game updates and information."
     },
     {
       "id": "intro_comms",
@@ -56,35 +56,35 @@
       "when": "setup",
       "arrows": [
         [
-          "volume",
+          "status",
           0.0
         ],
         [
-          "status",
+          "volume",
           2.4
         ]
       ],
-      "text": "Oh, and you can control the volume here... and track our bases' health here."
+      "text": "Oh, the status meter on the left shows our base health... and the comms slider on the right controls the volume."
     },
     {
       "id": "intro_done",
       "character": "ginger",
       "when": "setup",
-      "text": "So now you've got the 411. Good luck out there, General. We're all counting on you."
+      "text": "Good luck out there, General. We're all counting on you."
     },
     {
       "id": "place_bases",
       "character": "admiral",
       "when": "setup",
       "anchor": "tool:base",
-      "text": "General, place our bases carefully. If we lose all three, we lose the war. A decoy can help draw the enemy away from our real targets."
+      "text": "General, place our bases carefully. If we lose all three, we lose the war. A well-placed decoy can distract the enemy's efforts."
     },
     {
       "id": "setup_done",
       "character": "ginger",
       "when": "setup_complete",
       "anchor": "button:Undo",
-      "text": "Very strategic choices, General! Now that our bases are in place, we need to place our offensive and defensive buildings. If you want to reposition any bases or decoys, now's the time. Hit undo to back up."
+      "text": "Very strategic choices, General! Now that our bases are in position, we need to place our offensive and defensive buildings. If you want to reposition any bases or decoys, now's the time. Hit undo to back up."
     },
     {
       "id": "round_timer",
@@ -112,40 +112,40 @@
       "character": "mechanic",
       "when": "launcher_targeted",
       "anchor": "hex:targeted_launcher",
-      "text": "General, they keep hitting the same launcher. Repairs won't hold while they're aiming at it. Build a new one somewhere they haven't seen."
+      "text": "They keep hitting the same launcher, sir! Repairs won't hold while they're aiming at it. Build a new one somewhere else."
     },
     {
       "id": "build_launcher",
       "character": "pilot",
       "when": "build_without_launcher",
       "anchor": "tool:basic_launcher",
-      "text": "General, the missile launcher is our first offensive weapon. Build one early so we can start hitting back and find out where the enemy's bases are before it's too late."
+      "text": "The missile launcher is our first offensive weapon. Build one early so we can start hitting back and find out where the enemy's bases are before it's too late."
     },
     {
       "id": "build_anti_air",
       "character": "pilot",
       "when": "build_without_anti_air",
       "from_round": 2,
-      "text": "We need anti-air, General. Each one shoots at missiles aimed within {aa_radius} hexes of it, up to {aa_engagements} a round.",
+      "text": "We need anti-air, General. Build some ASAP to minimize inbound missile damage.",
       "arrow": "tool:anti_air"
     },
     {
       "id": "research_radar",
       "character": "scientist",
       "when": "radar_not_started",
-      "text": "General, I'd research radar next. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%. Build a lab, then select it or click its beaker to pick the research."
+      "text": "Consider researching radar in a lab, General. Anti-air inside a radar's range hits {acc_radar}% of the time instead of {acc}%."
     },
     {
       "id": "troop_aim",
       "character": "pilot",
       "when": "troop_selected",
-      "text": "Looks like you're trying to land your troops on enemy territory, General. Click once on where you want them to land, then click on an adjacent hex to tell them which way to move once boots are on the ground."
+      "text": "Looks like you're trying to land your troops on enemy territory. Click once where you want them to land, then click on an adjacent hex to tell them which way to move once boots are on the ground."
     },
     {
       "id": "aim",
       "character": "pilot",
       "when": "targeting",
-      "text": "Pick a weapon on the left, then click on the map to aim it. Expect to miss a few times as we clear the fog of war and learn the layout of their island.",
+      "text": "Pick a weapon on the left, then click on the map to aim it. Expect to miss a few times as we clear the fog of war and learn the layout of their island. Click Attack when you're done to initiate combat.",
       "arrow": "weapons"
     },
     {
@@ -166,8 +166,9 @@
       "text": "General! {n} enemy missiles incoming!",
       "endings": [
         "Brace for impact!",
-        "This could get wild!",
-        "Let's hope our defenses hold!"
+        "This could get dicey!",
+        "Let's hope our defenses hold!",
+        "Hold onto your hat!"
       ]
     },
     "incoming_troops": {
@@ -188,11 +189,11 @@
     },
     "level_3_intro": {
       "character": "admiral",
-      "text": "Well done, General. Our scientists have cracked the atom. Finish enough research and they can build us a nuclear silo. A nuke hits twice as hard as any missile and flattens everything around it, and anti-air will rarely stop one. Expect the enemy to be working on the same."
+      "text": "Well done, General. Our scientists have cracked the atom; nuclear silos are unlocked. A nuke hits twice as hard as any missile and flattens everything around it. It's also resistant to AA and quite expensive. Use them wisely."
     },
     "level_4_intro": {
       "character": "admiral",
-      "text": "Good work, General. We keep our silo and bank research from the last battle, but so does the enemy, so expect nukes early. A silo gives itself away the first time it fires, so hit back fast. And intelligence has given us the enclave. It sends our agents over by helicopter to scout behind their lines and disarm any nuke they get near, and keeps an agent at home who hunts down the enemy's spies. And our engineers can now double what each refinery makes."
+      "text": "General, we are progressing well. We now have a foothold on this planet and we have kept much of the research from previous rounds. In addition, we may now build Enclaves, which produce Foreign Agents - who can land in enemy territory, remove fog of war as they explore, and disable nukes when they find them. Thankfully, the Enclave also provides Domestic Agents, who hunt down and kill Foreign Agents."
     },
     "level_5_intro": {
       "character": "admiral",
@@ -200,7 +201,7 @@
     },
     "level_2_intro": {
       "character": "admiral",
-      "text": "Congratulations on your victory, General. As you have been fighting, our scientists have come up with a new type of base: a stronghold. It is impervious to air attack and comes with a mounted anti-aircraft missile on its roof. The only way it can be taken is with ground troops."
+      "text": "Congratulations on your victory, General. As you have been fighting, our scientists have come up with a new type of base: a stronghold. It is impervious to air attack and comes with a mounted anti-aircraft missile on its roof. The only way it can be taken is with ground troops. Excelsior!"
     },
     "enemy_stronghold": {
       "character": "admiral",
@@ -223,8 +224,8 @@
         "Two more and we're toast!",
         "Two more and it's curtains for us.",
         "Two more and we'll be finished! Finished, I tell you!",
-        "Two more and we'll be cooked!",
-        "Two more and it's the end of the road!"
+        "Two more and our goose is cooked!",
+        "Two more and we're dead meat!"
       ]
     },
     "build_timeout": {
@@ -237,7 +238,7 @@
     },
     "boat_spotted": {
       "character": "ginger",
-      "text": "General, an enemy boat is crossing the channel. It will come ashore on our coast when this round's attack plays out."
+      "text": "General, an enemy boat is crossing the channel."
     },
     "battle_report": {
       "character": "pilot",
