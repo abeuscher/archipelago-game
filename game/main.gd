@@ -55,6 +55,7 @@ var tips_snoozed: Array = []         ## hidden for the rest of this phase
 var lines: Dictionary = {}           ## the characters' lines (dialogue.json "announcements")
 
 var ui: int = Ui.SETUP
+var _saved_snapshot: PackedByteArray   ## the game as last saved (_snapshot), empty if not saved yet
 var viewing: int = 0
 var rot: int = 0
 var battle_report: Array = []   ## the last attack's summary, "label: n" lines, in the comms screen until the next attack
@@ -159,7 +160,6 @@ func _ready() -> void:
 	hud.debug_toggle_fog.connect(_debug_toggle_fog)
 	hud.debug_next_level.connect(_debug_next_level)
 	hud.hex_anchor = _hex_anchor
-	hud.earnings_requested.connect(_update_earnings)
 	hud.tip_dismissed.connect(_on_tip_dismissed)
 	hud.research_panel.start_requested.connect(_start_research)
 	hud.research_panel.use_stored_requested.connect(_use_stored_research)
@@ -168,6 +168,10 @@ func _ready() -> void:
 	_update_rules_text()
 	hud.esc_menu.settings_changed.connect(_on_settings_changed)
 	hud.esc_menu.quit_requested.connect(func(): get_tree().quit())
+	hud.esc_menu.main_menu_requested.connect(_to_main_menu)
+	hud.esc_menu.is_unsaved = is_unsaved
+	# Closing the window asks to save first, like Quit (see _notification).
+	get_tree().auto_accept_quit = false
 	hud.esc_menu.save_requested.connect(_save_requested)
 	hud.esc_menu.load_requested.connect(_load_requested)
 	hud.esc_menu.opened.connect(_update_save_menu)
@@ -1085,8 +1089,6 @@ func _refresh() -> void:
 		int(next_income["research"]) if next_income.has("research") else -1)
 	_build_toolbar(own_state)
 	_build_strip(own_state)
-	if hud.earnings_visible():
-		_update_earnings()
 	if hud.research_panel.visible:
 		hud.research_panel.show_state(m.sides[0], data, ui == Ui.BUILD)
 	_update_tips()
@@ -1472,11 +1474,6 @@ func _use_stored_research(item: String) -> void:
 	_refresh()
 
 
-func _update_earnings() -> void:
-	var p: Dictionary = Earnings.project(_own_state(), data, m.round_number)
-	hud.set_earnings(p["lines"], int(p["round"]))
-
-
 # --- Tips ------------------------------------------------------------------
 
 func _tip_context() -> Dictionary:
@@ -1639,6 +1636,44 @@ func _autosave() -> void:
 	var e := SaveGame.write(SaveGame.current, _make_save(SaveGame.name_of(SaveGame.current)))
 	if e != "":
 		hud.add_log("[color=salmon]Autosave failed: %s.[/color]" % e, false)
+	else:
+		_saved_snapshot = _snapshot()
+
+
+## The game as a save would hold it, less the save's name, for telling
+## whether anything has changed since the last save.
+func _snapshot() -> PackedByteArray:
+	var s := _make_save("")
+	s.erase("name")
+	return var_to_bytes(s)
+
+
+## Leaving now would lose progress: in build and repair, anything changed
+## since the last save; in the other phases (where saving isn't possible)
+## always, as a round is under way; never once the match is over (a win
+## has already saved the next level's start, a defeat has nothing to keep).
+func is_unsaved() -> bool:
+	if ui == Ui.OVER:
+		return false
+	if ui != Ui.BUILD:
+		return true
+	return _saved_snapshot.is_empty() or _snapshot() != _saved_snapshot
+
+
+## From the Esc menu (after any save question): back to the title screen.
+func _to_main_menu() -> void:
+	get_tree().paused = false
+	get_tree().auto_accept_quit = true
+	get_tree().change_scene_to_file("res://game/title.tscn")
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and hud != null:
+		hud.esc_menu.request_leave("quit")
+
+
+func _exit_tree() -> void:
+	get_tree().auto_accept_quit = true
 
 
 ## A level just won: the current save now starts the next one (Campaign has
@@ -1662,6 +1697,7 @@ func _resume(save: Dictionary) -> void:
 	hud.add_log("Loaded \"%s\": round %d." % [String(save.get("name", SaveGame.DEFAULT_NAME)), m.round_number])
 	audio.start_ambient()
 	_enter_build()
+	_saved_snapshot = _snapshot()
 
 
 ## Whether the game can be saved now, and the Esc menu's saves screen.
@@ -1688,6 +1724,7 @@ func _save_requested(as_new: bool, name: String) -> void:
 		hud.esc_menu.save_done(e + ".")
 		return
 	SaveGame.current = path
+	_saved_snapshot = _snapshot()
 	_update_save_menu()
 	hud.esc_menu.save_done("Saved as \"%s\". Autosaves go here from now on." % name if as_new else "Saved.")
 

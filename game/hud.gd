@@ -1,8 +1,9 @@
 ## Screen interface, laid out per spec section 14.
 ##   Left toolbar: phase tools, with the scoreboard timer at its foot.
 ##   Top middle: round indicator, and log events flashing as they happen.
-##   Top right: resources (money with next round's income in brackets),
-##   the next-round earnings button and the log history button.
+##   Top right: resources (money with next round's income in brackets).
+##   The log history button sits in the toolbar's title row, right of the
+##   phase name.
 ##   Right side, toward the middle: the strip of research beakers and base
 ##   buttons, all the same size.
 ##   Bottom right: the radar monitor (the minimap, with coloured keys for
@@ -31,7 +32,6 @@ signal rotate_requested(dir: int)
 signal zoom_requested(dir: int)
 signal volume_changed(value: float, done: bool)   ## done: the slider was let go
 signal tip_dismissed(id: String, forever: bool)
-signal earnings_requested
 signal debug_add_money
 signal debug_toggle_fog(on: bool)
 signal debug_next_level
@@ -71,9 +71,6 @@ var _log_panel: PanelContainer
 var _log: RichTextLabel
 var _log_button: Button
 var _unread: int = 0
-var _earn_panel: PanelContainer
-var _earn_text: Label
-var _earn_button: Button
 var _strip: VBoxContainer
 var _strip_title: PanelContainer
 var _strip_title_text: Label
@@ -148,12 +145,43 @@ func _ready() -> void:
 	var plate := PanelContainer.new()
 	plate.add_theme_stylebox_override("panel", _plate_box(Color(0.84, 0.82, 0.72), PANEL_EDGE, 2, 6, 4))
 	plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	lv.add_child(plate)
+	var title_row := HBoxContainer.new()
+	lv.add_child(title_row)
+	title_row.add_child(plate)
 	_tool_title = Label.new()
 	_tool_title.add_theme_font_override("font", bold_font())
 	_tool_title.add_theme_font_size_override("font_size", 16)
 	_tool_title.add_theme_color_override("font_color", Color(0.16, 0.15, 0.12))
 	plate.add_child(_tool_title)
+	# The log button: just the book with a slight shadow, no key under it,
+	# at the right end of the title row (kept up top but quiet).
+	var title_gap := Control.new()
+	title_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_row.add_child(title_gap)
+	_log_button = Button.new()
+	_log_button.toggle_mode = true
+	_log_button.focus_mode = Control.FOCUS_NONE
+	_log_button.tooltip_text = "Read back the game log"
+	_log_button.toggled.connect(_toggle_log)
+	for st in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		_log_button.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	_log_button.custom_minimum_size = Vector2(36, 32)
+	_log_button.add_child(DevicePanel.book_icon(true))
+	_log_badge = Control.new()
+	_log_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_log_badge.position = Vector2(24, -6)
+	_log_badge.size = Vector2(22, 18)
+	_log_badge.visible = false
+	_log_badge.draw.connect(func():
+		var t := str(_unread) if _unread < 100 else "99+"
+		var f := bold_font()
+		var w := maxf(18.0, f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0)
+		var r := Rect2(Vector2(0, 0), Vector2(w, 18))
+		_log_badge.draw_style_box(DevicePanel.box(Color(0.85, 0.15, 0.12), Color(0.3, 0.05, 0.04), 2, 9, [0, 0, 0, 0]), r)
+		_log_badge.draw_string(f, Vector2(5, 13.5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1)))
+	_log_button.add_child(_log_badge)
+	title_row.add_child(_log_button)
 	var tray := PanelContainer.new()
 	_tray = tray
 	tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -187,7 +215,7 @@ func _ready() -> void:
 	_timer.tooltip_text = "Time left in this phase. Black when the clock is off or not running."
 	alarm_stack.add_child(_timer)
 
-	# Top right: resources, then the earnings and log buttons.
+	# Top right: resources.
 	var tr := VBoxContainer.new()
 	tr.anchor_left = 1.0
 	tr.anchor_right = 1.0
@@ -199,51 +227,6 @@ func _ready() -> void:
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(tr)
 	tr.add_child(_build_resources())
-	var trb := HBoxContainer.new()
-	trb.alignment = BoxContainer.ALIGNMENT_END
-	trb.add_theme_constant_override("separation", 6)
-	trb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tr.add_child(trb)
-	_earn_button = Button.new()
-	_earn_button.text = "Next round"
-	_earn_button.toggle_mode = true
-	_earn_button.focus_mode = Control.FOCUS_NONE
-	_earn_button.tooltip_text = "Show what next round's income will be"
-	_earn_button.toggled.connect(_toggle_earnings)
-	_key_button(_earn_button, Color(0.42, 0.80, 0.38))
-	_earn_button.custom_minimum_size = Vector2(116, 38)
-	trb.add_child(_earn_button)
-	_log_button = Button.new()
-	_log_button.toggle_mode = true
-	_log_button.focus_mode = Control.FOCUS_NONE
-	_log_button.tooltip_text = "Read back the game log"
-	_log_button.toggled.connect(_toggle_log)
-	_key_button(_log_button, Color(0.98, 0.58, 0.22))
-	_log_button.custom_minimum_size = Vector2(44, 38)
-	_log_button.add_child(DevicePanel.book_icon())
-	_log_badge = Control.new()
-	_log_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_badge.position = Vector2(30, -8)
-	_log_badge.size = Vector2(22, 18)
-	_log_badge.visible = false
-	_log_badge.draw.connect(func():
-		var t := str(_unread) if _unread < 100 else "99+"
-		var f := bold_font()
-		var w := maxf(18.0, f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0)
-		var r := Rect2(Vector2(0, 0), Vector2(w, 18))
-		_log_badge.draw_style_box(DevicePanel.box(Color(0.85, 0.15, 0.12), Color(0.3, 0.05, 0.04), 2, 9, [0, 0, 0, 0]), r)
-		_log_badge.draw_string(f, Vector2(5, 13.5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1)))
-	_log_button.add_child(_log_badge)
-	trb.add_child(_log_button)
-	_earn_panel = PanelContainer.new()
-	_earn_panel.visible = false
-	_earn_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-	tr.add_child(_earn_panel)
-	_earn_text = Label.new()
-	_earn_text.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_earn_text.custom_minimum_size = Vector2(480, 0)
-	_earn_panel.add_child(_earn_text)
-
 	# Top middle: the round indicator, flashes below.
 	var top := VBoxContainer.new()
 	top.anchor_left = 0.5
@@ -788,20 +771,6 @@ static func _small_button(b: Button) -> void:
 	b.custom_minimum_size = Vector2(0, 28)
 
 
-func set_earnings(lines: Array, next_round: int) -> void:
-	_earn_text.text = "Projected for round %d\n%s" % [next_round, "\n".join(lines)]
-
-
-func _toggle_earnings(on: bool) -> void:
-	_earn_panel.visible = on
-	if on:
-		earnings_requested.emit()
-
-
-func earnings_visible() -> bool:
-	return _earn_panel.visible
-
-
 # --- Notices ---------------------------------------------------------------
 
 ## A short warning under the round title: white on dark red, fading after a
@@ -1219,10 +1188,10 @@ func debug_visible() -> bool:
 	return _debug.visible
 
 
-## A window over the map is open (log, research, next-round projection or
-## an end-of-game overlay): the mouse wheel shouldn't zoom the map then.
+## A window over the map is open (log, research or an end-of-game
+## overlay): the mouse wheel shouldn't zoom the map then.
 func modal_open() -> bool:
-	return _log_panel.visible or research_panel.visible or _earn_panel.visible or _overlay.visible or _confirm.visible \
+	return _log_panel.visible or research_panel.visible or _overlay.visible or _confirm.visible \
 		or _menu != null
 
 

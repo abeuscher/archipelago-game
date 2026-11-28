@@ -168,14 +168,17 @@ static func close_button(on_close: Callable) -> Button:
 	return close
 
 
-## A small book drawn on a key, for the log button.
-static func book_icon() -> Control:
+## A small book, for the log button. shadow: a soft drop shadow under it,
+## for when it sits on the panel without a key.
+static func book_icon(shadow := false) -> Control:
 	var c := Control.new()
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.draw.connect(func():
 		var m := c.size / 2.0
 		var cover := Rect2(m + Vector2(-9, -11), Vector2(18, 21))
+		if shadow:
+			c.draw_rect(Rect2(cover.position + Vector2(2.5, 2.5), cover.size).grow(1.5), Color(0, 0, 0, 0.35))
 		c.draw_rect(cover.grow(1.5), PLATE_INK)
 		c.draw_rect(cover, Color(0.55, 0.25, 0.12))
 		c.draw_rect(Rect2(cover.position + Vector2(3, 0), Vector2(15, 18)), Color(0.96, 0.93, 0.84))

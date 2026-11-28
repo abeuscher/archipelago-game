@@ -33,7 +33,7 @@ Controls:
 | Rotate the board 60° | Q / E, or the rotate buttons under the minimap |
 | Look at the other island | Click or drag on the minimap (enemy island north, yours south); the view also moves there when the phase changes |
 | Cancel a tool or selection | Right click |
-| Pause, options, quit | Esc (the screen goes black while paused). Options has a Game Rules link with the full rules. |
+| Pause, save and load, options, main menu, quit | Esc (the screen goes black while paused). Options has a Game Rules link with the full rules. Main Menu and Quit ask to save first when there is unsaved progress (so does closing the window). |
 | Debug panel: add money, clear the fog of war | \` (the key left of 1) |
 
 The screen follows section 14 of the spec:
@@ -43,7 +43,8 @@ The screen follows section 14 of the spec:
 - **Research.** Select a lab and press "Research...", or click a beaker.
 - **Ginger.** Speaks tips and announcements (round starts, incoming attacks) from the left toolbar. A tip dims the screen around what it is about.
 - **Notices.** When something can't be done (out of money, out of fuel, a damaged launcher), a red notice under the round title says why.
-- **Top right.** Money (with next round's income in brackets), fuel and research. "Next round" shows next round's projected income in full. "Log" opens the full game log; events also flash at the top as they happen.
+- **Top right.** Money (with next round's income in brackets), fuel and research.
+- **Log.** The book icon at the right of the toolbar's title row opens the full game log; events also flash at the top as they happen.
 
 Settings and tip progress are saved to `user://settings.json`. On Windows that is `%APPDATA%\Godot\app_userdata\Archipelago\settings.json`. Delete the file to reset them.
 

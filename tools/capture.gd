@@ -223,10 +223,9 @@ func _run() -> void:
 	main.hud.status_gauge.set_hits(2.5, 6)   # a battered gauge, for the record
 	await _shot("07c_status_gauge")
 	main._refresh()
-	main.hud._earn_button.button_pressed = true
-	main._refresh()
-	await _shot("08_earnings")
-	main.hud._earn_button.button_pressed = false
+	main.hud._log_button.button_pressed = true
+	await _shot("08_log")
+	main.hud._log_button.button_pressed = false
 	main.hud.show_notice(main.hud.NOTICE_MONEY)
 	await _shot("08b_notice")
 	main._rotate(1)
@@ -243,6 +242,8 @@ func _run() -> void:
 	main.hud.esc_menu.open_menu()
 	print("esc menu rect ", main.hud.esc_menu.get_global_rect())
 	await _shot("12_esc_menu")
+	main.hud.esc_menu.request_leave("main_menu")
+	await _shot("12b_leave_question")
 	main.hud.esc_menu._show_options()
 	await _shot("13_options")
 	main.hud.esc_menu._show_rules()

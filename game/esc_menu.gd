@@ -1,5 +1,6 @@
 ## The Esc menu (section 14): pauses the game and offers saved games,
-## options and quit.
+## options, the main menu and quit. Leaving (main menu or quit) with
+## progress not yet saved asks first, offering to save.
 ## Options holds the game settings. Clock changes apply from the next phase;
 ## decoys per side applies from the next game, since both sides have already
 ## been set up under the current value.
@@ -11,6 +12,7 @@ const SaveGame = preload("res://game/save_game.gd")
 
 signal settings_changed(s: Dictionary)
 signal quit_requested
+signal main_menu_requested
 signal opened
 ## Save into the current save, or (as_new) a new one called `name`.
 signal save_requested(as_new: bool, name: String)
@@ -42,6 +44,14 @@ var _save_list: VBoxContainer
 var can_save: bool = false       ## set by the game: saving only in build and repair
 var current_save: String = ""    ## the name of the save autosaves go to
 var load_only: bool = false      ## title screen: the saves list opens alone, for loading
+## Set by the game: true when leaving now would lose progress (nothing set:
+## never asks).
+var is_unsaved: Callable = Callable()
+var _leave_box: VBoxContainer
+var _leave_text: Label
+var _leave_note: Label
+var _leave_save: Button
+var _leave_kind: String = ""     ## "quit" or "main_menu" while the leave question is up
 
 
 func _ready() -> void:
@@ -95,7 +105,30 @@ func _ready() -> void:
 	_main_box.add_child(_menu_key("RESUME", "play", Color(0.42, 0.80, 0.38), close_menu))
 	_main_box.add_child(_menu_key("SAVE / LOAD", "disk", Color(0.40, 0.70, 0.95), _show_saves))
 	_main_box.add_child(_menu_key("OPTIONS", "gear", Color(0.98, 0.82, 0.22), _show_options))
-	_main_box.add_child(_menu_key("QUIT", "exit", Color(0.90, 0.36, 0.22), func(): quit_requested.emit()))
+	_main_box.add_child(_menu_key("MAIN MENU", "home", Color(0.98, 0.58, 0.22), func(): request_leave("main_menu")))
+	_main_box.add_child(_menu_key("QUIT", "exit", Color(0.90, 0.36, 0.22), func(): request_leave("quit")))
+
+	# Leaving with progress not yet saved: save first, leave anyway, or stay.
+	_leave_box = VBoxContainer.new()
+	_leave_box.add_theme_constant_override("separation", 14)
+	_leave_box.custom_minimum_size = Vector2(300, 0)
+	_leave_box.visible = false
+	stack.add_child(_leave_box)
+	_leave_text = Label.new()
+	_leave_text.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_leave_text.custom_minimum_size = Vector2(420, 0)
+	_leave_text.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
+	_leave_box.add_child(_leave_text)
+	_leave_save = _menu_key("SAVE AND LEAVE", "disk", Color(0.40, 0.70, 0.95), _save_and_leave)
+	_leave_box.add_child(_leave_save)
+	_leave_box.add_child(_menu_key("LEAVE WITHOUT SAVING", "exit", Color(0.90, 0.36, 0.22), _leave))
+	_leave_box.add_child(_menu_key("CANCEL", "play", Color(0.42, 0.80, 0.38), _show_main))
+	_leave_note = Label.new()
+	_leave_note.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_leave_note.custom_minimum_size = Vector2(420, 0)
+	_leave_note.add_theme_font_size_override("font_size", 13)
+	_leave_note.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
+	_leave_box.add_child(_leave_note)
 
 	_opts_box = VBoxContainer.new()
 	_opts_box.add_theme_constant_override("separation", 8)
@@ -178,6 +211,7 @@ func _ready() -> void:
 	_saves_box = VBoxContainer.new()
 	_saves_box.add_theme_constant_override("separation", 8)
 	_saves_box.visible = false
+	_leave_box.visible = false
 	stack.add_child(_saves_box)
 	_save_controls = VBoxContainer.new()
 	_save_controls.add_theme_constant_override("separation", 8)
@@ -264,7 +298,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if not visible:
 			open_menu()
-		elif _saves_box.visible:
+		elif _saves_box.visible or _leave_box.visible:
 			_show_main()
 		elif _rules_box.visible:
 			_show_options()
@@ -285,6 +319,7 @@ func _show_main() -> void:
 	_opts_box.visible = false
 	_rules_box.visible = false
 	_saves_box.visible = false
+	_leave_box.visible = false
 
 
 func _show_saves() -> void:
@@ -293,6 +328,7 @@ func _show_saves() -> void:
 	_opts_box.visible = false
 	_rules_box.visible = false
 	_saves_box.visible = true
+	_leave_box.visible = false
 	_save_controls.visible = not load_only
 	_label_save_key()
 	_save_name.editable = can_save
@@ -311,10 +347,12 @@ func _label_save_key() -> void:
 	_save_current.text = ("  SAVE TO \"%s\"  " % current_save).to_upper() if current_save != "" else "SAVE"
 
 
-## The game's answer to a save request, shown under the save keys.
+## The game's answer to a save request, shown under the save keys (and
+## under the leave question, if a save from there failed).
 func save_done(message: String) -> void:
 	_label_save_key()
 	_save_note.text = message
+	_leave_note.text = message
 	_save_name.text = ""
 	_fill_save_list()
 
@@ -364,12 +402,51 @@ func _fill_save_list() -> void:
 		row.add_child(del)
 
 
+## Main menu or quit ("main_menu" or "quit"): straight away if nothing would
+## be lost, otherwise the question whether to save first. Also used by the
+## game when the window is closed.
+func request_leave(kind: String) -> void:
+	_leave_kind = kind
+	if not is_unsaved.is_valid() or not bool(is_unsaved.call()):
+		_leave()
+		return
+	if not visible:
+		open_menu()
+	_plate_label.text = "SAVE GAME?"
+	_main_box.visible = false
+	_opts_box.visible = false
+	_rules_box.visible = false
+	_saves_box.visible = false
+	_leave_box.visible = true
+	_leave_note.text = ""
+	var where := "for the main menu" if kind == "main_menu" else "the game"
+	_leave_save.visible = can_save
+	if can_save:
+		_leave_text.text = "You have progress that isn't saved. Save to \"%s\" before leaving %s?" % [current_save, where]
+	else:
+		_leave_text.text = "Saving is possible only during build and repair. If you leave %s now, anything since your last save will be lost." % where
+
+
+func _save_and_leave() -> void:
+	save_requested.emit(false, "")
+	if not is_unsaved.is_valid() or not bool(is_unsaved.call()):
+		_leave()
+
+
+func _leave() -> void:
+	if _leave_kind == "main_menu":
+		main_menu_requested.emit()
+	else:
+		quit_requested.emit()
+
+
 func _show_rules() -> void:
 	_rules_label.text = rules_text
 	_plate_label.text = "GAME RULES"
 	_main_box.visible = false
 	_opts_box.visible = false
 	_saves_box.visible = false
+	_leave_box.visible = false
 	_rules_box.visible = true
 
 
@@ -387,6 +464,7 @@ func _show_options() -> void:
 	_rules_box.visible = false
 	_main_box.visible = false
 	_saves_box.visible = false
+	_leave_box.visible = false
 	_opts_box.visible = true
 
 
@@ -452,7 +530,8 @@ func _key_text(b: Button, size_px: int) -> void:
 		b.add_theme_color_override(c, DevicePanel.PLATE_INK)
 
 
-## Icons on the menu keys: a play triangle, a gear, a door with an arrow.
+## Icons on the menu keys: a play triangle, a gear, a disk, a house, a door
+## with an arrow.
 static func _draw_icon(ci: CanvasItem, kind: String, c: Vector2, key_color: Color) -> void:
 	var ink := DevicePanel.PLATE_INK
 	match kind:
@@ -473,6 +552,11 @@ static func _draw_icon(ci: CanvasItem, kind: String, c: Vector2, key_color: Colo
 			ci.draw_rect(Rect2(c + Vector2(-6, -12), Vector2(12, 8)), key_color)
 			ci.draw_rect(Rect2(c + Vector2(1, -11), Vector2(3, 6)), ink)
 			ci.draw_rect(Rect2(c + Vector2(-8, 1), Vector2(16, 9)), key_color)
+		"home":
+			# A house: roof, walls and a door in the key's colour.
+			ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-14, -1), c + Vector2(0, -13), c + Vector2(14, -1)]), ink)
+			ci.draw_rect(Rect2(c + Vector2(-10, -2), Vector2(20, 14)), ink)
+			ci.draw_rect(Rect2(c + Vector2(-3, 4), Vector2(6, 8)), key_color)
 		"exit":
 			ci.draw_rect(Rect2(c + Vector2(-12, -12), Vector2(14, 24)), ink, false, 3.0)
 			ci.draw_line(c + Vector2(-4, 0), c + Vector2(11, 0), ink, 3.5)

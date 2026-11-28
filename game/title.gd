@@ -90,8 +90,7 @@ func _ready() -> void:
 		col.add_child(cont)
 	var start := _button("NEW GAME", latest == "", _start)
 	col.add_child(start)
-	if latest != "":
-		col.add_child(_button("LOAD GAME", false, func(): menu.open_saves()))
+	col.add_child(_button("LOAD GAME", false, func(): menu.open_saves()))
 	col.add_child(_button("OPTIONS", false, _options))
 
 	menu = EscMenu.new()
