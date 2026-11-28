@@ -1770,13 +1770,18 @@ func _battle_report_text() -> String:
 	var t := "[table=3]"
 	t += label % ("[b]%s[/b]" % String(br.get("title", "Round {n}")).format({"n": int(battle_report.get("round", 0))}))
 	t += val % ("[b]%s[/b]" % String(br.get("enemy", "Enemy"))) + val % ("[b]%s[/b]" % String(br.get("ours", "Us")))
+	var shown := 0
 	for row in br.get("rows", []):
 		if not BattleReport.row_shown(row, sides, none):
 			continue
+		shown += 1
 		t += label % String(row["label"])
 		for c in sides:
 			t += val % (String(br.get("pending", "...")) if c == null else BattleReport.cell(row, c, none))
-	return t + "[/table]"
+	t += "[/table]"
+	if shown == 0:
+		t += "\n" + String(br.get("quiet", ""))
+	return t
 
 
 ## The summary for the log at the next round start: each side's rows with

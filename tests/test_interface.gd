@@ -417,10 +417,16 @@ func test_battle_report_table_counts_each_side() -> void:
 		"Nukes fired": [none, "1 / 1 hit"],
 		"Troops landed": ["1 platoon", none],
 		"Buildings destroyed": ["1", none],
-	}, "the table; no stealth row with no stealth missiles")
+	}, "only rows with something in them: no stealth row")
 	var quiet := BattleReport.side_counts([], 1)
 	for row in br["rows"]:
 		eq(BattleReport.cell(row, quiet, none), none, "a quiet side: %s" % row["label"])
+		check(not BattleReport.row_shown(row, [quiet, quiet], none), "a quiet round shows no %s row" % row["label"])
+		check(not BattleReport.row_shown(row, [quiet, null], none), "nor before our strikes land: %s" % row["label"])
+	# Only what was in play: the enemy fired basic missiles and nothing else.
+	var basic_only := BattleReport.side_counts(ev.slice(0, 2), 1)
+	var rows_shown: Array = br["rows"].filter(func(r): return BattleReport.row_shown(r, [basic_only, quiet], none))
+	eq(rows_shown.map(func(r): return r["label"]), ["Missiles fired"], "just the missiles row")
 
 func _game_tips(d) -> Array:
 	return Tips.load_tips(d).filter(func(t): return not String(t["id"]).begins_with("intro_"))

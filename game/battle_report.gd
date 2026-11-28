@@ -53,11 +53,9 @@ static func cell(row: Dictionary, c: Dictionary, none: String) -> String:
 	return String(row.get("format_one", row["format"]) if n == 1 else row["format"]).format({"n": n})
 
 
-## Whether a row is in the table: always, unless it is only_if_used and
-## neither side has anything in it.
+## Whether a row is in the table: only when either side has something in
+## it this round (null: a side not yet in).
 static func row_shown(row: Dictionary, sides: Array, none: String) -> bool:
-	if not bool(row.get("only_if_used", false)):
-		return true
 	for c in sides:
 		if c != null and cell(row, c, none) != none:
 			return true
