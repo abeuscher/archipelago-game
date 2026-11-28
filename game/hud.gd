@@ -166,20 +166,30 @@ func _ready() -> void:
 	_log_button.toggled.connect(_toggle_log)
 	for st in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		_log_button.add_theme_stylebox_override(st, StyleBoxEmpty.new())
-	_log_button.custom_minimum_size = Vector2(36, 32)
-	_log_button.add_child(DevicePanel.book_icon(true))
+	# As tall as the title plate beside it (the row's height), no taller.
+	_log_button.custom_minimum_size = Vector2(36, 0)
+	_log_button.size_flags_vertical = Control.SIZE_FILL
+	_log_button.add_child(DevicePanel.book_icon(true, true))
+	# The unread count: a small red badge on the book's top-right corner,
+	# kept inside the button so it never sticks out of the toolbar.
 	_log_badge = Control.new()
 	_log_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_badge.position = Vector2(24, -6)
-	_log_badge.size = Vector2(22, 18)
+	_log_badge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_log_badge.visible = false
 	_log_badge.draw.connect(func():
 		var t := str(_unread) if _unread < 100 else "99+"
 		var f := bold_font()
-		var w := maxf(18.0, f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 10.0)
-		var r := Rect2(Vector2(0, 0), Vector2(w, 18))
-		_log_badge.draw_style_box(DevicePanel.box(Color(0.85, 0.15, 0.12), Color(0.3, 0.05, 0.04), 2, 9, [0, 0, 0, 0]), r)
-		_log_badge.draw_string(f, Vector2(5, 13.5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1)))
+		var fs := 10
+		var h := 13.0
+		var w := maxf(h, f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 6.0)
+		var m := _log_badge.size / 2.0
+		var k := DevicePanel.book_scale(_log_badge.size)
+		var right := minf(_log_badge.size.x, m.x + (DevicePanel.BOOK_HALF.x + DevicePanel.BOOK_OUTLINE) * k)
+		var top := 0.0   # the book fills the height: its top is the button's
+		var r := Rect2(Vector2(right - w, top), Vector2(w, h))
+		_log_badge.draw_style_box(DevicePanel.box(Color(0.85, 0.15, 0.12), Color(0.3, 0.05, 0.04), 1, 7, [0, 0, 0, 0]), r)
+		var tw := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		_log_badge.draw_string(f, Vector2(r.position.x + (w - tw) / 2.0, top + h - 3.0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1)))
 	_log_button.add_child(_log_badge)
 	title_row.add_child(_log_button)
 	var tray := PanelContainer.new()

@@ -508,8 +508,23 @@ static func _box_icon(checked: bool) -> Texture2D:
 		for j in range(2, n - 2):
 			img.set_pixel(i, j, Color(1, 1, 1, 0.9))
 	if checked:
-		var pts := [[4, 8], [5, 9], [6, 10], [7, 11], [8, 10], [9, 9], [10, 8], [11, 7], [12, 6], [12, 5]]
-		for p in pts:
-			for o in [[0, 0], [0, -1], [1, 0]]:
-				img.set_pixel(p[0] + o[0], p[1] + o[1], INK)
+		# A tick centred in the box's inside (2 to 14), with smooth edges:
+		# each pixel is shaded by its distance from the two strokes.
+		var a := Vector2(4.6, 8.2)
+		var b := Vector2(7.0, 10.6)
+		var c := Vector2(11.4, 5.4)
+		var half_w := 1.0
+		for i in range(2, n - 2):
+			for j in range(2, n - 2):
+				var p := Vector2(i + 0.5, j + 0.5)
+				var d := minf(_seg_dist(p, a, b), _seg_dist(p, b, c))
+				var cover := clampf(half_w + 0.5 - d, 0.0, 1.0)
+				if cover > 0.0:
+					img.set_pixel(i, j, img.get_pixel(i, j).lerp(INK, cover))
 	return ImageTexture.create_from_image(img)
+
+
+static func _seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+	return p.distance_to(a + ab * t)

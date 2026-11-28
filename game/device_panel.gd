@@ -168,14 +168,30 @@ static func close_button(on_close: Callable) -> Button:
 	return close
 
 
+const BOOK_HALF := Vector2(9, 11)   ## half the book's cover, from the icon's centre to its top-right corner
+const BOOK_OUTLINE := 1.5           ## the dark outline round the cover
+
+
+## How much the book is scaled in a control of `size` when it fills the
+## height (book_icon's fit): the cover and its outline exactly as tall.
+static func book_scale(size: Vector2) -> float:
+	return size.y / (2.0 * (BOOK_HALF.y + BOOK_OUTLINE))
+
+
 ## A small book, for the log button. shadow: a soft drop shadow under it,
-## for when it sits on the panel without a key.
-static func book_icon(shadow := false) -> Control:
+## for when it sits on the panel without a key. fit: scaled so the book is
+## exactly as tall as the control (otherwise drawn at its own size).
+static func book_icon(shadow := false, fit := false) -> Control:
 	var c := Control.new()
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.draw.connect(func():
-		var m := c.size / 2.0
+		var m := Vector2.ZERO
+		if fit:
+			var k := book_scale(c.size)
+			c.draw_set_transform(c.size / 2.0 + Vector2(0, 0.5 * k), 0.0, Vector2(k, k))
+		else:
+			m = c.size / 2.0
 		var cover := Rect2(m + Vector2(-9, -11), Vector2(18, 21))
 		if shadow:
 			c.draw_rect(Rect2(cover.position + Vector2(2.5, 2.5), cover.size).grow(1.5), Color(0, 0, 0, 0.35))
