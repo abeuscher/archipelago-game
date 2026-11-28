@@ -59,9 +59,9 @@ var _saved_snapshot: PackedByteArray   ## the game as last saved (_snapshot), em
 var viewing: int = 0
 var rot: int = 0
 ## The round's battle summary, in the comms screen from the enemy's strikes
-## until the next attack: {"round", "enemy": "label: n" lines, "ours": lines,
-## or null while our strikes are still to land, "<half>_attacked": whether
-## that side sent anything}. Empty before any.
+## until the next attack: {"round", "enemy": BattleReport.side_counts,
+## "ours": the same, or null while our strikes are still to land}. Empty
+## before any.
 var battle_report: Dictionary = {}
 var clock_left: float = 0.0
 var clock_running: bool = false
@@ -292,11 +292,8 @@ func _start_round() -> void:
 	var events: Array = m.begin_round()
 	# Income and last round's battle summary go to the log without flashing
 	# it; the summary is also listed in the comms screen. Neither is said.
-	var summary: Array = battle_report.get("enemy", []).duplicate()
-	if battle_report.get("ours") != null:
-		summary.append_array(battle_report["ours"])
-	if not summary.is_empty():
-		hud.add_log("Battle summary: " + "; ".join(summary) + ".", false)
+	if not battle_report.is_empty():
+		hud.add_log(_battle_report_log(), false)
 	for ev in events:
 		if ev["type"] == "round_start":
 			hud.add_log("[b]Round %d[/b]" % m.round_number, false)
@@ -1695,9 +1692,9 @@ func _save_level_start() -> void:
 ## Carry on from a save taken in build and repair.
 func _resume(save: Dictionary) -> void:
 	var u: Dictionary = save.get("ui", {})
-	# Saves from before the summary was split kept a plain list: dropped.
+	# Saves from before the summary table kept lines of text: dropped.
 	var br = u.get("battle_report", {})
-	battle_report = br.duplicate(true) if br is Dictionary else {}
+	battle_report = br.duplicate(true) if br is Dictionary and br.get("enemy") is Dictionary else {}
 	unaimed_warned = bool(u.get("unaimed_warned", false))
 	first_base_line_said = bool(u.get("first_base_line_said", false))
 	if bool(u.get("stronghold_line_said", false)):
@@ -1762,40 +1759,51 @@ func _level_text(level: int) -> String:
 	return "Land, %s" % LEVEL_NAMES[clampi(level, 0, LEVEL_NAMES.size() - 1)]
 
 
-## The battle summary for the comms screen: the round, then the enemy's
-## attack and ours side by side (labels in dialogue.json battle_report).
+## The battle summary for the comms screen: a table with a row per line of
+## dialogue.json battle_report.rows, the enemy's column and ours.
 func _battle_report_text() -> String:
 	var br: Dictionary = lines.get("battle_report", {})
-	var sec: Dictionary = br.get("sections", {})
-	var cols: Array = []
-	for half in ["enemy", "ours"]:
-		var d: Dictionary = sec.get(half, {})
-		var v = battle_report.get(half)
-		var body: String
-		if v == null:
-			body = String(d.get("pending", ""))
-		elif (v as Array).is_empty():
-			body = String(d.get("quiet" if bool(battle_report.get(half + "_attacked", false)) else "none", ""))
-		else:
-			body = "\n".join(v)
-		cols.append([String(d.get("title", half)), body])
-	var cell := "[cell expand=1 padding=0,0,14,2]%s[/cell]"
-	var t := "[b]%s[/b]\n[table=2]" % String(br.get("title", "Round {n}")).format({"n": int(battle_report.get("round", 0))})
-	t += cell % ("[b]%s[/b]" % cols[0][0]) + cell % ("[b]%s[/b]" % cols[1][0])
-	t += cell % cols[0][1] + cell % cols[1][1]
+	var none := String(br.get("none", "-"))
+	var sides := [battle_report.get("enemy"), battle_report.get("ours")]
+	var label := "[cell padding=0,0,16,1]%s[/cell]"
+	var val := "[cell padding=0,0,16,1]%s[/cell]"
+	var t := "[table=3]"
+	t += label % ("[b]%s[/b]" % String(br.get("title", "Round {n}")).format({"n": int(battle_report.get("round", 0))}))
+	t += val % ("[b]%s[/b]" % String(br.get("enemy", "Enemy"))) + val % ("[b]%s[/b]" % String(br.get("ours", "Us")))
+	for row in br.get("rows", []):
+		if not BattleReport.row_shown(row, sides, none):
+			continue
+		t += label % String(row["label"])
+		for c in sides:
+			t += val % (String(br.get("pending", "...")) if c == null else BattleReport.cell(row, c, none))
 	return t + "[/table]"
 
 
-## One half of the battle summary ("enemy" or "ours") from the playout's
-## events, shown in the comms screen at once. attacked: that side sent
-## something this round.
-func _report_half(half: String, events: Array, attacked: bool) -> void:
+## The summary for the log at the next round start: each side's rows with
+## something in them.
+func _battle_report_log() -> String:
 	var br: Dictionary = lines.get("battle_report", {})
-	var keys: Array = br.get("sections", {}).get(half, {}).get("keys", [])
+	var none := String(br.get("none", "-"))
+	var parts: Array = []
+	for half in ["enemy", "ours"]:
+		var c = battle_report.get(half)
+		if c == null:
+			continue
+		var bits: Array = []
+		for row in br.get("rows", []):
+			var v := BattleReport.cell(row, c, none)
+			if v != none:
+				bits.append("%s %s" % [String(row["label"]).to_lower(), v])
+		parts.append("%s: %s" % [String(br.get(half, half)), ", ".join(bits) if not bits.is_empty() else "nothing"])
+	return "Battle summary, round %d. %s." % [int(battle_report.get("round", 0)), "; ".join(parts)]
+
+
+## One column of the battle summary ("enemy" or "ours") from the playout's
+## events, shown in the comms screen at once.
+func _report_half(half: String, events: Array) -> void:
 	if battle_report.is_empty():
-		battle_report = {"round": m.round_number, "enemy": [], "ours": null}
-	battle_report[half] = BattleReport.stat_lines(events, br.get("stats", {}), keys)
-	battle_report[half + "_attacked"] = attacked
+		battle_report = {"round": m.round_number, "enemy": {}, "ours": null}
+	battle_report[half] = BattleReport.side_counts(events, MatchState.ENEMY if half == "enemy" else MatchState.PLAYER)
 	_update_info()
 
 
@@ -2144,7 +2152,7 @@ func _run_playout() -> void:
 	own_board.set_tiles(BoardView.own_tiles(m.sides[0], data, m.knowledge[1], m.bombed[0]))
 	_mark_fired(launches[0].map(func(e): return int(e["launcher"])))
 	# The summary starts in the comms screen: what the enemy's attack did.
-	_report_half("enemy", events, not launches[1].is_empty() or not arrivals[1].is_empty())
+	_report_half("enemy", events)
 	for ev in events:
 		if ev.get("side", -1) == 0 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed", "agent_killed"]:
 			_log_event(ev)
@@ -2189,7 +2197,7 @@ func _run_playout() -> void:
 	audio.set_music("")   # our missiles are down: the battle theme fades out
 	enemy_board.set_tiles(_enemy_tiles())
 	# Our half of the summary joins the enemy's in the comms screen.
-	_report_half("ours", events, not launches[0].is_empty() or not arrivals[0].is_empty())
+	_report_half("ours", events)
 	for ev in events:
 		if ev.get("side", -1) == 1 and ev["type"] in ["destroyed", "disabled", "damaged", "decoy_revealed", "stronghold_revealed"]:
 			_log_event(ev)

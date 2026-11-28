@@ -264,7 +264,7 @@ func _run() -> void:
 	await create_timer(0.35).timeout
 	await _shot("14c_explosion")
 	# The comms screen with the enemy's half of the summary, ours to come.
-	while main.ui == main.Ui.PLAYOUT and not main.battle_report.has("enemy_attacked"):
+	while main.ui == main.Ui.PLAYOUT and main.battle_report.is_empty():
 		await process_frame
 	main.selected = Vector2i(-1, -1)
 	main.hovered = Vector2i(-1, -1)

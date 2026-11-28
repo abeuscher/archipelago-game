@@ -1,7 +1,7 @@
 ## The battle summary: what each side's attack did this round, counted from
-## the playout events and listed as stats in the comms screen, the enemy's
-## half as soon as its strikes land and ours when ours do.
-## Only counts that aren't zero are listed, so a quiet round gives none.
+## the playout events, as a table in the comms screen (the enemy's column as
+## soon as its strikes land, ours when ours do). counts() is the older,
+## finer count of hits, losses and soldiers.
 extends RefCounted
 
 const PLAYER := 0
@@ -9,21 +9,59 @@ const ENEMY := 1
 const SOLDIERS_PER_PLATOON := 8   ## the eight parachutes of a drop
 
 
-## The summary as stats for the comms screen: "label: n" for each count in
-## `labels` (count name -> label, from battle_report.stats in
-## data/dialogue.json), in that order. Counts of zero are skipped. keys:
-## only these counts (one half of the summary, battle_report.sections);
-## empty for all of them.
-static func stat_lines(events: Array, labels: Dictionary, keys: Array = []) -> Array:
-	var c := counts(events)
-	var out: Array = []
-	for key in labels:
-		if not keys.is_empty() and not keys.has(key):
-			continue
-		var n := int(c.get(key, 0))
-		if n != 0:
-			out.append("%s: %d" % [String(labels[key]), n])
-	return out
+## What one side's attack did this round, for the summary table:
+## "fired_<missile>" and "hit_<missile>" (reached its target, not shot down)
+## per missile type, "platoons_landed" (came ashore alive, by transport or
+## boat), "destroyed" (the other side's buildings destroyed).
+static func side_counts(events: Array, attacker: int) -> Dictionary:
+	var c := {"platoons_landed": 0, "destroyed": 0}
+	for ev in events:
+		var side := int(ev.get("side", -1))
+		match String(ev["type"]):
+			"launch":
+				if side == attacker:
+					var k := "fired_" + String(ev["missile"])
+					c[k] = int(c.get(k, 0)) + 1
+			"impact":
+				if side == attacker:
+					var k := "hit_" + String(ev["missile"])
+					c[k] = int(c.get(k, 0)) + 1
+			"platoon":
+				if side == attacker and not bool(ev["lost_at_sea"]):
+					c["platoons_landed"] += 1
+			"destroyed":   # side is the owner
+				if side == 1 - attacker:
+					c["destroyed"] += 1
+	return c
+
+
+## One cell of the summary table: `row` (from battle_report.rows in
+## data/dialogue.json) filled in from side_counts; `none` when it is zero.
+static func cell(row: Dictionary, c: Dictionary, none: String) -> String:
+	if row.has("missiles"):
+		var fired := 0
+		var hit := 0
+		for t in row["missiles"]:
+			fired += int(c.get("fired_" + String(t), 0))
+			hit += int(c.get("hit_" + String(t), 0))
+		if fired == 0:
+			return none
+		return String(row["format"]).format({"fired": fired, "hit": hit})
+	var n := int(c.get(String(row["count"]), 0))
+	if n == 0:
+		return none
+	return String(row.get("format_one", row["format"]) if n == 1 else row["format"]).format({"n": n})
+
+
+## Whether a row is in the table: always, unless it is only_if_used and
+## neither side has anything in it.
+static func row_shown(row: Dictionary, sides: Array, none: String) -> bool:
+	if not bool(row.get("only_if_used", false)):
+		return true
+	for c in sides:
+		if c != null and cell(row, c, none) != none:
+			return true
+	return false
 
 
 static func counts(events: Array) -> Dictionary:

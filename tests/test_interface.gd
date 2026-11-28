@@ -384,42 +384,44 @@ func test_scientist_explains_research_when_it_first_opens() -> void:
 	eq(r["current"]["id"], "research_intro", "when the research screen opens")
 
 
-func test_battle_report_counts_and_skips_zeros() -> void:
-	eq(BattleReport.stat_lines([], Tips.load_lines()["battle_report"]["stats"]), [], "a quiet round gives no summary")
+func test_battle_report_table_counts_each_side() -> void:
+	var br: Dictionary = Tips.load_lines()["battle_report"]
+	var none := String(br["none"])
 	var ev := [
-		# The enemy (side 1) attacks us: two missiles land, one is shot down,
-		# one transport is shot down. Hex 5 is hit twice and survives; hex 9
-		# is destroyed.
-		{"type": "impact", "side": 1, "id": 1, "damaged": [{"hex": 5, "damage": 10}, {"hex": 9, "damage": 30}]},
-		{"type": "impact", "side": 1, "id": 2, "damaged": [{"hex": 5, "damage": 10}]},
-		{"type": "engage", "side": 0, "id": 3, "hit": true},
-		{"type": "engage", "side": 0, "id": 4, "hit": true},
-		{"type": "carrier_lost", "side": 1, "id": 4},
-		{"type": "engage", "side": 0, "id": 6, "hit": false},
+		# The enemy (side 1): two basic missiles fired, one lands and destroys
+		# a bank of ours, one is shot down; a transport lands its platoon.
+		{"type": "launch", "side": 1, "id": 1, "missile": "basic"},
+		{"type": "launch", "side": 1, "id": 2, "missile": "basic"},
+		{"type": "launch", "side": 1, "id": 3, "missile": "transport"},
+		{"type": "impact", "side": 1, "id": 1, "missile": "basic", "damaged": [{"hex": 9, "damage": 30}]},
+		{"type": "engage", "side": 0, "id": 2, "hit": true},
 		{"type": "destroyed", "side": 0, "hex": 9, "building": "bank"},
-		# We attack: one missile lands on a base without destroying it, one is
-		# shot down; our platoon is wiped out by a bunker.
-		{"type": "impact", "side": 0, "id": 10, "damaged": [{"hex": 3, "hits": 1.0}]},
+		{"type": "platoon", "side": 1, "id": 3, "lost_at_sea": false, "stopped_by": -1, "destroyed": []},
+		# We fire a nuke that lands and a ballistic missile that is shot down;
+		# our boat's platoon is lost at sea.
+		{"type": "launch", "side": 0, "id": 10, "missile": "nuke"},
+		{"type": "launch", "side": 0, "id": 11, "missile": "ballistic"},
+		{"type": "impact", "side": 0, "id": 10, "missile": "nuke", "damaged": []},
 		{"type": "engage", "side": 1, "id": 11, "hit": true},
-		{"type": "platoon", "side": 0, "id": 12, "lost_at_sea": false, "stopped_by": 4, "destroyed": []},
+		{"type": "platoon", "side": 0, "id": 12, "lost_at_sea": true, "stopped_by": -1, "destroyed": []},
 	]
-	var labels: Dictionary = Tips.load_lines()["battle_report"]["stats"]
-	eq(BattleReport.stat_lines(ev, labels), [
-		"Enemy missiles that hit us: 2",
-		"Our buildings damaged: 1",
-		"Our buildings lost: 1",
-		"Enemy missiles shot down: 1",
-		"Enemy transports shot down: 1",
-		"Our missiles on target: 1",
-		"Our missiles shot down: 1",
-		"Enemy buildings damaged: 1",
-		"Our soldiers lost: 8",
-		"Enemy soldiers stopped: 8",
-	], "label: number, zeros left out")
+	var enemy := BattleReport.side_counts(ev, 1)
+	var ours := BattleReport.side_counts(ev, 0)
+	var got := {}
+	for row in br["rows"]:
+		if BattleReport.row_shown(row, [enemy, ours], none):
+			got[row["label"]] = [BattleReport.cell(row, enemy, none), BattleReport.cell(row, ours, none)]
+	eq(got, {
+		"Missiles fired": ["2 / 1 hit", none],
+		"Ballistic missiles": [none, "1 / 0 hit"],
+		"Nukes fired": [none, "1 / 1 hit"],
+		"Troops landed": ["1 platoon", none],
+		"Buildings destroyed": ["1", none],
+	}, "the table; no stealth row with no stealth missiles")
+	var quiet := BattleReport.side_counts([], 1)
+	for row in br["rows"]:
+		eq(BattleReport.cell(row, quiet, none), none, "a quiet side: %s" % row["label"])
 
-
-## The tips after the opening walkthrough (Ginger's intro_* tips, which come
-## first in setup).
 func _game_tips(d) -> Array:
 	return Tips.load_tips(d).filter(func(t): return not String(t["id"]).begins_with("intro_"))
 
@@ -443,23 +445,3 @@ func test_walkthrough_comes_first_and_points_at_the_controls() -> void:
 		done.append(ids[k])
 		r = Tips.update(tips, {"phase": "setup"}, done, null)
 	eq(r["current"]["id"], "place_bases", "then the Admiral on placing bases")
-
-
-func test_battle_report_halves_split_every_stat_once() -> void:
-	var br: Dictionary = Tips.load_lines()["battle_report"]
-	var enemy: Array = br["sections"]["enemy"]["keys"]
-	var ours: Array = br["sections"]["ours"]["keys"]
-	for key in br["stats"]:
-		eq(int(enemy.has(key)) + int(ours.has(key)), 1, "%s in exactly one half" % key)
-	eq(enemy.size() + ours.size(), br["stats"].size(), "no keys beyond the stats")
-	var ev := [
-		{"type": "impact", "side": 1, "id": 1, "damaged": [{"hex": 9, "damage": 30}]},
-		{"type": "destroyed", "side": 0, "hex": 9, "building": "bank"},
-		{"type": "engage", "side": 0, "id": 3, "hit": true},
-		{"type": "impact", "side": 0, "id": 10, "damaged": [{"hex": 3, "hits": 1.0}]},
-		{"type": "engage", "side": 1, "id": 11, "hit": true},
-	]
-	eq(BattleReport.stat_lines(ev, br["stats"], enemy), [
-		"Enemy missiles that hit us: 1", "Our buildings lost: 1", "Enemy missiles shot down: 1"], "the enemy's attack")
-	eq(BattleReport.stat_lines(ev, br["stats"], ours), [
-		"Our missiles on target: 1", "Our missiles shot down: 1", "Enemy buildings damaged: 1"], "our attack")

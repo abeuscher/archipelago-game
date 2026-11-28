@@ -155,7 +155,7 @@
       "text": "We don't have the fuel to fire every launcher, General. Each refinery adds {refinery_fuel} fuel a round."
     }
   ],
-  "_announcements": "Said at moments in the game. Income and the round's battle summary are not said: income goes to the log, and the summary to the log and the comms screen (from battle_report.stats, built up during the playout: the enemy's half when its strikes land, ours when ours do). Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
+  "_announcements": "Said at moments in the game. Income and the round's battle summary are not said: income goes to the log, and the summary to the log and the comms screen (a table from battle_report, built up during the playout: the enemy's column when its strikes land, ours when ours do). Every line said has a Don't show this again box (the incoming warnings are hidden together). {money}, {fuel}, {research}, {n} are filled in when said. ",
   "announcements": {
     "incoming_one": {
       "character": "ginger",
@@ -242,38 +242,20 @@
     "battle_report": {
       "character": "pilot",
       "text": "General, I have the battle summary.",
-      "_stats": "The battle summary in the comms screen: a label per count, listed as label: number, in this order, skipped when it's zero.",
-      "stats": {
-        "hit_us": "Enemy missiles that hit us",
-        "our_damaged": "Our buildings damaged",
-        "our_destroyed": "Our buildings lost",
-        "shot_down_by_us": "Enemy missiles shot down",
-        "transports_shot_down_by_us": "Enemy transports shot down",
-        "hit_them": "Our missiles on target",
-        "our_shot_down": "Our missiles shot down",
-        "our_transports_shot_down": "Our transports shot down",
-        "enemy_damaged": "Enemy buildings damaged",
-        "enemy_destroyed": "Enemy buildings destroyed",
-        "our_soldiers_lost": "Our soldiers lost",
-        "enemy_soldiers_lost": "Enemy soldiers stopped"
-      },
-      "_sections": "The summary in two halves, side by side in the comms screen: the enemy's attack, listed as soon as its strikes have landed, then ours, added when our strikes have landed. keys: which stats go in each half. none: the half's text when that side sent nothing; quiet: when it attacked but there is nothing to count; pending: our half while our strikes are still to land. title: over both halves, {n} the round.",
+      "_table": "The battle summary in the comms screen, a table: a row per line of `rows`, a column for the enemy's attack (filled in as soon as its strikes land) and one for ours (`pending` until our strikes land). Row values: missiles: these missile types, shown as {fired} / {hit} (hit = reached its target, not shot down); count: platoons_landed or destroyed (the other side's buildings destroyed), shown with `format` (`format_one` for 1). A row whose count is zero on a side shows `none` there. only_if_used: the row shows only when either side has something in it. title: the top-left cell, {n} the round.",
       "title": "Round {n}",
-      "sections": {
-        "enemy": {
-          "title": "Enemy attack",
-          "keys": ["hit_us", "our_damaged", "our_destroyed", "shot_down_by_us", "transports_shot_down_by_us", "enemy_soldiers_lost"],
-          "none": "No attack.",
-          "quiet": "Nothing to report."
-        },
-        "ours": {
-          "title": "Our attack",
-          "keys": ["hit_them", "our_shot_down", "our_transports_shot_down", "enemy_damaged", "enemy_destroyed", "our_soldiers_lost"],
-          "none": "No attack.",
-          "quiet": "Nothing to report.",
-          "pending": "Going in..."
-        }
-      }
+      "enemy": "Enemy",
+      "ours": "Us",
+      "pending": "...",
+      "none": "-",
+      "rows": [
+        {"label": "Missiles fired", "missiles": ["basic", "scouting"], "format": "{fired} / {hit} hit"},
+        {"label": "Ballistic missiles", "missiles": ["ballistic"], "format": "{fired} / {hit} hit"},
+        {"label": "Nukes fired", "missiles": ["nuke"], "format": "{fired} / {hit} hit"},
+        {"label": "Stealth missiles", "missiles": ["stealth"], "format": "{fired} / {hit} hit", "only_if_used": true},
+        {"label": "Troops landed", "count": "platoons_landed", "format": "{n} platoons", "format_one": "{n} platoon"},
+        {"label": "Buildings destroyed", "count": "destroyed", "format": "{n}"}
+      ]
     },
     "_endings": "endings: one of these, picked at random each time, is said after the line."
   }
