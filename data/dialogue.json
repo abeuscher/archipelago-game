@@ -242,7 +242,7 @@
     "battle_report": {
       "character": "pilot",
       "text": "General, I have the battle summary.",
-      "_table": "The battle summary in the comms screen, a table: a row per line of `rows`, a column for the enemy's attack (filled in as soon as its strikes land) and one for ours (`pending` until our strikes land). Row values: missiles: these missile types, shown as {fired} / {hit} (hit = reached its target, not shot down); count: platoons_landed or destroyed (the other side's buildings destroyed), shown with `format` (`format_one` for 1). A row shows only when either side has something in it this round; then a zero on one side shows `none` there. quiet: under the heading when neither side has any row. title: the top-left cell, {n} the round.",
+      "_table": "The battle summary in the comms screen, a table: a row per line of `rows`, a column for the enemy's attack (filled in as soon as its strikes land) and one for ours (`pending` until our strikes land). Row values: missiles: these missile types, shown as {fired} / {hit} (hit = reached its target, not shot down); count: shot_down (this side's missiles and transports brought down by anti-air; spy helicopters left out), platoons_landed, boats_sunk (by coastal cannons) or destroyed (the other side's buildings destroyed), shown with `format` (`format_one` for 1). A row shows only when either side has something in it this round; then a zero on one side shows `none` there. quiet: under the heading when neither side has any row. title: the top-left cell, {n} the round.",
       "title": "Round {n}",
       "enemy": "Enemy",
       "ours": "Us",
@@ -254,7 +254,9 @@
         {"label": "Ballistic missiles", "missiles": ["ballistic"], "format": "{fired} / {hit} hit"},
         {"label": "Nukes fired", "missiles": ["nuke"], "format": "{fired} / {hit} hit"},
         {"label": "Stealth missiles", "missiles": ["stealth"], "format": "{fired} / {hit} hit"},
+        {"label": "Shot down", "count": "shot_down", "format": "{n}"},
         {"label": "Troops landed", "count": "platoons_landed", "format": "{n} platoons", "format_one": "{n} platoon"},
+        {"label": "Boats sunk", "count": "boats_sunk", "format": "{n}"},
         {"label": "Buildings destroyed", "count": "destroyed", "format": "{n}"}
       ]
     },

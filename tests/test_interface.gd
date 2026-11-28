@@ -404,6 +404,12 @@ func test_battle_report_table_counts_each_side() -> void:
 		{"type": "impact", "side": 0, "id": 10, "missile": "nuke", "damaged": []},
 		{"type": "engage", "side": 1, "id": 11, "hit": true},
 		{"type": "platoon", "side": 0, "id": 12, "lost_at_sea": true, "stopped_by": -1, "destroyed": []},
+		# Our second boat is sunk by a coastal cannon; the enemy's spy
+		# helicopter is shot down (not counted: the log tells of it).
+		{"type": "boat_sunk", "side": 0, "id": 13, "launcher": 40},
+		{"type": "launch", "side": 1, "id": 5, "missile": "spy"},
+		{"type": "engage", "side": 0, "id": 5, "hit": true},
+		{"type": "spy_lost", "side": 1, "id": 5, "launcher": 7},
 	]
 	var enemy := BattleReport.side_counts(ev, 1)
 	var ours := BattleReport.side_counts(ev, 0)
@@ -415,7 +421,9 @@ func test_battle_report_table_counts_each_side() -> void:
 		"Missiles fired": ["2 / 1 hit", none],
 		"Ballistic missiles": [none, "1 / 0 hit"],
 		"Nukes fired": [none, "1 / 1 hit"],
+		"Shot down": ["1", "1"],
 		"Troops landed": ["1 platoon", none],
+		"Boats sunk": [none, "1"],
 		"Buildings destroyed": ["1", none],
 	}, "only rows with something in them: no stealth row")
 	var quiet := BattleReport.side_counts([], 1)

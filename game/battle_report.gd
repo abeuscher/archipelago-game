@@ -11,10 +11,17 @@ const SOLDIERS_PER_PLATOON := 8   ## the eight parachutes of a drop
 
 ## What one side's attack did this round, for the summary table:
 ## "fired_<missile>" and "hit_<missile>" (reached its target, not shot down)
-## per missile type, "platoons_landed" (came ashore alive, by transport or
-## boat), "destroyed" (the other side's buildings destroyed).
+## per missile type, "shot_down" (missiles and transports brought down by
+## the other side's anti-air; spy helicopters are left out, the log tells of
+## them), "platoons_landed" (came ashore alive, by transport or boat),
+## "boats_sunk" (by coastal cannons), "destroyed" (the other side's buildings
+## destroyed).
 static func side_counts(events: Array, attacker: int) -> Dictionary:
-	var c := {"platoons_landed": 0, "destroyed": 0}
+	var c := {"shot_down": 0, "platoons_landed": 0, "boats_sunk": 0, "destroyed": 0}
+	var spies := {}
+	for ev in events:
+		if ev["type"] == "spy_lost":
+			spies[ev["id"]] = true
 	for ev in events:
 		var side := int(ev.get("side", -1))
 		match String(ev["type"]):
@@ -26,9 +33,15 @@ static func side_counts(events: Array, attacker: int) -> Dictionary:
 				if side == attacker:
 					var k := "hit_" + String(ev["missile"])
 					c[k] = int(c.get(k, 0)) + 1
+			"engage":   # side is the defender
+				if side == 1 - attacker and bool(ev["hit"]) and not spies.has(ev["id"]):
+					c["shot_down"] += 1
 			"platoon":
 				if side == attacker and not bool(ev["lost_at_sea"]):
 					c["platoons_landed"] += 1
+			"boat_sunk":   # side is the boat's owner
+				if side == attacker:
+					c["boats_sunk"] += 1
 			"destroyed":   # side is the owner
 				if side == 1 - attacker:
 					c["destroyed"] += 1
